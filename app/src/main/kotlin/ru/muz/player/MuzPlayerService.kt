@@ -24,7 +24,9 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import ru.muz.MainActivity
@@ -43,6 +45,10 @@ class MuzPlayerService : MediaLibraryService() {
 
     private val toggleLike = SessionCommand(MediaExtras.CMD_TOGGLE_LIKE, Bundle.EMPTY)
     private val setLiked = SessionCommand(MediaExtras.CMD_SET_LIKED, Bundle.EMPTY)
+    private val sleepCommand = SessionCommand(MediaExtras.CMD_SLEEP, Bundle.EMPTY)
+    private val silenceCommand = SessionCommand(MediaExtras.CMD_SKIP_SILENCE, Bundle.EMPTY)
+    private var sleepJob: Job? = null
+    private var sleepEndsAt = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -58,6 +64,9 @@ class MuzPlayerService : MediaLibraryService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
         player = exo
+        val prefs = ru.muz.settings.AppPreferences(this).load()
+        exo.skipSilenceEnabled = prefs.skipSilence
+        exo.setPlaybackSpeed(prefs.playbackSpeedPercent / 100f)
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
@@ -81,6 +90,32 @@ class MuzPlayerService : MediaLibraryService() {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (!isPlaying) resume.savePosition(exo.currentPosition)
             }
+
+            override fun onEvents(player: Player, events: Player.Events) {
+                if (events.containsAny(
+                        Player.EVENT_MEDIA_METADATA_CHANGED,
+                        Player.EVENT_IS_PLAYING_CHANGED,
+                        Player.EVENT_MEDIA_ITEM_TRANSITION,
+                    )
+                ) {
+                    val metadata = player.mediaMetadata
+                    ru.muz.widget.WidgetUpdater.push(
+                        this@MuzPlayerService,
+                        metadata.title?.toString().orEmpty(),
+                        metadata.artist?.toString().orEmpty(),
+                        metadata.artworkUri?.toString(),
+                        player.isPlaying,
+                    )
+                }
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM && sleepEndsAt == MediaExtras.SLEEP_END_OF_TRACK.toLong()) {
+                    exo.pauseAtEndOfMediaItems = false
+                    sleepEndsAt = 0L
+                    broadcastSleep()
+                }
+            }
         })
         tracker = ListenTracker(this, exo).also { it.start() }
         updateLikeButton()
@@ -94,6 +129,7 @@ class MuzPlayerService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        sleepJob?.cancel()
         player?.let { resume.savePosition(it.currentPosition) }
         tracker?.release()
         tracker = null
@@ -130,6 +166,50 @@ class MuzPlayerService : MediaLibraryService() {
         val exo = player ?: return
         val items = (0 until exo.mediaItemCount).map(exo::getMediaItemAt)
         resume.save(items, exo.currentMediaItemIndex, exo.currentPosition)
+    }
+
+    private fun setSleep(minutes: Int) {
+        val exo = player ?: return
+        if (minutes == MediaExtras.SLEEP_QUERY) {
+            broadcastSleep()
+            return
+        }
+        sleepJob?.cancel()
+        sleepJob = null
+        exo.volume = 1f
+        exo.pauseAtEndOfMediaItems = false
+        sleepEndsAt = when {
+            minutes == MediaExtras.SLEEP_END_OF_TRACK -> {
+                exo.pauseAtEndOfMediaItems = true
+                MediaExtras.SLEEP_END_OF_TRACK.toLong()
+            }
+            minutes > 0 -> {
+                val durationMs = minutes * 60_000L
+                val endsAt = android.os.SystemClock.elapsedRealtime() + durationMs
+                sleepJob = scope.launch {
+                    val fadeMs = 12_000L
+                    delay((durationMs - fadeMs).coerceAtLeast(0))
+                    val steps = 24
+                    for (step in steps downTo 1) {
+                        exo.volume = step / steps.toFloat()
+                        delay(fadeMs / steps)
+                    }
+                    exo.pause()
+                    exo.volume = 1f
+                    sleepEndsAt = 0L
+                    sleepJob = null
+                    broadcastSleep()
+                }
+                endsAt
+            }
+            else -> 0L
+        }
+        broadcastSleep()
+    }
+
+    private fun broadcastSleep() {
+        val args = Bundle().apply { putLong(MediaExtras.ARG_ENDS_AT, sleepEndsAt) }
+        session?.broadcastCustomCommand(SessionCommand(MediaExtras.CMD_SLEEP_STATE, Bundle.EMPTY), args)
     }
 
     private fun broadcastLike(trackId: String, liked: Boolean) {
@@ -201,6 +281,8 @@ class MuzPlayerService : MediaLibraryService() {
             val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
                 .add(toggleLike)
                 .add(setLiked)
+                .add(sleepCommand)
+                .add(silenceCommand)
                 .build()
             return MediaSession.ConnectionResult.accept(commands, MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS)
         }
@@ -213,6 +295,8 @@ class MuzPlayerService : MediaLibraryService() {
         ): ListenableFuture<SessionResult> {
             when (customCommand.customAction) {
                 MediaExtras.CMD_TOGGLE_LIKE -> toggleCurrentLike()
+                MediaExtras.CMD_SLEEP -> setSleep(args.getInt(MediaExtras.ARG_MINUTES, 0))
+                MediaExtras.CMD_SKIP_SILENCE -> player?.skipSilenceEnabled = args.getBoolean(MediaExtras.ARG_ENABLED, false)
                 MediaExtras.CMD_SET_LIKED -> {
                     val id = args.getString(MediaExtras.ARG_TRACK).orEmpty()
                     if (id.isNotBlank()) {

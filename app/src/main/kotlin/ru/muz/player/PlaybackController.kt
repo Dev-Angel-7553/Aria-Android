@@ -37,12 +37,17 @@ class PlaybackController(context: Context) {
     private var currentSource = PlaySource.other()
     private val _likeChanges = MutableSharedFlow<Pair<String, Boolean>>(extraBufferCapacity = 16)
     val likeChanges: SharedFlow<Pair<String, Boolean>> = _likeChanges
+    private val _sleepEndsAt = MutableStateFlow(0L)
+    val sleepEndsAt: StateFlow<Long> = _sleepEndsAt
     private val sessionListener = object : MediaController.Listener {
         override fun onCustomCommand(
             controller: MediaController,
             command: SessionCommand,
             args: Bundle,
         ): ListenableFuture<SessionResult> {
+            if (command.customAction == MediaExtras.CMD_SLEEP_STATE) {
+                _sleepEndsAt.value = args.getLong(MediaExtras.ARG_ENDS_AT, 0L)
+            }
             if (command.customAction == MediaExtras.CMD_LIKE_CHANGED) {
                 val id = args.getString(MediaExtras.ARG_TRACK).orEmpty()
                 if (id.isNotBlank()) _likeChanges.tryEmit(id to args.getBoolean(MediaExtras.ARG_LIKED, false))
@@ -93,6 +98,7 @@ class PlaybackController(context: Context) {
                 controller = connected
                 connected.addListener(listener)
                 publish(connected)
+                sendSleep(MediaExtras.SLEEP_QUERY)
                 pendingQueue?.also { (tracks, index, source) ->
                     pendingQueue = null
                     playQueue(tracks, index, source)
@@ -169,6 +175,25 @@ class PlaybackController(context: Context) {
             putBoolean(MediaExtras.ARG_LIKED, liked)
         }
         controller?.sendCustomCommand(SessionCommand(MediaExtras.CMD_SET_LIKED, Bundle.EMPTY), args)
+    }
+
+    fun setSleepTimer(minutes: Int) = sendSleep(minutes)
+
+    private fun sendSleep(minutes: Int) {
+        val args = Bundle().apply { putInt(MediaExtras.ARG_MINUTES, minutes) }
+        controller?.sendCustomCommand(SessionCommand(MediaExtras.CMD_SLEEP, Bundle.EMPTY), args)
+    }
+
+    fun setSpeed(speed: Float) {
+        controller?.let {
+            it.setPlaybackSpeed(speed.coerceIn(0.5f, 2f))
+            publish(it)
+        }
+    }
+
+    fun setSkipSilence(enabled: Boolean) {
+        val args = Bundle().apply { putBoolean(MediaExtras.ARG_ENABLED, enabled) }
+        controller?.sendCustomCommand(SessionCommand(MediaExtras.CMD_SKIP_SILENCE, Bundle.EMPTY), args)
     }
 
     fun setShuffle(enabled: Boolean) { controller?.shuffleModeEnabled = enabled }

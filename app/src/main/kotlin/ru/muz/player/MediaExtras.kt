@@ -19,6 +19,14 @@ internal object MediaExtras {
     const val CMD_TOGGLE_LIKE = "aria.toggleLike"
     const val CMD_SET_LIKED = "aria.setLiked"
     const val CMD_LIKE_CHANGED = "aria.likeChanged"
+    const val CMD_SLEEP = "aria.sleep"
+    const val CMD_SLEEP_STATE = "aria.sleepState"
+    const val CMD_SKIP_SILENCE = "aria.skipSilence"
+    const val ARG_MINUTES = "minutes"
+    const val ARG_ENDS_AT = "endsAt"
+    const val ARG_ENABLED = "enabled"
+    const val SLEEP_END_OF_TRACK = -1
+    const val SLEEP_QUERY = -2
     const val ARG_TRACK = "track"
     const val ARG_LIKED = "liked"
 

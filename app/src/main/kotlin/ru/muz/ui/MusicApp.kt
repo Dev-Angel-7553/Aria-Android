@@ -14,6 +14,9 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import kotlinx.coroutines.delay
 import ru.muz.export.PlaylistCsv
+import ru.muz.export.PlaylistImport
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import ru.muz.player.AudioCache
 import ru.muz.player.MediaExtras
 import ru.muz.update.AppRelease
@@ -88,6 +91,7 @@ fun MusicApp(
     val librarySnapshotStore = remember { ru.muz.yandex.LibrarySnapshotStore(context) }
     val listeningStats = remember { ListeningStats.shared(context) }
     val player by playback.state.collectAsState()
+    val sleepEndsAt by playback.sleepEndsAt.collectAsState()
 
     var api by remember { mutableStateOf<YandexClient?>(null) }
     val lyricsRepository = remember(api) { api?.let(::LyricsRepository) }
@@ -110,7 +114,13 @@ fun MusicApp(
     var lyricsError by remember { mutableStateOf("") }
     var lyricsRequestKey by remember { mutableStateOf(0) }
     var likedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var tab by remember { mutableStateOf(MainTab.HOME) }
+    val visibleTabs = remember(settings.tabs) {
+        settings.tabs.mapNotNull { appTab -> MainTab.entries.firstOrNull { it.name == appTab.name } }.ifEmpty { listOf(MainTab.HOME) }
+    }
+    var tab by remember {
+        mutableStateOf(MainTab.entries.firstOrNull { it.name == settings.startTab.name }?.takeIf { it in visibleTabs } ?: visibleTabs.first())
+    }
+    LaunchedEffect(visibleTabs) { if (tab !in visibleTabs) tab = visibleTabs.first() }
     var showPlayer by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
@@ -137,6 +147,8 @@ fun MusicApp(
     var cacheUsedBytes by remember { mutableStateOf(0L) }
     val updatePrefs = remember { context.getSharedPreferences("updates", android.content.Context.MODE_PRIVATE) }
     val appVersion = remember { UpdateInstaller.currentVersion(context) }
+    var importState by remember { mutableStateOf<ImportState?>(null) }
+    var importJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     val background = AppBackground
     val currentTrack = remember(player.mediaId, player.title, player.artist, player.durationMs, queue, liked, selectedTracks, searchResults) {
@@ -597,6 +609,74 @@ fun MusicApp(
         if (targets.isEmpty()) toast("Коллекция пока пуста") else exportCsv(targets, "Коллекция Яндекс Музыки", share)
     }
 
+    fun displayName(uri: android.net.Uri): String? = runCatching {
+        context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        }
+    }.getOrNull()?.substringBeforeLast('.')
+
+    fun importCsv(uri: android.net.Uri) {
+        val client = api ?: return
+        if (importJob?.isActive == true) return
+        importJob = scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
+            }
+            val entries = text?.let(PlaylistImport::entries).orEmpty().take(3000)
+            if (entries.isEmpty()) {
+                toast("В файле не нашлось треков")
+                return@launch
+            }
+            val groups = PlaylistImport.groups(entries, displayName(uri)?.takeIf { it.isNotBlank() } ?: "Импорт")
+            var done = 0
+            var found = 0
+            val missing = mutableListOf<String>()
+            val created = mutableListOf<String>()
+            importState = ImportState(groups.keys.first(), 0, entries.size, 0)
+            try {
+                for ((name, items) in groups) {
+                    val matched = mutableListOf<YandexClient.Track>()
+                    for (entry in items) {
+                        val best = client.searchTracks(PlaylistImport.query(entry)).getOrNull().orEmpty().take(10)
+                            .map { it to PlaylistImport.score(entry, it.title, it.artist) }
+                            .maxByOrNull { it.second }
+                            ?.takeIf { it.second >= PlaylistImport.MATCH_THRESHOLD }
+                            ?.first
+                        if (best != null) {
+                            matched += best
+                            found++
+                        } else {
+                            missing += listOf(entry.artist, entry.title).filter { it.isNotBlank() }.joinToString(" — ")
+                        }
+                        done++
+                        importState = ImportState(name, done, entries.size, found)
+                        delay(120)
+                    }
+                    val unique = matched.distinctBy { it.id.substringBefore(':') }
+                    if (unique.isNotEmpty()) {
+                        var playlist = client.createPlaylist(name).getOrThrow()
+                        var at = 0
+                        unique.chunked(100).forEach { chunk ->
+                            playlist = client.appendTracks(playlist, at, chunk).getOrThrow()
+                            at += chunk.size
+                        }
+                        created += name
+                    }
+                }
+                importState = ImportState("", done, entries.size, found, finished = true, created = created, missing = missing)
+                refreshHome()
+            } catch (cancel: kotlinx.coroutines.CancellationException) {
+                importState = null
+                throw cancel
+            } catch (error: Throwable) {
+                importState = ImportState(
+                    "", done, entries.size, found, finished = true, created = created, missing = missing,
+                    error = error.message ?: "Яндекс не дал создать плейлист",
+                )
+            }
+        }
+    }
+
     fun saveOffline(playlist: YandexClient.Playlist) {
         if (offlineBusy) return
         if (settings.cacheSizeMb <= 0) {
@@ -624,6 +704,42 @@ fun MusicApp(
         }
     }
 
+    val csvPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(::importCsv)
+    }
+    fun pickCsv() {
+        runCatching {
+            csvPicker.launch(arrayOf("text/*", "text/csv", "text/comma-separated-values", "application/csv", "application/vnd.ms-excel", "application/octet-stream"))
+        }.onFailure { toast("Не найден файловый менеджер") }
+    }
+    val settingsExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    val json = ru.muz.settings.AppPreferences(context).exportJson()
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) } != null
+                }.getOrDefault(false)
+            }
+            toast(if (ok) "Настройки сохранены" else "Не удалось сохранить настройки")
+        }
+    }
+    val settingsImporter = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            val preferences = ru.muz.settings.AppPreferences(context)
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }.orEmpty()
+                    preferences.importJson(text)
+                }.getOrDefault(false)
+            }
+            if (ok) {
+                updateSettings(preferences.load())
+                toast("Настройки применены")
+            } else {
+                toast("Это не файл настроек Aria")
+            }
+        }
+    }
     LaunchedEffect(Unit) {
         tokenStore.token?.let(::connect)
         statsSnapshot = listeningStats.snapshot()
@@ -808,6 +924,9 @@ fun MusicApp(
                                 toast("Кэш очищен")
                             }
                         },
+                        onImportCsv = ::pickCsv,
+                        onExportSettings = { runCatching { settingsExporter.launch("Aria настройки.json") } },
+                        onImportSettings = { runCatching { settingsImporter.launch(arrayOf("application/json", "text/*", "application/octet-stream")) } },
                         onRefreshCache = {
                             scope.launch { cacheUsedBytes = withContext(Dispatchers.IO) { AudioCache.usedBytes(context) } }
                         },
@@ -815,6 +934,20 @@ fun MusicApp(
 
                     showPlayer -> FullPlayerScreen(
                         state = player,
+                        tools = PlayerTools(
+                            actions = settings.playerActions,
+                            sleepEndsAt = sleepEndsAt,
+                            onSleep = playback::setSleepTimer,
+                            onSpeed = { speed ->
+                                playback.setSpeed(speed)
+                                updateSettings(settings.copy(playbackSpeedPercent = (speed * 100).toInt()))
+                            },
+                            skipSilence = settings.skipSilence,
+                            onSkipSilence = { enabled ->
+                                playback.setSkipSilence(enabled)
+                                updateSettings(settings.copy(skipSilence = enabled))
+                            },
+                        ),
                         lyrics = if (lyricsTrackId == player.mediaId) lyrics else Lyrics.EMPTY,
                         lyricsLoading = lyricsLoading || (showLyrics && lyricsTrackId != player.mediaId),
                         lyricsStatus = lyricsStatus,
@@ -920,6 +1053,9 @@ fun MusicApp(
                         showMiniPlayerProgress = settings.showMiniPlayerProgress,
                         account = account,
                         stats = statsSnapshot,
+                        tabs = visibleTabs,
+                        onImportCsv = ::pickCsv,
+                        homeSections = settings.homeSections,
                         update = availableUpdate,
                         updateProgress = updateProgress,
                         onUpdate = { availableUpdate?.let(::installUpdate) },
@@ -987,6 +1123,18 @@ fun MusicApp(
                         },
                     )
                 }
+            }
+            importState?.let { state ->
+                ImportDialog(
+                    state = state,
+                    onCancel = { importJob?.cancel(); importState = null },
+                    onClose = { importState = null },
+                    onCopyMissing = {
+                        (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? ClipboardManager)
+                            ?.setPrimaryClip(ClipData.newPlainText("Не найдено", state.missing.joinToString("\n")))
+                        toast("Список скопирован")
+                    },
+                )
             }
             SnackbarHost(
                 snackbar,

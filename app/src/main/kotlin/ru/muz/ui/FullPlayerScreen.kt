@@ -88,6 +88,8 @@ import ru.muz.settings.AppSettings
 import ru.muz.settings.LyricsAlignment
 import ru.muz.settings.PlayerLayout
 import ru.muz.yandex.YandexClient
+import ru.muz.settings.PlayerAction
+import androidx.compose.material3.LocalContentColor
 import ru.muz.theme.ColorMath
 import androidx.compose.ui.graphics.toArgb
 
@@ -124,8 +126,25 @@ internal fun FullPlayerScreen(
     onShareFile: () -> Unit,
     onArtist: () -> Unit,
     onCopyArtist: () -> Unit,
+    tools: PlayerTools = PlayerTools(),
 ) {
     val position by rememberPlaybackPosition(state)
+    var quoteStart by remember(state.mediaId) { mutableStateOf<Int?>(null) }
+    var pendingQuote by remember(state.mediaId) { mutableStateOf(false) }
+    LaunchedEffect(pendingQuote, lyrics) {
+        if (pendingQuote && lyrics.lines.isNotEmpty()) {
+            pendingQuote = false
+            quoteStart = lyrics.activeIndexAt(position).coerceAtLeast(0)
+        }
+    }
+    val onQuote = {
+        if (lyrics.lines.isNotEmpty()) {
+            quoteStart = lyrics.activeIndexAt(position).coerceAtLeast(0)
+        } else {
+            pendingQuote = true
+            if (!showLyrics) onToggleView()
+        }
+    }
     val reduceMotion = LocalReduceMotion.current
     var showQueue by remember { mutableStateOf(false) }
     var playerDrag by remember(state.mediaId) { mutableFloatStateOf(0f) }
@@ -194,7 +213,7 @@ internal fun FullPlayerScreen(
                 alpha = if (reduceMotion) 1f else 1f - (abs(playerDrag) / 900f).coerceIn(0f, 0.14f)
             }.then(playerSwipeModifier),
         ) {
-            PlayerHeader(showLyrics, state, onBack, onToggleView, onArtist)
+            PlayerHeader(showLyrics, state, onBack, onToggleView, onArtist, rememberSleepLabel(tools.sleepEndsAt)) { tools.onSleep(0) }
             PlayerCrossfade(showLyrics, Modifier.weight(1f)) { lyricsVisible ->
                 Column(Modifier.fillMaxSize()) {
                     if (lyricsVisible) {
@@ -219,6 +238,7 @@ internal fun FullPlayerScreen(
                                         positionMs = (position + settings.lyricsOffsetMs).coerceAtLeast(0),
                                         discontinuity = state.discontinuity,
                                         onSeek = { onSeek((it - settings.lyricsOffsetMs).coerceAtLeast(0)) },
+                                        onLongPressLine = { quoteStart = it },
                                         settings = LyricsSettings.MEASURED.copy(
                                             fontSize = settings.lyricsFontSize.sp,
                                             lineHeight = settings.lyricsLineHeight.sp,
@@ -276,6 +296,8 @@ internal fun FullPlayerScreen(
                             onShareFile = onShareFile,
                             onArtist = onArtist,
                             onCopyArtist = onCopyArtist,
+                            tools = tools,
+                            onQuote = onQuote,
                             artworkPercent = settings.playerArtworkPercent,
                             layout = settings.playerLayout,
                             onDismiss = onBack,
@@ -286,6 +308,16 @@ internal fun FullPlayerScreen(
                 }
             }
         }
+    }
+    quoteStart?.let { start ->
+        QuoteEditor(
+            lines = lyrics.lines.map { it.text },
+            initial = start,
+            title = state.title,
+            artist = state.artist,
+            coverUrl = state.coverUrl,
+            onDismiss = { quoteStart = null },
+        )
     }
     if (showQueue) {
         ModalBottomSheet(onDismissRequest = { showQueue = false }) {
@@ -338,6 +370,8 @@ private fun PlayerHeader(
     onBack: () -> Unit,
     onToggleView: () -> Unit,
     onArtist: () -> Unit,
+    sleepLabel: String?,
+    onCancelSleep: () -> Unit,
 ) {
     Row(
         Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 8.dp),
@@ -346,7 +380,15 @@ private fun PlayerHeader(
         IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Свернуть") }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(if (showLyrics) "Текст песни" else "Сейчас играет", fontWeight = FontWeight.Bold)
-            if (showLyrics) {
+            if (sleepLabel != null) {
+                Text(
+                    "$sleepLabel · отменить",
+                    color = PlayerAccent,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    modifier = Modifier.clickable(onClick = onCancelSleep),
+                )
+            } else if (showLyrics) {
                 Text(
                     listOf(state.artist, state.title).filter { it.isNotBlank() }.joinToString(" — "),
                     color = SoftText,
@@ -537,6 +579,8 @@ private fun StandardPlayer(
     onShareFile: () -> Unit,
     onArtist: () -> Unit,
     onCopyArtist: () -> Unit,
+    tools: PlayerTools,
+    onQuote: () -> Unit,
     artworkPercent: Int,
     layout: PlayerLayout,
     onDismiss: () -> Unit,
@@ -554,6 +598,7 @@ private fun StandardPlayer(
             PlayerDetails(
             state, liked, onPlayPause, onPrevious, onNext, onSeek, onLike, onShuffle, onRepeat,
             onQueue, transferBusy, transferMessage, onCopyTransferLog, onDownload, onDownloadCover, onOpenCover, onShareLink, onShareFile, onArtist, onCopyArtist,
+            tools, onQuote,
         )
         if (layout == PlayerLayout.CONTROLS_FIRST) {
             PlayerArtwork(
@@ -643,6 +688,8 @@ private fun PlayerDetails(
     onShareFile: () -> Unit,
     onArtist: () -> Unit,
     onCopyArtist: () -> Unit,
+    tools: PlayerTools,
+    onQuote: () -> Unit,
 ) {
     Column {
         Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -685,23 +732,51 @@ private fun PlayerDetails(
             }
         }
         var moreActions by remember { mutableStateOf(false) }
+        var showSleep by remember { mutableStateOf(false) }
+        var showSpeed by remember { mutableStateOf(false) }
+        fun enabled(action: PlayerAction) = when (action) {
+            PlayerAction.DOWNLOAD, PlayerAction.SHARE_FILE, PlayerAction.SAVE_COVER -> !transferBusy
+            else -> true
+        }
+        fun run(action: PlayerAction) {
+            when (action) {
+                PlayerAction.QUEUE -> onQueue()
+                PlayerAction.DOWNLOAD -> onDownload()
+                PlayerAction.LINK -> onShareLink()
+                PlayerAction.SHARE_FILE -> onShareFile()
+                PlayerAction.SAVE_COVER -> onDownloadCover()
+                PlayerAction.OPEN_COVER -> onOpenCover()
+                PlayerAction.SLEEP -> showSleep = true
+                PlayerAction.SPEED -> showSpeed = true
+                PlayerAction.QUOTE -> onQuote()
+                PlayerAction.COPY_ARTIST -> onCopyArtist()
+            }
+        }
+        val inRow = tools.actions.take(5)
         Row(
             Modifier.fillMaxWidth().height(48.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            IconButton(onClick = onQueue) { Icon(Icons.Filled.QueueMusic, "Очередь") }
-            IconButton(onClick = onDownload, enabled = !transferBusy) { Icon(Icons.Filled.Download, "Скачать") }
-            IconButton(onClick = onShareLink) { Icon(Icons.Filled.InsertLink, "Поделиться ссылкой") }
+            inRow.forEach { action ->
+                val active = (action == PlayerAction.SLEEP && tools.sleepEndsAt != 0L) ||
+                    (action == PlayerAction.SPEED && kotlin.math.abs(state.playbackSpeed - 1f) > 0.01f)
+                IconButton(onClick = { run(action) }, enabled = enabled(action)) {
+                    Icon(action.icon(), action.title(), tint = if (active) PlayerAccent else LocalContentColor.current)
+                }
+            }
             IconButton(onClick = { moreActions = true }) { Icon(Icons.Filled.MoreHoriz, "Ещё") }
         }
         if (moreActions) {
             ModalBottomSheet(onDismissRequest = { moreActions = false }) {
-                PlayerSheetAction(Icons.Filled.Share, "Отправить аудиофайл", !transferBusy) { moreActions = false; onShareFile() }
-                PlayerSheetAction(Icons.Filled.Image, "Сохранить обложку", !transferBusy) { moreActions = false; onDownloadCover() }
-                PlayerSheetAction(Icons.Filled.OpenInNew, "Открыть обложку") { moreActions = false; onOpenCover() }
-                PlayerSheetAction(Icons.Filled.ContentCopy, "Скопировать имя артиста") { moreActions = false; onCopyArtist() }
+                PlayerAction.entries.filter { it !in inRow }.forEach { action ->
+                    PlayerSheetAction(action.icon(), action.title(), enabled(action)) { moreActions = false; run(action) }
+                }
                 androidx.compose.foundation.layout.Spacer(Modifier.height(24.dp))
             }
+        }
+        if (showSleep) SleepTimerSheet(tools.sleepEndsAt, tools.onSleep) { showSleep = false }
+        if (showSpeed) {
+            SpeedSheet(state.playbackSpeed, tools.skipSilence, tools.onSpeed, tools.onSkipSilence) { showSpeed = false }
         }
         Row(
             Modifier.fillMaxWidth().height(84.dp),
@@ -713,7 +788,7 @@ private fun PlayerDetails(
             }
             IconButton(onClick = onPrevious) { Icon(Icons.Filled.SkipPrevious, "Предыдущий", modifier = Modifier.size(34.dp)) }
             Box(
-                Modifier.size(64.dp).clip(CircleShape).background(PlayerAccent).clickable(onClick = onPlayPause),
+                Modifier.size(64.dp).clip(playShape(LocalPlayShape.current)).background(PlayerAccent).clickable(onClick = onPlayPause),
                 contentAlignment = Alignment.Center,
             ) {
                 PlaybackIcon(state, Modifier.size(38.dp), OnPlayerAccent)

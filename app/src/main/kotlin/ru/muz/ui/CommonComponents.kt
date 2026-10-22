@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Icon
@@ -302,6 +303,11 @@ internal fun CompactPlayer(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+            if (LocalMiniPrevious.current) {
+                IconButton(onClick = onPrevious) {
+                    Icon(Icons.Filled.SkipPrevious, "Предыдущий")
+                }
             }
             IconButton(onClick = onPlayPause) {
                 PlaybackIcon(state, Modifier.size(26.dp), MaterialTheme.colorScheme.onSurface)

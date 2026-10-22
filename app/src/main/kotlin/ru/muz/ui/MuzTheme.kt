@@ -24,6 +24,10 @@ import kotlin.math.roundToInt
 import ru.muz.settings.AccentStyle
 import ru.muz.settings.AppSettings
 import ru.muz.settings.ThemeMode
+import ru.muz.settings.AppFont
+import ru.muz.settings.PlayShape
+import androidx.compose.material3.Typography
+import androidx.compose.ui.platform.LocalDensity
 import ru.muz.theme.AppPalette
 
 val LocalArtworkCornerScale = staticCompositionLocalOf { 1f }
@@ -35,6 +39,8 @@ val LocalAnimationSpeed = staticCompositionLocalOf { 1f }
 val LocalAnimateLoading = staticCompositionLocalOf { true }
 val LocalPlayerTransitions = staticCompositionLocalOf { true }
 val LocalReduceMotion = staticCompositionLocalOf { false }
+internal val LocalPlayShape = staticCompositionLocalOf { PlayShape.CIRCLE }
+internal val LocalMiniPrevious = staticCompositionLocalOf { false }
 
 @Composable
 internal fun animationDuration(baseMs: Int): Int =
@@ -61,7 +67,7 @@ fun MuzTheme(settings: AppSettings, content: @Composable () -> Unit) {
     var scheme = when {
         dynamic && dark -> dynamicDarkColorScheme(context)
         dynamic -> dynamicLightColorScheme(context)
-        else -> staticScheme(settings.accentStyle, dark)
+        else -> staticScheme(accentColor(settings.accentStyle, settings.customAccent), dark)
     }
     if (settings.themeMode == ThemeMode.AMOLED) {
         scheme = scheme.copy(
@@ -98,10 +104,17 @@ fun MuzTheme(settings: AppSettings, content: @Composable () -> Unit) {
         LocalPlayerTransitions provides (settings.animatePlayerTransitions && !settings.reduceMotion),
         LocalAnimationSpeed provides settings.animationSpeedPercent.coerceIn(50, 200) / 100f,
         LocalReduceMotion provides settings.reduceMotion,
+        LocalPlayShape provides settings.playShape,
+        LocalMiniPrevious provides settings.miniShowPrevious,
+        LocalDensity provides androidx.compose.ui.unit.Density(
+            LocalDensity.current.density,
+            LocalDensity.current.fontScale * settings.textScalePercent.coerceIn(80, 130) / 100f,
+        ),
     ) {
         val radius = settings.cornerRadiusPercent / 100f
         MaterialTheme(
             colorScheme = scheme,
+            typography = typography(settings.appFont),
             shapes = Shapes(
                 extraSmall = RoundedCornerShape(4.dp * radius),
                 small = RoundedCornerShape(8.dp * radius),
@@ -114,7 +127,8 @@ fun MuzTheme(settings: AppSettings, content: @Composable () -> Unit) {
     }
 }
 
-internal fun accentColor(accent: AccentStyle): Int = when (accent) {
+internal fun accentColor(accent: AccentStyle, custom: Int = 0xFFB388FF.toInt()): Int = when (accent) {
+    AccentStyle.CUSTOM -> custom or 0xFF000000.toInt()
     AccentStyle.YELLOW -> 0xFFFFD33D.toInt()
     AccentStyle.ORANGE -> 0xFFFF8A3D.toInt()
     AccentStyle.PINK -> 0xFFFF6B9E.toInt()
@@ -122,8 +136,46 @@ internal fun accentColor(accent: AccentStyle): Int = when (accent) {
     AccentStyle.GREEN -> 0xFF73DC8C.toInt()
 }
 
-private fun staticScheme(accent: AccentStyle, dark: Boolean): ColorScheme {
-    val p = AppPalette.generate(accentColor(accent), dark)
+internal fun playShape(shape: PlayShape): androidx.compose.ui.graphics.Shape = when (shape) {
+    PlayShape.CIRCLE -> androidx.compose.foundation.shape.CircleShape
+    PlayShape.SQUIRCLE -> RoundedCornerShape(30)
+    PlayShape.SQUARE -> RoundedCornerShape(14)
+}
+
+internal fun fontFamily(font: AppFont): androidx.compose.ui.text.font.FontFamily? = when (font) {
+    AppFont.SYSTEM -> null
+    AppFont.SANS -> androidx.compose.ui.text.font.FontFamily.SansSerif
+    AppFont.SERIF -> androidx.compose.ui.text.font.FontFamily.Serif
+    AppFont.MONO -> androidx.compose.ui.text.font.FontFamily.Monospace
+    AppFont.CONDENSED -> androidx.compose.ui.text.font.FontFamily(
+        androidx.compose.ui.text.font.Typeface(android.graphics.Typeface.create("sans-serif-condensed", android.graphics.Typeface.NORMAL)),
+    )
+}
+
+private fun typography(font: AppFont): Typography {
+    val base = Typography()
+    val family = fontFamily(font) ?: return base
+    return Typography(
+        displayLarge = base.displayLarge.copy(fontFamily = family),
+        displayMedium = base.displayMedium.copy(fontFamily = family),
+        displaySmall = base.displaySmall.copy(fontFamily = family),
+        headlineLarge = base.headlineLarge.copy(fontFamily = family),
+        headlineMedium = base.headlineMedium.copy(fontFamily = family),
+        headlineSmall = base.headlineSmall.copy(fontFamily = family),
+        titleLarge = base.titleLarge.copy(fontFamily = family),
+        titleMedium = base.titleMedium.copy(fontFamily = family),
+        titleSmall = base.titleSmall.copy(fontFamily = family),
+        bodyLarge = base.bodyLarge.copy(fontFamily = family),
+        bodyMedium = base.bodyMedium.copy(fontFamily = family),
+        bodySmall = base.bodySmall.copy(fontFamily = family),
+        labelLarge = base.labelLarge.copy(fontFamily = family),
+        labelMedium = base.labelMedium.copy(fontFamily = family),
+        labelSmall = base.labelSmall.copy(fontFamily = family),
+    )
+}
+
+private fun staticScheme(accent: Int, dark: Boolean): ColorScheme {
+    val p = AppPalette.generate(accent, dark)
     fun c(value: Int) = Color(value)
     return if (dark) {
         darkColorScheme(

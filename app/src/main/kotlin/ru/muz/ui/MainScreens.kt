@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.LinearProgressIndicator
@@ -37,6 +38,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import ru.muz.update.AppRelease
+import ru.muz.settings.HomeSection
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -99,6 +101,9 @@ internal fun MainShell(
     updateProgress: Float? = null,
     onUpdate: () -> Unit = {},
     onDismissUpdate: () -> Unit = {},
+    tabs: List<MainTab> = MainTab.entries,
+    homeSections: List<HomeSection> = HomeSection.entries,
+    onImportCsv: () -> Unit = {},
     onSettings: () -> Unit,
     onPlaylist: (YandexClient.Playlist) -> Unit,
     onSearch: (String) -> Unit,
@@ -131,7 +136,7 @@ internal fun MainShell(
                     )
                 }
                 NavigationBar(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer) {
-                    MainTab.entries.forEach { item ->
+                    tabs.forEach { item ->
                         NavigationBarItem(
                             selected = item == tab,
                             onClick = { onTab(item) },
@@ -156,6 +161,7 @@ internal fun MainShell(
                 onTrackMore,
                 onPlaylistMore,
                 update, updateProgress, onUpdate, onDismissUpdate,
+                homeSections, playlists,
             )
             MainTab.LIBRARY -> LibraryScreen(
                 liked, likedAlbums, playlists, busy, collectionMessage, compact, listScalePercent, listPageSize, padding,
@@ -163,6 +169,7 @@ internal fun MainShell(
                 onTrackMore,
                 onPlaylistMore,
                 onAlbum,
+                onImportCsv,
             )
             MainTab.SEARCH -> SearchScreen(
                 searchResults, compact, listScalePercent, listPageSize, keepSearchHistory, busy, padding, onSettings, onSearch,
@@ -199,6 +206,8 @@ private fun HomeScreen(
     updateProgress: Float?,
     onUpdate: () -> Unit,
     onDismissUpdate: () -> Unit,
+    sections: List<HomeSection>,
+    playlists: List<YandexClient.Playlist>,
 ) {
     LazyColumn(
         Modifier.fillMaxSize().padding(padding),
@@ -237,14 +246,36 @@ private fun HomeScreen(
                 )
             }
         }
-        item { MyWaveCard(wave.size, if (wave.isEmpty()) onRefresh else onPlayWave) }
-        if (liked.isNotEmpty()) item { SectionTitle("Недавно добавленное") }
-        itemsIndexed(liked.take(12), key = { _, it -> it.id }) { index, track ->
-            TrackRow(track, compact = false, onMore = onTrackMore) { onPlay(index) }
+        if (sections.isEmpty()) {
+            item { EmptyHint("Все блоки главной скрыты. Включить их можно в «Настройки → Главная и вкладки»") }
         }
-        if (chart.isNotEmpty()) item { SectionTitle("Чарт Яндекс Музыки") }
-        itemsIndexed(chart.take(20), key = { _, it -> "chart-${it.id}" }) { index, track ->
-            TrackRow(track, compact = false, onMore = onTrackMore) { onPlayChart(index) }
+        sections.forEach { section ->
+            when (section) {
+                HomeSection.WAVE -> item(key = "home-wave") { MyWaveCard(wave.size, if (wave.isEmpty()) onRefresh else onPlayWave) }
+                HomeSection.RECENT -> {
+                    if (liked.isNotEmpty()) item(key = "home-recent-title") { SectionTitle("Недавно добавленное") }
+                    itemsIndexed(liked.take(12), key = { _, it -> "recent-${it.id}" }) { index, track ->
+                        TrackRow(track, compact = false, onMore = onTrackMore) { onPlay(index) }
+                    }
+                }
+                HomeSection.PLAYLISTS -> if (playlists.isNotEmpty()) {
+                    item(key = "home-playlists-title") { SectionTitle("Ваши плейлисты") }
+                    item(key = "home-playlists") {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            items(playlists.take(20), key = { "home-pl-${it.id}" }) { PlaylistCard(it, onPlaylist, onPlaylistMore) }
+                        }
+                    }
+                }
+                HomeSection.CHART -> {
+                    if (chart.isNotEmpty()) item(key = "home-chart-title") { SectionTitle("Чарт Яндекс Музыки") }
+                    itemsIndexed(chart.take(20), key = { _, it -> "chart-${it.id}" }) { index, track ->
+                        TrackRow(track, compact = false, onMore = onTrackMore) { onPlayChart(index) }
+                    }
+                }
+            }
         }
     }
 }
@@ -268,6 +299,7 @@ private fun LibraryScreen(
     onTrackMore: (YandexClient.Track) -> Unit,
     onPlaylistMore: (YandexClient.Playlist) -> Unit,
     onAlbum: (YandexClient.Album) -> Unit,
+    onImportCsv: () -> Unit,
 ) {
     var filter by remember { mutableStateOf("Все") }
     var sort by remember { mutableStateOf("Добавленные") }
@@ -297,6 +329,9 @@ private fun LibraryScreen(
         item {
             ScreenHeader("Коллекция", "Ваши треки и плейлисты") {
                 Row {
+                    IconButton(onClick = onImportCsv) {
+                        Icon(Icons.Filled.FileUpload, "Импорт плейлиста из CSV")
+                    }
                     IconButton(onClick = onRefresh, enabled = !busy) {
                         Icon(Icons.Filled.Refresh, "Обновить коллекцию")
                     }

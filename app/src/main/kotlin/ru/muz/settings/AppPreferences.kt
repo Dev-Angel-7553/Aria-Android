@@ -4,7 +4,12 @@ import android.content.Context
 import ru.muz.lyrics.KaraokeFillStyle
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
-enum class AccentStyle { YELLOW, ORANGE, PINK, BLUE, GREEN }
+enum class AccentStyle { YELLOW, ORANGE, PINK, BLUE, GREEN, CUSTOM }
+enum class PlayerAction { QUEUE, DOWNLOAD, LINK, SHARE_FILE, SAVE_COVER, OPEN_COVER, SLEEP, SPEED, QUOTE, COPY_ARTIST }
+enum class PlayShape { CIRCLE, SQUIRCLE, SQUARE }
+enum class HomeSection { WAVE, RECENT, PLAYLISTS, CHART }
+enum class AppTab { HOME, LIBRARY, SEARCH, STATS }
+enum class AppFont { SYSTEM, SANS, SERIF, MONO, CONDENSED }
 enum class PlayerLayout { COVER_FIRST, CONTROLS_FIRST }
 enum class LyricsAlignment { LEFT, CENTER }
 
@@ -62,6 +67,17 @@ data class AppSettings(
     val reportListening: Boolean = true,
     val cacheSizeMb: Int = 1024,
     val autoCheckUpdates: Boolean = true,
+    val playbackSpeedPercent: Int = 100,
+    val skipSilence: Boolean = false,
+    val customAccent: Int = 0xFFB388FF.toInt(),
+    val appFont: AppFont = AppFont.SYSTEM,
+    val textScalePercent: Int = 100,
+    val playerActions: List<PlayerAction> = listOf(PlayerAction.QUEUE, PlayerAction.DOWNLOAD, PlayerAction.SLEEP, PlayerAction.QUOTE),
+    val playShape: PlayShape = PlayShape.CIRCLE,
+    val miniShowPrevious: Boolean = false,
+    val homeSections: List<HomeSection> = listOf(HomeSection.WAVE, HomeSection.RECENT, HomeSection.PLAYLISTS, HomeSection.CHART),
+    val tabs: List<AppTab> = AppTab.entries.toList(),
+    val startTab: AppTab = AppTab.HOME,
 )
 
 class AppPreferences(context: Context) {
@@ -127,6 +143,17 @@ class AppPreferences(context: Context) {
             reportListening = prefs.getBoolean("report_listening", true),
             cacheSizeMb = prefs.getInt("cache_size_mb", 1024).coerceIn(0, 8192),
             autoCheckUpdates = prefs.getBoolean("auto_check_updates", true),
+            playbackSpeedPercent = prefs.getInt("playback_speed", 100).coerceIn(50, 200),
+            skipSilence = prefs.getBoolean("skip_silence", false),
+            customAccent = prefs.getInt("custom_accent", 0xFFB388FF.toInt()),
+            appFont = enumValue(prefs.getString("app_font", null), AppFont.SYSTEM),
+            textScalePercent = prefs.getInt("text_scale", 100).coerceIn(80, 130),
+            playerActions = enumList(prefs.getString("player_actions", null), AppSettings().playerActions),
+            playShape = enumValue(prefs.getString("play_shape", null), PlayShape.CIRCLE),
+            miniShowPrevious = prefs.getBoolean("mini_previous", false),
+            homeSections = enumList(prefs.getString("home_sections", null), AppSettings().homeSections),
+            tabs = enumList(prefs.getString("tabs", null), AppSettings().tabs).ifEmpty { AppSettings().tabs },
+            startTab = enumValue(prefs.getString("start_tab", null), AppTab.HOME),
         )
     }
 
@@ -185,9 +212,66 @@ class AppPreferences(context: Context) {
             .putBoolean("report_listening", value.reportListening)
             .putInt("cache_size_mb", value.cacheSizeMb)
             .putBoolean("auto_check_updates", value.autoCheckUpdates)
+            .putInt("playback_speed", value.playbackSpeedPercent)
+            .putBoolean("skip_silence", value.skipSilence)
+            .putInt("custom_accent", value.customAccent)
+            .putString("app_font", value.appFont.name)
+            .putInt("text_scale", value.textScalePercent)
+            .putString("player_actions", value.playerActions.joinToString(",") { it.name })
+            .putString("play_shape", value.playShape.name)
+            .putBoolean("mini_previous", value.miniShowPrevious)
+            .putString("home_sections", value.homeSections.joinToString(",") { it.name })
+            .putString("tabs", value.tabs.joinToString(",") { it.name })
+            .putString("start_tab", value.startTab.name)
             .remove("pure_black")
             .remove("prefetch_pages")
             .apply()
+    }
+
+    fun exportJson(): String {
+        val root = org.json.JSONObject()
+        root.put("app", "Aria")
+        root.put("version", 1)
+        val values = org.json.JSONObject()
+        prefs.all.toSortedMap().forEach { (key, value) ->
+            val typed = org.json.JSONObject()
+            when (value) {
+                is Boolean -> typed.put("b", value)
+                is Int -> typed.put("i", value)
+                is Long -> typed.put("l", value)
+                is Float -> typed.put("f", value.toDouble())
+                is String -> typed.put("s", value)
+                else -> return@forEach
+            }
+            values.put(key, typed)
+        }
+        root.put("settings", values)
+        return root.toString(2)
+    }
+
+    fun importJson(raw: String): Boolean {
+        val root = runCatching { org.json.JSONObject(raw) }.getOrNull() ?: return false
+        if (root.optString("app") != "Aria") return false
+        val values = root.optJSONObject("settings") ?: return false
+        val editor = prefs.edit().clear()
+        values.keys().forEach { key ->
+            val typed = values.optJSONObject(key) ?: return@forEach
+            when {
+                typed.has("b") -> editor.putBoolean(key, typed.getBoolean("b"))
+                typed.has("i") -> editor.putInt(key, typed.getInt("i"))
+                typed.has("l") -> editor.putLong(key, typed.getLong("l"))
+                typed.has("f") -> editor.putFloat(key, typed.getDouble("f").toFloat())
+                typed.has("s") -> editor.putString(key, typed.getString("s"))
+            }
+        }
+        editor.commit()
+        return true
+    }
+
+    private inline fun <reified T : Enum<T>> enumList(raw: String?, fallback: List<T>): List<T> {
+        if (raw == null) return fallback
+        if (raw.isBlank()) return emptyList()
+        return raw.split(',').mapNotNull { name -> enumValues<T>().firstOrNull { it.name == name.trim() } }.distinct()
     }
 
     private inline fun <reified T : Enum<T>> enumValue(raw: String?, fallback: T): T =

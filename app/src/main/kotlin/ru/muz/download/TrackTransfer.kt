@@ -154,7 +154,13 @@ object TrackTransfer {
         }
     }
 
-    suspend fun shareExport(context: Context, fileName: String, mimeType: String, bytes: ByteArray): Result<Unit> = runCatching {
+    suspend fun shareExport(
+        context: Context,
+        fileName: String,
+        mimeType: String,
+        bytes: ByteArray,
+        chooserTitle: String = "Отправить CSV",
+    ): Result<Unit> = runCatching {
         val uri = withContext(Dispatchers.IO) {
             val directory = File(context.cacheDir, "shared_music").apply { mkdirs() }
             val file = File(directory, safeName(fileName))
@@ -167,7 +173,34 @@ object TrackTransfer {
             putExtra(Intent.EXTRA_TITLE, fileName)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent, "Отправить CSV"))
+        context.startActivity(Intent.createChooser(intent, chooserTitle))
+    }
+
+    suspend fun savePicture(context: Context, fileName: String, bytes: ByteArray): Result<String> = runCatching {
+        withContext(Dispatchers.IO) {
+            val name = safeName(fileName)
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/Aria")
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+            }
+            val resolver = context.contentResolver
+            val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                ?: error("Не удалось создать картинку")
+            try {
+                resolver.openOutputStream(uri)?.use { it.write(bytes) } ?: error("Не удалось открыть файл")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
+                }
+            } catch (error: Throwable) {
+                resolver.delete(uri, null, null)
+                throw error
+            }
+            "Pictures/Aria/$name"
+        }
     }
 
     private suspend fun saveToMediaStore(context: Context, client: YandexClient, trackId: String, url: String, fileName: String): Uri {

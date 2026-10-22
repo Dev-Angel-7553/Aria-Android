@@ -270,6 +270,44 @@ class YandexClient(
 
     private fun seconds(value: Double): String = String.format(java.util.Locale.ROOT, "%.3f", value.coerceAtLeast(0.0))
 
+    data class CreatedPlaylist(val kind: String, val revision: Int, val ownerUid: String)
+
+    suspend fun createPlaylist(title: String): Result<CreatedPlaylist> = runCatching {
+        val uid = requireAccount().uid
+        val result = apiPostElement(
+            "users/$uid/playlists/create",
+            listOf("title" to title.take(120), "visibility" to "private"),
+        ).jsonObject.resultObject()
+        CreatedPlaylist(
+            kind = result.string("kind") ?: error("Яндекс не вернул плейлист"),
+            revision = result.primitive("revision")?.intOrNull ?: 1,
+            ownerUid = uid,
+        )
+    }
+
+    suspend fun appendTracks(playlist: CreatedPlaylist, at: Int, tracks: List<Track>): Result<CreatedPlaylist> = runCatching {
+        if (tracks.isEmpty()) return@runCatching playlist
+        val diff = kotlinx.serialization.json.buildJsonArray {
+            add(buildJsonObject {
+                put("op", "insert")
+                put("at", at)
+                put("tracks", kotlinx.serialization.json.buildJsonArray {
+                    tracks.forEach { track ->
+                        add(buildJsonObject {
+                            put("id", track.id.substringBefore(':'))
+                            put("albumId", track.albumId.ifBlank { track.id.substringAfter(':', "") })
+                        })
+                    }
+                })
+            })
+        }
+        val result = apiPostElement(
+            "users/${playlist.ownerUid}/playlists/${playlist.kind}/change-relative",
+            listOf("diff" to diff.toString(), "revision" to playlist.revision.toString()),
+        ).jsonObject.resultObject()
+        playlist.copy(revision = result.primitive("revision")?.intOrNull ?: (playlist.revision + 1))
+    }
+
     suspend fun search(query: String): Result<SearchResults> = runCatching {
         if (query.isBlank()) return@runCatching SearchResults()
         val result = apiGet(

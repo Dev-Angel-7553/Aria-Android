@@ -39,6 +39,29 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.ImportExport
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Colorize
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.toArgb
+import ru.muz.settings.AppFont
+import ru.muz.settings.AppTab
+import ru.muz.settings.HomeSection
+import ru.muz.settings.PlayShape
+import ru.muz.settings.PlayerAction
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -97,11 +120,12 @@ private enum class SettingsPage(val title: String) {
     APPEARANCE("Оформление"),
     ANIMATION("Анимации"),
     LISTS("Списки и поиск"),
+    HOME("Главная и вкладки"),
     PLAYER("Плеер"),
     LYRICS("Текст песни"),
     PLAYBACK("Звук и офлайн"),
     ACCOUNT("Аккаунт"),
-    EXPORT("Экспорт"),
+    EXPORT("Импорт и экспорт"),
     ABOUT("О приложении"),
 }
 
@@ -133,6 +157,9 @@ internal fun SettingsScreen(
     cacheUsedBytes: Long = 0L,
     onClearCache: () -> Unit = {},
     onRefreshCache: () -> Unit = {},
+    onImportCsv: () -> Unit = {},
+    onExportSettings: () -> Unit = {},
+    onImportSettings: () -> Unit = {},
 ) {
     var page by remember { mutableStateOf(SettingsPage.ROOT) }
     var query by remember { mutableStateOf("") }
@@ -237,12 +264,22 @@ internal fun SettingsScreen(
                         item { SettingsTitle("Библиотека") }
                         item {
                             SettingsNavRow(
+                                Icons.Filled.Home,
+                                "Главная и вкладки",
+                                listOf(
+                                    "${settings.homeSections.size} ${ru.muz.text.plural(settings.homeSections.size, "блок", "блока", "блоков")}",
+                                    "${settings.tabs.size} ${ru.muz.text.plural(settings.tabs.size, "вкладка", "вкладки", "вкладок")}",
+                                ).joinToString(" · "),
+                            ) { page = SettingsPage.HOME }
+                        }
+                        item {
+                            SettingsNavRow(
                                 Icons.Filled.Dashboard,
                                 "Списки и поиск",
                                 "${if (settings.compactLists) "Компактно" else "Обычно"} · масштаб ${settings.listScalePercent}%",
                             ) { page = SettingsPage.LISTS }
                         }
-                        item { SettingsNavRow(Icons.Filled.FileDownload, "Экспорт", "Плейлисты в CSV для других сервисов") { page = SettingsPage.EXPORT } }
+                        item { SettingsNavRow(Icons.Filled.ImportExport, "Импорт и экспорт", "Плейлисты в CSV и обратно, резервная копия настроек") { page = SettingsPage.EXPORT } }
                         item { SettingsTitle("Приложение") }
                         item {
                             SettingsNavRow(
@@ -262,6 +299,7 @@ internal fun SettingsScreen(
                 SettingsPage.APPEARANCE -> appearanceSettings(settings, onChange)
                 SettingsPage.ANIMATION -> animationSettings(settings, onChange)
                 SettingsPage.LISTS -> listSettings(settings, onChange)
+                SettingsPage.HOME -> homeSettings(settings, onChange)
                 SettingsPage.PLAYER -> playerSettings(settings, onChange)
                 SettingsPage.LYRICS -> lyricsSettings(settings, onChange)
                 SettingsPage.PLAYBACK -> playbackSettings(settings, onChange, cacheUsedBytes, onClearCache, onRefreshCache)
@@ -272,7 +310,7 @@ internal fun SettingsScreen(
                 SettingsPage.ACCOUNT -> accountSettings(
                     account, settings, onChange, { confirmLogout = true }, onSyncNow, syncBusy,
                 )
-                SettingsPage.EXPORT -> exportSettings(exportBusy, onExportCollection)
+                SettingsPage.EXPORT -> exportSettings(exportBusy, onExportCollection, onImportCsv, onExportSettings, onImportSettings)
             }
         }
     }
@@ -359,12 +397,34 @@ private fun LazyListScope.appearanceSettings(settings: AppSettings, onChange: (A
                 items(AccentStyle.entries) { accent ->
                     AccentSwatch(
                         accent = accent,
+                        custom = settings.customAccent,
                         selected = !settings.useDynamicColors && settings.accentStyle == accent,
                     ) { onChange(settings.copy(accentStyle = accent, useDynamicColors = false)) }
                 }
             }
         }
     }
+    item {
+        AnimatedVisibility(!settings.useDynamicColors && settings.accentStyle == AccentStyle.CUSTOM) {
+            ColorPicker(settings.customAccent) { onChange(settings.copy(customAccent = it, accentStyle = AccentStyle.CUSTOM, useDynamicColors = false)) }
+        }
+    }
+    item { SettingsTitle("Шрифт") }
+    item {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(AppFont.entries) { font ->
+                FilterChip(
+                    selected = settings.appFont == font,
+                    onClick = { onChange(settings.copy(appFont = font)) },
+                    label = { Text(fontName(font), fontFamily = fontFamily(font)) },
+                )
+            }
+        }
+    }
+    item { SettingSlider("Размер текста", settings.textScalePercent, 80..130, 5, { "$it%" }) { onChange(settings.copy(textScalePercent = it)) } }
     item { SettingsTitle("Форма") }
     item { SettingSlider("Скругление интерфейса", settings.cornerRadiusPercent, 0..160, 10, { "$it%" }) { onChange(settings.copy(cornerRadiusPercent = it)) } }
     item { SettingSlider("Скругление обложек", settings.artworkCornerPercent, 0..160, 10, { "$it%" }) { onChange(settings.copy(artworkCornerPercent = it)) } }
@@ -375,6 +435,8 @@ private fun LazyListScope.appearanceSettings(settings: AppSettings, onChange: (A
             onChange(
                 settings.copy(
                     themeMode = defaults.themeMode,
+                    appFont = defaults.appFont,
+                    textScalePercent = defaults.textScalePercent,
                     useDynamicColors = defaults.useDynamicColors,
                     accentStyle = defaults.accentStyle,
                     cornerRadiusPercent = defaults.cornerRadiusPercent,
@@ -387,8 +449,8 @@ private fun LazyListScope.appearanceSettings(settings: AppSettings, onChange: (A
 }
 
 @Composable
-private fun AccentSwatch(accent: AccentStyle, selected: Boolean, onClick: () -> Unit) {
-    val colour = Color(accentColor(accent))
+private fun AccentSwatch(accent: AccentStyle, custom: Int, selected: Boolean, onClick: () -> Unit) {
+    val colour = Color(accentColor(accent, custom))
     Box(
         Modifier.size(46.dp).clip(CircleShape)
             .border(if (selected) 3.dp else 0.dp, if (selected) MaterialTheme.colorScheme.onSurface else Color.Transparent, CircleShape)
@@ -398,7 +460,11 @@ private fun AccentSwatch(accent: AccentStyle, selected: Boolean, onClick: () -> 
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (selected) Icon(Icons.Filled.Check, accentName(accent), tint = Color(0xFF16130A), modifier = Modifier.size(20.dp))
+        val mark = Color(ru.muz.theme.ColorMath.contentColorFor(colour.toArgb()))
+        when {
+            selected -> Icon(Icons.Filled.Check, accentName(accent), tint = mark, modifier = Modifier.size(20.dp))
+            accent == AccentStyle.CUSTOM -> Icon(Icons.Filled.Colorize, accentName(accent), tint = mark, modifier = Modifier.size(20.dp))
+        }
     }
 }
 
@@ -449,13 +515,54 @@ private fun LazyListScope.playerSettings(settings: AppSettings, onChange: (AppSe
     }
     item { SettingSwitch("Акцент от обложки", "Кнопки и ползунок берут цвет обложки", settings.coverAccent) { onChange(settings.copy(coverAccent = it)) } }
     item { SettingSlider("Размер обложки", settings.playerArtworkPercent, 70..110, 5, { "$it%" }) { onChange(settings.copy(playerArtworkPercent = it)) } }
+    item { SettingsTitle("Кнопки") }
+    item {
+        Text(
+            "Под ползунком помещается до 5 кнопок, остальные будут в меню «Ещё».",
+            color = SoftText,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+        )
+    }
+    item {
+        ReorderList(
+            enabled = settings.playerActions,
+            all = PlayerAction.entries,
+            label = { it.title() },
+            icon = { it.icon() },
+            maxEnabled = 5,
+            minEnabled = 0,
+        ) { onChange(settings.copy(playerActions = it)) }
+    }
+    item {
+        Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            Text("Форма кнопки воспроизведения", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp))
+            Row(Modifier.padding(horizontal = 20.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                PlayShape.entries.forEach { shape ->
+                    Box(
+                        Modifier.size(52.dp).clip(playShape(shape))
+                            .background(if (settings.playShape == shape) Accent else MaterialTheme.colorScheme.surfaceContainerHighest)
+                            .clickable { onChange(settings.copy(playShape = shape)) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Filled.PlayArrow,
+                            null,
+                            tint = if (settings.playShape == shape) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+            }
+        }
+    }
+    item { SettingSwitch("«Предыдущий» в мини-плеере", "Кнопка назад рядом с паузой", settings.miniShowPrevious) { onChange(settings.copy(miniShowPrevious = it)) } }
     item { SettingsTitle("Компоновка") }
     PlayerLayout.entries.forEach { layout ->
         item { SettingRadio(if (layout == PlayerLayout.COVER_FIRST) "Сначала обложка" else "Сначала управление", settings.playerLayout == layout) { onChange(settings.copy(playerLayout = layout)) } }
     }
     item {
         SectionReset("Сбросить плеер") { defaults ->
-            onChange(settings.copy(openPlayerOnTrack = defaults.openPlayerOnTrack, swipeMiniPlayer = defaults.swipeMiniPlayer, showMiniPlayerProgress = defaults.showMiniPlayerProgress, playerBlurBackground = defaults.playerBlurBackground, coverColorBackground = defaults.coverColorBackground, coverAccent = defaults.coverAccent, keepScreenOn = defaults.keepScreenOn, playerLayout = defaults.playerLayout, playerArtworkPercent = defaults.playerArtworkPercent, fullPlayerSwipe = defaults.fullPlayerSwipe))
+            onChange(settings.copy(openPlayerOnTrack = defaults.openPlayerOnTrack, swipeMiniPlayer = defaults.swipeMiniPlayer, showMiniPlayerProgress = defaults.showMiniPlayerProgress, playerBlurBackground = defaults.playerBlurBackground, coverColorBackground = defaults.coverColorBackground, coverAccent = defaults.coverAccent, keepScreenOn = defaults.keepScreenOn, playerActions = defaults.playerActions, playShape = defaults.playShape, miniShowPrevious = defaults.miniShowPrevious, playerLayout = defaults.playerLayout, playerArtworkPercent = defaults.playerArtworkPercent, fullPlayerSwipe = defaults.fullPlayerSwipe))
         }
     }
 }
@@ -860,26 +967,197 @@ private fun LazyListScope.accountSettings(
     item { TextButton(onClick = onLogout, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Выйти и удалить токен", color = MaterialTheme.colorScheme.error) } }
 }
 
-private fun LazyListScope.exportSettings(exportBusy: Boolean, onExportCollection: (share: Boolean) -> Unit) {
+private fun LazyListScope.exportSettings(
+    exportBusy: Boolean,
+    onExportCollection: (share: Boolean) -> Unit,
+    onImportCsv: () -> Unit,
+    onExportSettings: () -> Unit,
+    onImportSettings: () -> Unit,
+) {
+    item { SettingsTitle("Импорт плейлистов") }
     item {
-        Text(
-            "CSV по строке на трек: исполнитель, название, альбом, плейлист, длительность и ссылка. " +
-                "Такой файл понимают TuneMyMusic, Soundiiz и Excel. Отдельный плейлист можно выгрузить из его меню.",
-            color = SoftText,
-            fontSize = 13.sp,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+        SettingsActionRow(
+            Icons.Filled.FileUpload,
+            "Импорт из CSV",
+            "Файл из Spotify, TuneMyMusic, Exportify или список «Исполнитель — Название». Треки найдутся в Яндексе, плейлисты создадутся в вашем аккаунте",
+            true,
+            onImportCsv,
         )
     }
-    item { SettingsTitle("Вся коллекция") }
+    item { SettingsTitle("Экспорт коллекции") }
     item {
         SettingsActionRow(
             Icons.Filled.FileDownload,
             if (exportBusy) "Готовим CSV…" else "Сохранить в Загрузки",
-            "«Мне нравится» и все плейлисты в одном файле",
+            "«Мне нравится» и все плейлисты в одном CSV. Понимают TuneMyMusic, Soundiiz и Excel",
             !exportBusy,
         ) { onExportCollection(false) }
     }
     item { SettingsActionRow(Icons.Filled.Share, "Отправить файлом", "Через Telegram, почту или любое приложение", !exportBusy) { onExportCollection(true) } }
+    item { SettingsTitle("Настройки") }
+    item { SettingsActionRow(Icons.Filled.Save, "Сохранить настройки в файл", "Тема, плеер, текст, главная — всё, кроме аккаунта", true, onExportSettings) }
+    item { SettingsActionRow(Icons.Filled.Restore, "Загрузить настройки из файла", "Например, с другого телефона", true, onImportSettings) }
+}
+
+private fun LazyListScope.homeSettings(settings: AppSettings, onChange: (AppSettings) -> Unit) {
+    item { SettingsTitle("Блоки на главной") }
+    item {
+        ReorderList(
+            enabled = settings.homeSections,
+            all = HomeSection.entries,
+            label = { homeSectionName(it) },
+            icon = { homeSectionIcon(it) },
+            maxEnabled = null,
+            minEnabled = 0,
+        ) { onChange(settings.copy(homeSections = it)) }
+    }
+    item { SettingsTitle("Вкладки внизу") }
+    item {
+        ReorderList(
+            enabled = settings.tabs,
+            all = AppTab.entries,
+            label = { tabName(it) },
+            icon = { tabIcon(it) },
+            maxEnabled = null,
+            minEnabled = 1,
+        ) { tabs ->
+            onChange(settings.copy(tabs = tabs, startTab = if (settings.startTab in tabs) settings.startTab else tabs.first()))
+        }
+    }
+    item { SettingsTitle("Открывать при запуске") }
+    settings.tabs.forEach { tab ->
+        item { SettingRadio(tabName(tab), settings.startTab == tab) { onChange(settings.copy(startTab = tab)) } }
+    }
+    item {
+        SectionReset("Сбросить главную и вкладки") { defaults ->
+            onChange(settings.copy(homeSections = defaults.homeSections, tabs = defaults.tabs, startTab = defaults.startTab))
+        }
+    }
+}
+
+private fun homeSectionName(section: HomeSection): String = when (section) {
+    HomeSection.WAVE -> "Моя волна"
+    HomeSection.RECENT -> "Недавно добавленное"
+    HomeSection.PLAYLISTS -> "Ваши плейлисты"
+    HomeSection.CHART -> "Чарт"
+}
+
+private fun homeSectionIcon(section: HomeSection): ImageVector = when (section) {
+    HomeSection.WAVE -> Icons.Filled.GraphicEq
+    HomeSection.RECENT -> Icons.Filled.History
+    HomeSection.PLAYLISTS -> Icons.Filled.QueueMusic
+    HomeSection.CHART -> Icons.Filled.TrendingUp
+}
+
+private fun tabName(tab: AppTab): String = when (tab) {
+    AppTab.HOME -> "Главная"
+    AppTab.LIBRARY -> "Коллекция"
+    AppTab.SEARCH -> "Поиск"
+    AppTab.STATS -> "Статистика"
+}
+
+private fun tabIcon(tab: AppTab): ImageVector = when (tab) {
+    AppTab.HOME -> Icons.Filled.Home
+    AppTab.LIBRARY -> Icons.Filled.LibraryMusic
+    AppTab.SEARCH -> Icons.Filled.Search
+    AppTab.STATS -> Icons.Filled.Equalizer
+}
+
+private fun fontName(font: AppFont): String = when (font) {
+    AppFont.SYSTEM -> "Системный"
+    AppFont.SANS -> "Гротеск"
+    AppFont.SERIF -> "С засечками"
+    AppFont.MONO -> "Моноширинный"
+    AppFont.CONDENSED -> "Узкий"
+}
+
+@Composable
+private fun <T> ReorderList(
+    enabled: List<T>,
+    all: List<T>,
+    label: (T) -> String,
+    icon: (T) -> ImageVector,
+    maxEnabled: Int?,
+    minEnabled: Int,
+    onChange: (List<T>) -> Unit,
+) {
+    val disabled = all.filter { it !in enabled }
+    Column(Modifier.fillMaxWidth()) {
+        enabled.forEachIndexed { index, value ->
+            Row(
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 2.dp, bottom = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(icon(value), null, tint = Accent)
+                Text(label(value), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f).padding(start = 14.dp))
+                IconButton(
+                    onClick = { onChange(enabled.toMutableList().apply { add(index - 1, removeAt(index)) }) },
+                    enabled = index > 0,
+                ) { Icon(Icons.Filled.KeyboardArrowUp, "Выше") }
+                IconButton(
+                    onClick = { onChange(enabled.toMutableList().apply { add(index + 1, removeAt(index)) }) },
+                    enabled = index < enabled.lastIndex,
+                ) { Icon(Icons.Filled.KeyboardArrowDown, "Ниже") }
+                Switch(
+                    checked = true,
+                    enabled = enabled.size > minEnabled,
+                    onCheckedChange = { onChange(enabled - value) },
+                )
+            }
+        }
+        disabled.forEach { value ->
+            val canAdd = maxEnabled == null || enabled.size < maxEnabled
+            Row(
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 2.dp, bottom = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(icon(value), null, tint = SoftText)
+                Text(label(value), color = SoftText, modifier = Modifier.weight(1f).padding(start = 14.dp))
+                Switch(checked = false, enabled = canAdd, onCheckedChange = { onChange(enabled + value) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColorPicker(color: Int, onChange: (Int) -> Unit) {
+    val hsl = remember(color) { ru.muz.theme.ColorMath.hsl(color) }
+    var hue by remember(color) { mutableStateOf(hsl[0]) }
+    var saturation by remember(color) { mutableStateOf(hsl[1]) }
+    var lightness by remember(color) { mutableStateOf(hsl[2]) }
+    var hex by remember(color) { mutableStateOf(String.format(java.util.Locale.ROOT, "%06X", color and 0xFFFFFF)) }
+    fun commit() = onChange(ru.muz.theme.ColorMath.fromHsl(hue, saturation, lightness))
+    val preview = Color(ru.muz.theme.ColorMath.fromHsl(hue, saturation, lightness))
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(CircleShape).background(preview))
+            androidx.compose.material3.OutlinedTextField(
+                value = hex,
+                onValueChange = { raw ->
+                    val clean = raw.removePrefix("#").uppercase().filter { it in "0123456789ABCDEF" }.take(6)
+                    hex = clean
+                    if (clean.length == 6) onChange(0xFF000000.toInt() or clean.toInt(16))
+                },
+                prefix = { Text("#") },
+                singleLine = true,
+                label = { Text("HEX") },
+                modifier = Modifier.padding(start = 16.dp).width(160.dp),
+            )
+        }
+        Box(
+            Modifier.fillMaxWidth().padding(top = 14.dp).height(10.dp).clip(RoundedCornerShape(5.dp))
+                .background(
+                    androidx.compose.ui.graphics.Brush.horizontalGradient(
+                        (0..12).map { Color(ru.muz.theme.ColorMath.fromHsl(it * 30f, 0.85f, 0.6f)) },
+                    ),
+                ),
+        )
+        Slider(value = hue, onValueChange = { hue = it }, onValueChangeFinished = ::commit, valueRange = 0f..359f)
+        Text("Насыщенность", color = SoftText, fontSize = 13.sp)
+        Slider(value = saturation, onValueChange = { saturation = it }, onValueChangeFinished = ::commit, valueRange = 0f..1f)
+        Text("Яркость", color = SoftText, fontSize = 13.sp)
+        Slider(value = lightness, onValueChange = { lightness = it }, onValueChangeFinished = ::commit, valueRange = 0.2f..0.85f)
+    }
 }
 
 @Composable
@@ -967,6 +1245,15 @@ private val SETTINGS_INDEX = listOf(
     SettingsEntry("Синхронизация библиотеки", SettingsPage.ACCOUNT, "обновить"),
     SettingsEntry("Выйти из аккаунта", SettingsPage.ACCOUNT, "токен"),
     SettingsEntry("Обновления", SettingsPage.ABOUT, "версия github"),
+    SettingsEntry("Свой цвет", SettingsPage.APPEARANCE, "палитра hex акцент"),
+    SettingsEntry("Шрифт", SettingsPage.APPEARANCE, "гарнитура засечки моноширинный"),
+    SettingsEntry("Размер текста интерфейса", SettingsPage.APPEARANCE, "крупнее мельче"),
+    SettingsEntry("Кнопки плеера", SettingsPage.PLAYER, "под ползунком таймер скорость цитата"),
+    SettingsEntry("Форма кнопки воспроизведения", SettingsPage.PLAYER, "круг квадрат"),
+    SettingsEntry("Блоки на главной", SettingsPage.HOME, "порядок волна чарт плейлисты"),
+    SettingsEntry("Вкладки внизу", SettingsPage.HOME, "навигация статистика поиск"),
+    SettingsEntry("Импорт из CSV", SettingsPage.EXPORT, "spotify перенос плейлист загрузить"),
+    SettingsEntry("Резервная копия настроек", SettingsPage.EXPORT, "сохранить загрузить перенос телефон"),
 )
 
 private fun searchSettings(query: String): List<SettingsEntry> {
@@ -981,11 +1268,12 @@ private fun SettingsPage.icon(): ImageVector = when (this) {
     SettingsPage.APPEARANCE -> Icons.Filled.Palette
     SettingsPage.ANIMATION -> Icons.Filled.AutoAwesome
     SettingsPage.LISTS -> Icons.Filled.Dashboard
+    SettingsPage.HOME -> Icons.Filled.Home
     SettingsPage.PLAYER -> Icons.Filled.PlayCircle
     SettingsPage.LYRICS -> Icons.Filled.Lyrics
     SettingsPage.PLAYBACK -> Icons.Filled.Headphones
     SettingsPage.ACCOUNT -> Icons.Filled.AccountCircle
-    SettingsPage.EXPORT -> Icons.Filled.FileDownload
+    SettingsPage.EXPORT -> Icons.Filled.ImportExport
     SettingsPage.ABOUT -> Icons.Filled.Info
     SettingsPage.ROOT -> Icons.Filled.Search
 }
@@ -1134,4 +1422,5 @@ private fun accentName(accent: AccentStyle): String = when (accent) {
     AccentStyle.PINK -> "Розовый"
     AccentStyle.BLUE -> "Синий"
     AccentStyle.GREEN -> "Зелёный"
+    AccentStyle.CUSTOM -> "Свой цвет"
 }

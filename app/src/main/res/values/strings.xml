@@ -2,4 +2,13 @@
 <resources>
     <string name="app_name">Aria</string>
     <string name="lyrics_title">Текст песни</string>
+    <string name="widget_idle_title">Aria</string>
+    <string name="widget_idle_artist">Нажмите, чтобы продолжить</string>
+    <string name="widget_previous">Предыдущий</string>
+    <string name="widget_play">Играть или пауза</string>
+    <string name="widget_next">Следующий</string>
+    <string name="widget_small_description">Сейчас играет: обложка и кнопки в одну строку</string>
+    <string name="widget_large_description">Сейчас играет: крупная обложка и кнопки</string>
+    <string name="widget_small_label">Aria · строка</string>
+    <string name="widget_large_label">Aria · плеер</string>
 </resources>

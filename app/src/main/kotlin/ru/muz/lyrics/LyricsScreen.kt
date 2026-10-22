@@ -3,6 +3,7 @@ package ru.muz.lyrics
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.wrapContentSize
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.gestures.scrollBy
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun LyricsScreen(
     lyrics: Lyrics,
@@ -47,6 +49,7 @@ fun LyricsScreen(
     background: Color = Color(0xFF1A1A1A),
     modifier: Modifier = Modifier,
     discontinuity: Long = 0,
+    onLongPressLine: ((Int) -> Unit)? = null,
 ) {
     if (lyrics.lines.isEmpty()) {
         Box(modifier.fillMaxSize().background(background)) {
@@ -116,10 +119,13 @@ fun LyricsScreen(
                         .fillMaxWidth()
                         .padding(vertical = (settings.lineSpacingDp / 2).dp)
                         .then(
-                            if (settings.tapToSeek && lyrics.synced) {
-                                Modifier.clickable { onSeek(line.startMs) }
-                            } else {
-                                Modifier
+                            when {
+                                onLongPressLine != null -> Modifier.combinedClickable(
+                                    onClick = { if (settings.tapToSeek && lyrics.synced) onSeek(line.startMs) },
+                                    onLongClick = { onLongPressLine(index) },
+                                )
+                                settings.tapToSeek && lyrics.synced -> Modifier.clickable { onSeek(line.startMs) }
+                                else -> Modifier
                             }
                         ),
                 )
