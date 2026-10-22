@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, "work/**"]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
@@ -37,7 +37,16 @@ jobs:
           ARIA_KEYSTORE_PASSWORD: ${{ secrets.ARIA_KEYSTORE_PASSWORD }}
           ARIA_KEY_ALIAS: ${{ secrets.ARIA_KEY_ALIAS }}
           ARIA_KEY_PASSWORD: ${{ secrets.ARIA_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon testDebugUnitTest assembleRelease
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon testDebugUnitTest assembleRelease 2>&1 | tee build.log
+
+      - name: Report errors
+        if: failure()
+        run: |
+          grep -E '^e: |FAILED|error:|Exception|expected:<|at ru\.muz' build.log | head -60 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
 
       - name: Rename APK
         run: |

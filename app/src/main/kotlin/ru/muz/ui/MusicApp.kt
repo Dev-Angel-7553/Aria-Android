@@ -2,24 +2,23 @@ package ru.muz.ui
 
 import android.app.Activity
 import android.view.WindowManager
-import android.os.SystemClock
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import coil.imageLoader
 import coil.request.ImageRequest
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import ru.muz.export.PlaylistCsv
-import ru.muz.yandex.ListenEvent
-import ru.muz.yandex.ListenSession
+import ru.muz.player.AudioCache
+import ru.muz.player.MediaExtras
+import ru.muz.update.AppRelease
+import ru.muz.update.AppUpdate
+import ru.muz.update.UpdateInstaller
 import ru.muz.yandex.PlaySource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -87,7 +86,7 @@ fun MusicApp(
     val scope = rememberCoroutineScope()
     val tokenStore = remember { TokenStore(context) }
     val librarySnapshotStore = remember { ru.muz.yandex.LibrarySnapshotStore(context) }
-    val listeningStats = remember { ListeningStats(context) }
+    val listeningStats = remember { ListeningStats.shared(context) }
     val player by playback.state.collectAsState()
 
     var api by remember { mutableStateOf<YandexClient?>(null) }
@@ -130,10 +129,14 @@ fun MusicApp(
     var lastWaveContinuation by remember { mutableStateOf("") }
     var exportBusy by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
-    val listenSession = remember { ListenSession() }
     var playSource by remember { mutableStateOf(PlaySource.other()) }
-    val reportScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
-    val latestPlayer by rememberUpdatedState(player)
+    var offlineBusy by remember { mutableStateOf(false) }
+    var availableUpdate by remember { mutableStateOf<AppRelease?>(null) }
+    var updateProgress by remember { mutableStateOf<Float?>(null) }
+    var updateChecking by remember { mutableStateOf(false) }
+    var cacheUsedBytes by remember { mutableStateOf(0L) }
+    val updatePrefs = remember { context.getSharedPreferences("updates", android.content.Context.MODE_PRIVATE) }
+    val appVersion = remember { UpdateInstaller.currentVersion(context) }
 
     val background = AppBackground
     val currentTrack = remember(player.mediaId, player.title, player.artist, player.durationMs, queue, liked, selectedTracks, searchResults) {
@@ -172,17 +175,45 @@ fun MusicApp(
         }
     }
 
-    fun sendListenEvents(events: List<ListenEvent>) {
-        val client = api ?: return
-        if (events.isEmpty() || !settings.reportListening) return
-        reportScope.launch {
-            events.forEach { event ->
-                when (event) {
-                    is ListenEvent.PlayAudio -> client.reportPlay(event)
-                    else -> client.waveFeedback(event)
-                }
-            }
+    fun playable(track: YandexClient.Track) = MediaExtras.track(track, track.id in likedIds)
+
+    fun checkUpdates(manual: Boolean) {
+        if (updateChecking) return
+        updateChecking = true
+        scope.launch {
+            UpdateInstaller.latest().fold(
+                onSuccess = { release ->
+                    updatePrefs.edit().putLong("checked_at", System.currentTimeMillis()).apply()
+                    val newer = release?.takeIf { AppUpdate.isNewer(it.version, appVersion) }
+                    availableUpdate = newer
+                    if (manual) toast(if (newer != null) "Доступна Aria ${newer.version}" else "У вас последняя версия")
+                },
+                onFailure = { if (manual) toast("Не удалось проверить обновления") },
+            )
+            updateChecking = false
         }
+    }
+
+    fun installUpdate(release: AppRelease) {
+        if (updateProgress != null) return
+        if (!UpdateInstaller.canInstall(context)) {
+            toast("Разрешите Aria устанавливать приложения и нажмите «Обновить» ещё раз")
+            UpdateInstaller.openInstallPermission(context)
+            return
+        }
+        updateProgress = 0f
+        scope.launch {
+            UpdateInstaller.download(context, release) { updateProgress = it }.fold(
+                onSuccess = { UpdateInstaller.install(context, it) },
+                onFailure = { toast(it.message ?: "Не удалось скачать обновление") },
+            )
+            updateProgress = null
+        }
+    }
+
+    fun dismissUpdate(release: AppRelease) {
+        updatePrefs.edit().putString("dismissed", release.version).apply()
+        availableUpdate = null
     }
 
     fun applyLibrarySnapshot(snapshot: ru.muz.yandex.LibrarySnapshot) {
@@ -374,8 +405,9 @@ fun MusicApp(
         lastWaveContinuation = ""
         queue = tracks
         playback.playQueue(
-            tracks.map { PlaybackController.YandexTrack(it.id, it.title, it.artist, it.coverUrl) },
+            tracks.map(::playable),
             index,
+            source,
         )
         showLyrics = settings.showLyricsByDefault
         if (settings.openPlayerOnTrack) showPlayer = true
@@ -467,8 +499,10 @@ fun MusicApp(
             else selectedTracks.filterNot { it.id == track.id }
             selectedPlaylist = selectedPlaylist?.copy(trackCount = selectedTracks.size, tracks = selectedTracks)
         }
+        playback.setLiked(track.id, newValue)
         scope.launch {
             client.setLiked(track.id, newValue).onFailure {
+                playback.setLiked(track.id, !newValue)
                 likedIds = if (newValue) likedIds - track.id else likedIds + track.id
                 liked = if (newValue) liked.filterNot { it.id == track.id }
                 else listOf(track) + liked.filterNot { it.id == track.id }
@@ -479,6 +513,19 @@ fun MusicApp(
                 }
                 toast(it.message ?: "Не удалось изменить лайк")
             }
+        }
+    }
+
+    fun applyRemoteLike(trackId: String, value: Boolean) {
+        val track = (queue + selectedTracks + liked + searchResults.tracks).firstOrNull { it.id == trackId }
+            ?: currentTrack?.takeIf { it.id == trackId }
+            ?: return
+        likedIds = if (value) likedIds + track.id else likedIds - track.id
+        liked = if (value) listOf(track) + liked.filterNot { it.id == track.id } else liked.filterNot { it.id == track.id }
+        if (selectedPlaylist?.id == "liked") {
+            selectedTracks = if (value) listOf(track) + selectedTracks.filterNot { it.id == track.id }
+            else selectedTracks.filterNot { it.id == track.id }
+            selectedPlaylist = selectedPlaylist?.copy(trackCount = selectedTracks.size, tracks = selectedTracks)
         }
     }
 
@@ -550,42 +597,52 @@ fun MusicApp(
         if (targets.isEmpty()) toast("Коллекция пока пуста") else exportCsv(targets, "Коллекция Яндекс Музыки", share)
     }
 
+    fun saveOffline(playlist: YandexClient.Playlist) {
+        if (offlineBusy) return
+        if (settings.cacheSizeMb <= 0) {
+            toast("Включите кэш в настройках воспроизведения")
+            return
+        }
+        offlineBusy = true
+        scope.launch {
+            try {
+                val tracks = tracksFor(playlist)
+                if (tracks.isEmpty()) {
+                    toast("Нет треков для сохранения")
+                    return@launch
+                }
+                toast("Сохраняем ${ru.muz.text.tracksLabel(tracks.size)} для офлайна…")
+                val saved = AudioCache.saveOffline(context, tracks.map { it.id }) { _, _ -> }
+                cacheUsedBytes = AudioCache.usedBytes(context)
+                toast(
+                    if (saved == tracks.size) "Готово: ${ru.muz.text.tracksLabel(saved)} доступны без сети"
+                    else "Сохранено ${saved} из ${tracks.size}, остальные не удалось скачать",
+                )
+            } finally {
+                offlineBusy = false
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         tokenStore.token?.let(::connect)
         statsSnapshot = listeningStats.snapshot()
+        cacheUsedBytes = withContext(Dispatchers.IO) { AudioCache.usedBytes(context) }
+        val checkedAt = updatePrefs.getLong("checked_at", 0L)
+        if (settings.autoCheckUpdates && System.currentTimeMillis() - checkedAt > 6 * 60 * 60 * 1000L) checkUpdates(manual = false)
+    }
+    LaunchedEffect(availableUpdate) {
+        val release = availableUpdate ?: return@LaunchedEffect
+        if (updatePrefs.getString("dismissed", null) == release.version) availableUpdate = null
+    }
+    LaunchedEffect(playback) {
+        playback.likeChanges.collect { (trackId, value) -> applyRemoteLike(trackId, value) }
     }
     LaunchedEffect(player.mediaId) {
-            transferMessage = ""
-            transferDiagnostic = ""
-        if (player.mediaId.isNotBlank()) {
-            listeningStats.recordStart(player.mediaId, player.title, player.artist)
-            statsSnapshot = listeningStats.snapshot()
-            val track = queue.firstOrNull { it.id == player.mediaId }
-            sendListenEvents(
-                listenSession.start(
-                    trackId = player.mediaId,
-                    albumId = track?.albumId.orEmpty(),
-                    durationMs = track?.durationMs ?: player.durationMs,
-                    source = playSource,
-                ),
-            )
-        } else {
-            sendListenEvents(listenSession.finish())
-        }
-    }
-    LaunchedEffect(player.isPlaying, player.mediaId) {
-        if (!player.isPlaying || player.mediaId.isBlank()) return@LaunchedEffect
-        var last = SystemClock.elapsedRealtime()
-        while (true) {
-            delay(1_000)
-            val now = SystemClock.elapsedRealtime()
-            val state = latestPlayer
-            sendListenEvents(listenSession.tick((now - last).coerceIn(0, 5_000), state.positionMs, state.durationMs))
-            last = now
-        }
-    }
-    DisposableEffect(listenSession) {
-        onDispose { sendListenEvents(listenSession.finish()) }
+        transferMessage = ""
+        transferDiagnostic = ""
+        delay(300)
+        statsSnapshot = listeningStats.snapshot()
     }
     LaunchedEffect(player.mediaId, queue, settings.preloadArtwork) {
         if (!settings.preloadArtwork || queue.isEmpty()) return@LaunchedEffect
@@ -596,18 +653,10 @@ fun MusicApp(
             )
         }
     }
-    LaunchedEffect(player.isPlaying, player.mediaId, player.artist) {
-        if (player.isPlaying && player.mediaId.isNotBlank()) {
-            while (true) {
-                kotlinx.coroutines.delay(5_000)
-                listeningStats.addListening(
-                    durationMs = 5_000,
-                    trackId = player.mediaId,
-                    title = player.title,
-                    artist = player.artist,
-                )
-                statsSnapshot = listeningStats.snapshot()
-            }
+    LaunchedEffect(player.isPlaying, player.mediaId) {
+        while (player.isPlaying) {
+            delay(5_000)
+            statsSnapshot = listeningStats.snapshot()
         }
     }
     LaunchedEffect(player.mediaId, currentTrack, lyricsRepository, showPlayer, showLyrics, lyricsRequestKey) {
@@ -673,7 +722,7 @@ fun MusicApp(
                     val fresh = nextBatch.filter { existingIds.add(it.id.substringBefore(':')) }
                     fresh.forEach { track ->
                         playback.addToQueue(
-                            PlaybackController.YandexTrack(track.id, track.title, track.artist, track.coverUrl),
+                            playable(track),
                         )
                     }
                     if (fresh.isNotEmpty()) {
@@ -723,7 +772,6 @@ fun MusicApp(
                         onChange = ::updateSettings,
                         onBack = { showSettings = false },
                         onLogout = {
-                            sendListenEvents(listenSession.finish())
                             tokenStore.forget()
                             api = null
                             account = null
@@ -746,6 +794,23 @@ fun MusicApp(
                         syncBusy = busy,
                         exportBusy = exportBusy,
                         onExportCollection = ::exportCollection,
+                        appVersion = appVersion,
+                        availableUpdate = availableUpdate,
+                        updateChecking = updateChecking,
+                        updateProgress = updateProgress,
+                        onCheckUpdates = { checkUpdates(manual = true) },
+                        onInstallUpdate = ::installUpdate,
+                        cacheUsedBytes = cacheUsedBytes,
+                        onClearCache = {
+                            scope.launch {
+                                withContext(Dispatchers.IO) { AudioCache.clear(context) }
+                                cacheUsedBytes = withContext(Dispatchers.IO) { AudioCache.usedBytes(context) }
+                                toast("Кэш очищен")
+                            }
+                        },
+                        onRefreshCache = {
+                            scope.launch { cacheUsedBytes = withContext(Dispatchers.IO) { AudioCache.usedBytes(context) } }
+                        },
                     )
 
                     showPlayer -> FullPlayerScreen(
@@ -830,6 +895,8 @@ fun MusicApp(
                             val playlist = selectedPlaylist!!
                             exportCsv(listOf(playlist), selectedCollectionTitle ?: playlist.title, share)
                         },
+                        offlineBusy = offlineBusy,
+                        onSaveOffline = { saveOffline(selectedPlaylist!!) },
                     )
 
                     else -> MainShell(
@@ -853,6 +920,10 @@ fun MusicApp(
                         showMiniPlayerProgress = settings.showMiniPlayerProgress,
                         account = account,
                         stats = statsSnapshot,
+                        update = availableUpdate,
+                        updateProgress = updateProgress,
+                        onUpdate = { availableUpdate?.let(::installUpdate) },
+                        onDismissUpdate = { availableUpdate?.let(::dismissUpdate) },
                         onSettings = { showSettings = true },
                         onPlaylist = ::openPlaylist,
                         onOpenLiked = ::openLiked,
@@ -929,14 +1000,14 @@ fun MusicApp(
                 busy = transferBusy,
                 onDismiss = { actionTrack = null },
                 onPlayNext = {
-                    playback.playNext(PlaybackController.YandexTrack(track.id, track.title, track.artist, track.coverUrl))
+                    playback.playNext(playable(track))
                     val current = queue.indexOfFirst { it.id == player.mediaId }
                     queue = queue.toMutableList().apply { add((current + 1).coerceIn(0, size), track) }
                     actionTrack = null
                     toast("Будет играть следующим")
                 },
                 onAddToQueue = {
-                    playback.addToQueue(PlaybackController.YandexTrack(track.id, track.title, track.artist, track.coverUrl))
+                    playback.addToQueue(playable(track))
                     queue = queue + track
                     actionTrack = null
                     toast("Добавлено в очередь")
@@ -987,6 +1058,11 @@ fun MusicApp(
                 onExportCsv = { share ->
                     actionPlaylist = null
                     exportCsv(listOf(playlist), playlist.title, share)
+                },
+                offlineBusy = offlineBusy,
+                onSaveOffline = {
+                    actionPlaylist = null
+                    saveOffline(playlist)
                 },
             )
         }

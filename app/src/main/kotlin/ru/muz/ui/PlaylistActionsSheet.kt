@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -41,6 +42,8 @@ internal fun PlaylistActionsSheet(
     onShare: () -> Unit,
     exportBusy: Boolean = false,
     onExportCsv: (share: Boolean) -> Unit = {},
+    offlineBusy: Boolean = false,
+    onSaveOffline: () -> Unit = {},
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
@@ -52,7 +55,8 @@ internal fun PlaylistActionsSheet(
         }
         PlaylistAction(Icons.Filled.Visibility, "Открыть", onOpen)
         PlaylistAction(Icons.Filled.PlayArrow, "Слушать с начала", onPlay, !busy)
-        PlaylistAction(Icons.Filled.Download, if (busy) "Загрузка…" else "Скачать плейлист", onDownload, !busy)
+        PlaylistAction(Icons.Filled.DownloadForOffline, if (offlineBusy) "Сохраняем для офлайна…" else "Сохранить для офлайна", onSaveOffline, !offlineBusy)
+        PlaylistAction(Icons.Filled.Download, if (busy) "Загрузка…" else "Скачать файлы в «Музыку»", onDownload, !busy)
         PlaylistAction(Icons.Filled.InsertLink, "Поделиться ссылкой", onShare)
         PlaylistAction(Icons.Filled.FileDownload, if (exportBusy) "Готовим CSV…" else "Сохранить CSV в Загрузки", { onExportCsv(false) }, !exportBusy)
         PlaylistAction(Icons.Filled.Share, "Отправить CSV", { onExportCsv(true) }, !exportBusy)

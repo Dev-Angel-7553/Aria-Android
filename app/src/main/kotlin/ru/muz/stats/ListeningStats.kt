@@ -286,6 +286,14 @@ class ListeningStats(
         const val TOP_SHOWN = 10
         const val RECENT_DAYS = 14
         const val PERSIST_INTERVAL_MS = 30_000L
+
+        @Volatile
+        private var shared: ListeningStats? = null
+
+        fun shared(context: Context): ListeningStats =
+            shared ?: synchronized(this) {
+                shared ?: ListeningStats(context.applicationContext).also { shared = it }
+            }
     }
 }
 

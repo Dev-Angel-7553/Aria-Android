@@ -29,6 +29,14 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.DownloadForOffline
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import ru.muz.update.AppRelease
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -87,6 +95,10 @@ internal fun MainShell(
     showMiniPlayerProgress: Boolean,
     account: YandexClient.Account?,
     stats: ListeningStatsSnapshot,
+    update: AppRelease? = null,
+    updateProgress: Float? = null,
+    onUpdate: () -> Unit = {},
+    onDismissUpdate: () -> Unit = {},
     onSettings: () -> Unit,
     onPlaylist: (YandexClient.Playlist) -> Unit,
     onSearch: (String) -> Unit,
@@ -143,6 +155,7 @@ internal fun MainShell(
                 stats, onSettings, onRefresh, onPlaylist, onPlayLiked, onPlayWave, onPlayChart,
                 onTrackMore,
                 onPlaylistMore,
+                update, updateProgress, onUpdate, onDismissUpdate,
             )
             MainTab.LIBRARY -> LibraryScreen(
                 liked, likedAlbums, playlists, busy, collectionMessage, compact, listScalePercent, listPageSize, padding,
@@ -182,11 +195,18 @@ private fun HomeScreen(
     onPlayChart: (Int) -> Unit,
     onTrackMore: (YandexClient.Track) -> Unit,
     onPlaylistMore: (YandexClient.Playlist) -> Unit,
+    update: AppRelease?,
+    updateProgress: Float?,
+    onUpdate: () -> Unit,
+    onDismissUpdate: () -> Unit,
 ) {
     LazyColumn(
         Modifier.fillMaxSize().padding(padding),
         contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp),
     ) {
+        if (update != null) {
+            item { UpdateBanner(update, updateProgress, onUpdate, onDismissUpdate) }
+        }
         item {
             ScreenHeader("Для вас", account?.displayName) {
                 Row {
@@ -582,6 +602,8 @@ internal fun PlaylistScreen(
     onToggleAlbumLike: () -> Unit,
     exportBusy: Boolean = false,
     onExportCsv: (share: Boolean) -> Unit = {},
+    offlineBusy: Boolean = false,
+    onSaveOffline: () -> Unit = {},
 ) {
     var exportMenu by remember { mutableStateOf(false) }
     var query by remember(playlist.id) { mutableStateOf("") }
@@ -637,11 +659,12 @@ internal fun PlaylistScreen(
                 IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Назад") }
                 Text(screenLabel, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
                 Box {
-                    IconButton(onClick = { exportMenu = true }, enabled = !exportBusy && tracks.isNotEmpty()) {
-                        Icon(Icons.Filled.FileDownload, "Экспорт в CSV")
+                    IconButton(onClick = { exportMenu = true }, enabled = tracks.isNotEmpty()) {
+                        Icon(Icons.Filled.FileDownload, "Сохранить или экспортировать")
                     }
                     DropdownMenu(expanded = exportMenu, onDismissRequest = { exportMenu = false }) {
                         DropdownMenuItem(
+                            enabled = !exportBusy,
                             text = { Text("Сохранить CSV в Загрузки") },
                             leadingIcon = { Icon(Icons.Filled.FileDownload, null) },
                             onClick = { exportMenu = false; onExportCsv(false) },
@@ -650,6 +673,12 @@ internal fun PlaylistScreen(
                             text = { Text("Отправить CSV") },
                             leadingIcon = { Icon(Icons.Filled.Share, null) },
                             onClick = { exportMenu = false; onExportCsv(true) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (offlineBusy) "Сохраняем для офлайна…" else "Сохранить для офлайна") },
+                            leadingIcon = { Icon(Icons.Filled.DownloadForOffline, null) },
+                            enabled = !offlineBusy,
+                            onClick = { exportMenu = false; onSaveOffline() },
                         )
                     }
                 }
@@ -759,6 +788,48 @@ internal fun PlaylistScreen(
                 }
             }
         }
+        }
+    }
+}
+
+@Composable
+private fun UpdateBanner(
+    release: AppRelease,
+    progress: Float?,
+    onUpdate: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(20.dp * LocalCornerRadiusScale.current))
+            .background(scheme.primaryContainer)
+            .padding(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.SystemUpdate, null, tint = scheme.onPrimaryContainer)
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text("Доступна Aria ${release.version}", fontWeight = FontWeight.Bold, color = scheme.onPrimaryContainer)
+                Text(
+                    release.notes.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.trimStart('-', '*', ' ')
+                        ?: "Новая версия на GitHub",
+                    color = scheme.onPrimaryContainer.copy(alpha = 0.8f),
+                    fontSize = 13.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (progress != null) {
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            )
+        } else {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text("Позже", color = scheme.onPrimaryContainer) }
+                Button(onClick = onUpdate) { Text("Обновить") }
+            }
         }
     }
 }

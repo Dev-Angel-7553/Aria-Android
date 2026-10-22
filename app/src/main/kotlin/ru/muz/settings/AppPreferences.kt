@@ -60,6 +60,8 @@ data class AppSettings(
     val preloadArtwork: Boolean = true,
     val keepSearchHistory: Int = 12,
     val reportListening: Boolean = true,
+    val cacheSizeMb: Int = 1024,
+    val autoCheckUpdates: Boolean = true,
 )
 
 class AppPreferences(context: Context) {
@@ -123,6 +125,8 @@ class AppPreferences(context: Context) {
             preloadArtwork = prefs.getBoolean("preload_artwork", true),
             keepSearchHistory = prefs.getInt("keep_search_history", 12).coerceIn(0, 30),
             reportListening = prefs.getBoolean("report_listening", true),
+            cacheSizeMb = prefs.getInt("cache_size_mb", 1024).coerceIn(0, 8192),
+            autoCheckUpdates = prefs.getBoolean("auto_check_updates", true),
         )
     }
 
@@ -179,6 +183,8 @@ class AppPreferences(context: Context) {
             .putBoolean("preload_artwork", value.preloadArtwork)
             .putInt("keep_search_history", value.keepSearchHistory)
             .putBoolean("report_listening", value.reportListening)
+            .putInt("cache_size_mb", value.cacheSizeMb)
+            .putBoolean("auto_check_updates", value.autoCheckUpdates)
             .remove("pure_black")
             .remove("prefetch_pages")
             .apply()

@@ -38,6 +38,11 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Code
+import ru.muz.update.AppRelease
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.Palette
@@ -94,6 +99,7 @@ private enum class SettingsPage(val title: String) {
     LYRICS("Текст песни"),
     PLAYBACK("Воспроизведение"),
     ACCOUNT("Аккаунт и данные"),
+    ABOUT("О приложении"),
 }
 
 @Composable
@@ -115,6 +121,15 @@ internal fun SettingsScreen(
     syncBusy: Boolean = false,
     exportBusy: Boolean = false,
     onExportCollection: (share: Boolean) -> Unit = {},
+    appVersion: String = "",
+    availableUpdate: AppRelease? = null,
+    updateChecking: Boolean = false,
+    updateProgress: Float? = null,
+    onCheckUpdates: () -> Unit = {},
+    onInstallUpdate: (AppRelease) -> Unit = {},
+    cacheUsedBytes: Long = 0L,
+    onClearCache: () -> Unit = {},
+    onRefreshCache: () -> Unit = {},
 ) {
     var page by remember { mutableStateOf(SettingsPage.ROOT) }
     var confirmReset by remember { mutableStateOf(false) }
@@ -206,6 +221,13 @@ internal fun SettingsScreen(
                         ) { page = SettingsPage.ACCOUNT }
                     }
                     item {
+                        SettingsNavRow(
+                            Icons.Filled.Info,
+                            "О приложении",
+                            availableUpdate?.let { "Доступна версия ${it.version}" } ?: "Aria $appVersion",
+                        ) { page = SettingsPage.ABOUT }
+                    }
+                    item {
                         TextButton(
                             onClick = { confirmReset = true },
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
@@ -217,7 +239,11 @@ internal fun SettingsScreen(
                 SettingsPage.LISTS -> listSettings(settings, onChange)
                 SettingsPage.PLAYER -> playerSettings(settings, onChange)
                 SettingsPage.LYRICS -> lyricsSettings(settings, onChange)
-                SettingsPage.PLAYBACK -> playbackSettings(settings, onChange)
+                SettingsPage.PLAYBACK -> playbackSettings(settings, onChange, cacheUsedBytes, onClearCache, onRefreshCache)
+                SettingsPage.ABOUT -> aboutSettings(
+                    settings, onChange, appVersion, availableUpdate, updateChecking, updateProgress,
+                    onCheckUpdates, onInstallUpdate,
+                )
                 SettingsPage.ACCOUNT -> accountSettings(
                     account, settings, onChange, { confirmLogout = true }, onSyncNow, syncBusy,
                     exportBusy, onExportCollection,
@@ -527,11 +553,110 @@ private fun LyricsFineTuning(settings: AppSettings, onChange: (AppSettings) -> U
     }
 }
 
-private fun LazyListScope.playbackSettings(settings: AppSettings, onChange: (AppSettings) -> Unit) {
+private fun LazyListScope.playbackSettings(
+    settings: AppSettings,
+    onChange: (AppSettings) -> Unit,
+    cacheUsedBytes: Long,
+    onClearCache: () -> Unit,
+    onRefreshCache: () -> Unit,
+) {
     item { SettingsTitle("Качество и устройство") }
     item { SettingSwitch("Экономия трафика", "Запрашивает поток с меньшим битрейтом", settings.dataSaver) { onChange(settings.copy(dataSaver = it)) } }
     item { SettingSwitch("Не выключать экран", "Пока приложение открыто", settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) } }
-    item { SectionReset("Сбросить воспроизведение") { defaults -> onChange(settings.copy(dataSaver = defaults.dataSaver, keepScreenOn = defaults.keepScreenOn)) } }
+    item { SettingsTitle("Кэш и офлайн") }
+    item {
+        androidx.compose.runtime.LaunchedEffect(Unit) { onRefreshCache() }
+        SettingSlider(
+            "Размер кэша",
+            settings.cacheSizeMb,
+            0..8192,
+            512,
+            { if (it == 0) "Выключен" else formatSize(it * 1024L * 1024L) },
+        ) { onChange(settings.copy(cacheSizeMb = it)) }
+    }
+    item {
+        Text(
+            "Прослушанные треки и плейлисты, сохранённые для офлайна, играют без сети. " +
+                "Когда место заканчивается, первыми удаляются давно не игравшие. Новый размер применится после перезапуска приложения.",
+            color = SoftText,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+        )
+    }
+    item {
+        SettingsActionRow(
+            Icons.Filled.DeleteSweep,
+            "Очистить кэш",
+            "Сейчас занято ${formatSize(cacheUsedBytes)}",
+            cacheUsedBytes > 0,
+            onClearCache,
+        )
+    }
+    item { SectionReset("Сбросить воспроизведение") { defaults -> onChange(settings.copy(dataSaver = defaults.dataSaver, keepScreenOn = defaults.keepScreenOn, cacheSizeMb = defaults.cacheSizeMb)) } }
+}
+
+private fun LazyListScope.aboutSettings(
+    settings: AppSettings,
+    onChange: (AppSettings) -> Unit,
+    appVersion: String,
+    availableUpdate: AppRelease?,
+    updateChecking: Boolean,
+    updateProgress: Float?,
+    onCheckUpdates: () -> Unit,
+    onInstallUpdate: (AppRelease) -> Unit,
+) {
+    item {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.ui.viewinterop.AndroidView(
+                factory = { context -> android.widget.ImageView(context).apply { setImageResource(ru.muz.R.mipmap.ic_launcher) } },
+                modifier = Modifier.size(56.dp),
+            )
+            Column(Modifier.padding(start = 14.dp)) {
+                Text("Aria", fontWeight = FontWeight.Black, fontSize = 22.sp)
+                Text("Версия $appVersion", color = SoftText, fontSize = 13.sp)
+            }
+        }
+    }
+    item { SettingsTitle("Обновления") }
+    item {
+        SettingSwitch("Проверять обновления", "Раз в несколько часов смотрит релизы на GitHub", settings.autoCheckUpdates) {
+            onChange(settings.copy(autoCheckUpdates = it))
+        }
+    }
+    if (availableUpdate != null) {
+        item {
+            SettingsActionRow(
+                Icons.Filled.SystemUpdate,
+                if (updateProgress != null) "Скачиваем… ${(updateProgress * 100).toInt()}%" else "Установить Aria ${availableUpdate.version}",
+                availableUpdate.notes.lineSequence().firstOrNull { it.isNotBlank() }?.trim(),
+                updateProgress == null,
+            ) { onInstallUpdate(availableUpdate) }
+        }
+    }
+    item {
+        SettingsActionRow(
+            Icons.Filled.Sync,
+            if (updateChecking) "Проверяем…" else "Проверить сейчас",
+            null,
+            !updateChecking,
+            onCheckUpdates,
+        )
+    }
+    item {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        SettingsActionRow(Icons.Filled.Code, "Исходный код на GitHub", "github.com/Dev-Angel-7553/Aria-Android", true) {
+            ru.muz.update.UpdateInstaller.openPage(context, "https://github.com/Dev-Angel-7553/Aria-Android")
+        }
+    }
+}
+
+private fun formatSize(bytes: Long): String {
+    val mb = bytes / (1024.0 * 1024.0)
+    return when {
+        bytes <= 0 -> "0 МБ"
+        mb >= 1024 -> String.format(java.util.Locale.ROOT, "%.1f ГБ", mb / 1024).replace('.', ',')
+        else -> "${mb.roundToInt()} МБ"
+    }
 }
 
 @Composable

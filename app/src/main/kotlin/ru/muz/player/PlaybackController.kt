@@ -6,7 +6,15 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import android.os.Bundle
 import androidx.media3.session.MediaController
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import ru.muz.yandex.PlaySource
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.CoroutineScope
@@ -25,7 +33,23 @@ class PlaybackController(context: Context) {
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state
     private var controller: MediaController? = null
-    private var pendingQueue: Pair<List<YandexTrack>, Int>? = null
+    private var pendingQueue: Triple<List<YandexTrack>, Int, PlaySource>? = null
+    private var currentSource = PlaySource.other()
+    private val _likeChanges = MutableSharedFlow<Pair<String, Boolean>>(extraBufferCapacity = 16)
+    val likeChanges: SharedFlow<Pair<String, Boolean>> = _likeChanges
+    private val sessionListener = object : MediaController.Listener {
+        override fun onCustomCommand(
+            controller: MediaController,
+            command: SessionCommand,
+            args: Bundle,
+        ): ListenableFuture<SessionResult> {
+            if (command.customAction == MediaExtras.CMD_LIKE_CHANGED) {
+                val id = args.getString(MediaExtras.ARG_TRACK).orEmpty()
+                if (id.isNotBlank()) _likeChanges.tryEmit(id to args.getBoolean(MediaExtras.ARG_LIKED, false))
+            }
+            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+        }
+    }
     private var positionJob: Job? = null
     private var playbackError = ""
     private var discontinuity = 0L
@@ -59,7 +83,7 @@ class PlaybackController(context: Context) {
 
     init {
         val token = SessionToken(context, ComponentName(context, MuzPlayerService::class.java))
-        val future = MediaController.Builder(context, token).buildAsync()
+        val future = MediaController.Builder(context, token).setListener(sessionListener).buildAsync()
         future.addListener({
             runCatching { future.get() }.onSuccess { connected ->
                 if (released) {
@@ -69,9 +93,9 @@ class PlaybackController(context: Context) {
                 controller = connected
                 connected.addListener(listener)
                 publish(connected)
-                pendingQueue?.also { (tracks, index) ->
+                pendingQueue?.also { (tracks, index, source) ->
                     pendingQueue = null
-                    playQueue(tracks, index)
+                    playQueue(tracks, index, source)
                 }
                 positionJob = scope.launch {
                     while (isActive) {
@@ -87,12 +111,13 @@ class PlaybackController(context: Context) {
         playQueue(listOf(track), 0)
     }
 
-    fun playQueue(tracks: List<YandexTrack>, startIndex: Int) {
+    fun playQueue(tracks: List<YandexTrack>, startIndex: Int, source: PlaySource = PlaySource.other()) {
         if (tracks.isEmpty()) return
         playbackError = ""
+        currentSource = source
         val activeController = controller
         if (activeController == null) {
-            pendingQueue = tracks to startIndex.coerceIn(tracks.indices)
+            pendingQueue = Triple(tracks, startIndex.coerceIn(tracks.indices), source)
             return
         }
         val items = tracks.map(::mediaItem)
@@ -138,6 +163,14 @@ class PlaybackController(context: Context) {
         controller?.let { it.addMediaItem((it.currentMediaItemIndex + 1).coerceAtLeast(0), mediaItem(track)) }
     }
     fun addToQueue(track: YandexTrack) { controller?.addMediaItem(mediaItem(track)) }
+    fun setLiked(trackId: String, liked: Boolean) {
+        val args = Bundle().apply {
+            putString(MediaExtras.ARG_TRACK, trackId)
+            putBoolean(MediaExtras.ARG_LIKED, liked)
+        }
+        controller?.sendCustomCommand(SessionCommand(MediaExtras.CMD_SET_LIKED, Bundle.EMPTY), args)
+    }
+
     fun setShuffle(enabled: Boolean) { controller?.shuffleModeEnabled = enabled }
     fun setRepeat(mode: RepeatMode) {
         controller?.repeatMode = when (mode) {
@@ -184,22 +217,15 @@ class PlaybackController(context: Context) {
         )
     }
 
-    private fun mediaItem(track: YandexTrack): MediaItem = MediaItem.Builder()
-        .setMediaId(track.id)
-        .setUri("yamusic://track/${track.id}")
-        .setMediaMetadata(
-            MediaMetadata.Builder()
-                .setTitle(track.title)
-                .setArtist(track.artist)
-                .setArtworkUri(track.coverUrl?.let(android.net.Uri::parse))
-                .build(),
-        )
-        .build()
+    private fun mediaItem(track: YandexTrack): MediaItem = MediaExtras.item(track, currentSource)
 
     data class YandexTrack(
         val id: String,
         val title: String,
         val artist: String,
         val coverUrl: String?,
+        val albumId: String = "",
+        val durationMs: Long = 0,
+        val liked: Boolean = false,
     )
 }

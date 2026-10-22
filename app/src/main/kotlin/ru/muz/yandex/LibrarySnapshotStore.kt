@@ -24,13 +24,18 @@ internal class LibrarySnapshotStore(context: Context) {
     private val file = AtomicFile(File(context.filesDir, "yandex_library_snapshot_v1.json"))
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun read(accountUid: String): LibrarySnapshot? = withContext(Dispatchers.IO) {
+    suspend fun read(accountUid: String): LibrarySnapshot? = readMatching(accountUid)
+
+    suspend fun readLatest(): LibrarySnapshot? = readMatching(null)
+
+    private suspend fun readMatching(accountUid: String?): LibrarySnapshot? = withContext(Dispatchers.IO) {
         runCatching {
             if (!file.baseFile.exists()) return@runCatching null
             val root = json.parseToJsonElement(file.readFully().decodeToString()).jsonObject
-            if (root.string("uid") != accountUid) return@runCatching null
+            val uid = root.string("uid")
+            if (accountUid != null && uid != accountUid) return@runCatching null
             LibrarySnapshot(
-                uid = accountUid,
+                uid = uid,
                 syncedAtMs = root.long("syncedAtMs"),
                 liked = root.array("liked").mapNotNull { it.asObject()?.toTrack() },
                 albums = root.array("albums").mapNotNull { it.asObject()?.toAlbum() },
