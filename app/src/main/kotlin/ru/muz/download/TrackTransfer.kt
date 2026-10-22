@@ -160,20 +160,57 @@ object TrackTransfer {
         mimeType: String,
         bytes: ByteArray,
         chooserTitle: String = "Отправить CSV",
+        text: String? = null,
     ): Result<Unit> = runCatching {
-        val uri = withContext(Dispatchers.IO) {
-            val directory = File(context.cacheDir, "shared_music").apply { mkdirs() }
-            val file = File(directory, safeName(fileName))
-            file.writeBytes(bytes)
-            FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+        val file = withContext(Dispatchers.IO) {
+            sharedFile(context, fileName).apply { writeBytes(bytes) }
         }
+        shareFile(context, file, mimeType, chooserTitle, text)
+    }
+
+    fun sharedFile(context: Context, fileName: String): File {
+        val directory = File(context.cacheDir, "shared_music").apply { mkdirs() }
+        return File(directory, safeName(fileName))
+    }
+
+    fun shareFile(context: Context, file: File, mimeType: String, chooserTitle: String, text: String? = null) {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = mimeType
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_TITLE, fileName)
+            putExtra(Intent.EXTRA_TITLE, file.name)
+            if (!text.isNullOrBlank()) putExtra(Intent.EXTRA_TEXT, text)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(Intent.createChooser(intent, chooserTitle))
+    }
+
+    suspend fun saveVideo(context: Context, source: File, fileName: String): Result<String> = runCatching {
+        withContext(Dispatchers.IO) {
+            val name = safeName(fileName)
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/Aria")
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+            }
+            val resolver = context.contentResolver
+            val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                ?: error("Не удалось создать видео")
+            try {
+                resolver.openOutputStream(uri)?.use { out -> source.inputStream().use { it.copyTo(out) } }
+                    ?: error("Не удалось открыть файл")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
+                }
+            } catch (error: Throwable) {
+                resolver.delete(uri, null, null)
+                throw error
+            }
+            "Movies/Aria/$name"
+        }
     }
 
     suspend fun savePicture(context: Context, fileName: String, bytes: ByteArray): Result<String> = runCatching {

@@ -311,11 +311,19 @@ internal fun FullPlayerScreen(
     }
     quoteStart?.let { start ->
         QuoteEditor(
-            lines = lyrics.lines.map { it.text },
+            lines = lyrics.lines,
             initial = start,
             title = state.title,
             artist = state.artist,
             coverUrl = state.coverUrl,
+            music = QuoteMusic(
+                link = tools.trackLink,
+                resolveAudio = tools.resolveAudio,
+                durationMs = state.durationMs,
+                positionMs = state.positionMs,
+                offsetMs = settings.lyricsOffsetMs,
+                synced = lyrics.synced,
+            ),
             onDismiss = { quoteStart = null },
         )
     }

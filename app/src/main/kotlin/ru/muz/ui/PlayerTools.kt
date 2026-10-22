@@ -53,6 +53,8 @@ internal data class PlayerTools(
     val onSpeed: (Float) -> Unit = {},
     val skipSilence: Boolean = false,
     val onSkipSilence: (Boolean) -> Unit = {},
+    val trackLink: String? = null,
+    val resolveAudio: (suspend () -> Result<String>)? = null,
 )
 
 internal fun PlayerAction.title(): String = when (this) {

@@ -302,9 +302,13 @@ fun MusicApp(
     }
 
     fun connect(rawToken: String) {
-        val clean = rawToken.trim()
+        val clean = ru.muz.auth.TokenInput.extract(rawToken)
         if (clean.isBlank()) {
-            message = "Вставьте OAuth-токен"
+            message = "Вставьте токен или адрес страницы после входа"
+            return
+        }
+        if (!ru.muz.auth.TokenInput.looksValid(clean)) {
+            message = "Это не похоже на токен. Скопируйте адрес music.yandex.ru/#access_token=… целиком"
             return
         }
         busy = true
@@ -946,6 +950,11 @@ fun MusicApp(
                             onSkipSilence = { enabled ->
                                 playback.setSkipSilence(enabled)
                                 updateSettings(settings.copy(skipSilence = enabled))
+                            },
+                            trackLink = currentTrack?.let { ru.muz.export.PlaylistCsv.trackUrl(it.id, it.albumId) }?.takeIf { it.isNotBlank() },
+                            resolveAudio = api?.let { client ->
+                                val id = player.mediaId
+                                suspend { client.streamUrl(id) }
                             },
                         ),
                         lyrics = if (lyricsTrackId == player.mediaId) lyrics else Lyrics.EMPTY,
