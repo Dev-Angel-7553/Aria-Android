@@ -1,0 +1,746 @@
+package ru.muz.ui
+
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Lyrics
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.InsertLink
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.offset
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import coil.imageLoader
+import androidx.compose.animation.animateColorAsState
+import android.graphics.drawable.BitmapDrawable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.math.abs
+import ru.muz.lyrics.Lyrics
+import ru.muz.lyrics.LyricsScreen
+import ru.muz.lyrics.LyricsSettings
+import ru.muz.player.PlayerState
+import ru.muz.player.RepeatMode as PlayerRepeatMode
+import ru.muz.player.formatDuration
+import ru.muz.settings.AppSettings
+import ru.muz.settings.LyricsAlignment
+import ru.muz.settings.PlayerLayout
+import ru.muz.yandex.YandexClient
+import ru.muz.theme.ColorMath
+import androidx.compose.ui.graphics.toArgb
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun FullPlayerScreen(
+    state: PlayerState,
+    lyrics: Lyrics,
+    lyricsLoading: Boolean,
+    lyricsStatus: String,
+    lyricsError: String,
+    showLyrics: Boolean,
+    settings: AppSettings,
+    liked: Boolean,
+    onBack: () -> Unit,
+    onToggleView: () -> Unit,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onLike: () -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+    onRetryLyrics: () -> Unit,
+    queue: List<YandexClient.Track>,
+    transferBusy: Boolean,
+    transferMessage: String,
+    onCopyTransferLog: () -> Unit = {},
+    onQueueTrack: (Int) -> Unit,
+    onDownload: () -> Unit,
+    onDownloadCover: () -> Unit,
+    onOpenCover: () -> Unit,
+    onShareLink: () -> Unit,
+    onShareFile: () -> Unit,
+    onArtist: () -> Unit,
+    onCopyArtist: () -> Unit,
+) {
+    val position by rememberPlaybackPosition(state)
+    val reduceMotion = LocalReduceMotion.current
+    var showQueue by remember { mutableStateOf(false) }
+    var playerDrag by remember(state.mediaId) { mutableFloatStateOf(0f) }
+    val playerOffset by animateDpAsState(
+        targetValue = (if (reduceMotion) 0f else playerDrag / 5f).coerceIn(-34f, 34f).dp,
+        animationSpec = tween(animationDuration(180)),
+        label = "full-player-swipe",
+    )
+    val playerSwipeModifier = if (settings.fullPlayerSwipe && !showLyrics) {
+        Modifier.pointerInput(state.mediaId, showLyrics) {
+            detectHorizontalDragGestures(
+                onDragStart = { playerDrag = 0f },
+                onHorizontalDrag = { change, amount -> change.consume(); playerDrag += amount },
+                onDragEnd = {
+                    when {
+                        playerDrag < -100f -> onNext()
+                        playerDrag > 100f -> onPrevious()
+                    }
+                    playerDrag = 0f
+                },
+                onDragCancel = { playerDrag = 0f },
+            )
+        }
+    } else Modifier
+    val context = LocalContext.current
+    var coverTint by remember(state.coverUrl) { mutableStateOf(fallbackCoverTint(state.coverUrl)) }
+    LaunchedEffect(state.coverUrl) {
+        val url = state.coverUrl ?: return@LaunchedEffect
+        coverTint = withContext(Dispatchers.IO) {
+            val request = ImageRequest.Builder(context).data(url).allowHardware(false).size(96).build()
+            val result = context.imageLoader.execute(request) as? SuccessResult
+            val bitmap = (result?.drawable as? BitmapDrawable)?.bitmap
+                ?: return@withContext fallbackCoverTint(url)
+            val small = android.graphics.Bitmap.createScaledBitmap(bitmap, 32, 32, true)
+            val pixels = IntArray(32 * 32)
+            small.getPixels(pixels, 0, 32, 0, 0, 32, 32)
+            if (small !== bitmap) small.recycle()
+            ColorMath.dominantVibrant(pixels)?.let { Color(it) } ?: fallbackCoverTint(url)
+        }
+    }
+    val screenBackground = AppBackground
+    val coverAccentColor = remember(coverTint, screenBackground) {
+        Color(ColorMath.playerAccent(coverTint.toArgb(), screenBackground.toArgb()))
+    }
+    val animatedTint by animateColorAsState(coverTint, tween(playerTransitionDuration(400)), label = "cover-tint")
+    val animatedAccent by animateColorAsState(coverAccentColor, tween(playerTransitionDuration(400)), label = "cover-accent")
+    val backdrop = if (settings.coverColorBackground || settings.playerBlurBackground) {
+        Modifier.background(
+            Brush.verticalGradient(
+                listOf(
+                    animatedTint.copy(alpha = if (settings.coverColorBackground) 0.28f else 0.13f),
+                    AppBackground,
+                    AppBackground,
+                ),
+            ),
+        )
+    } else Modifier.background(AppBackground)
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalPlayerAccent provides if (settings.coverAccent) animatedAccent else null,
+        LocalOnPlayerAccent provides if (settings.coverAccent) Color(ColorMath.contentColorFor(animatedAccent.toArgb())) else null,
+    ) {
+        Column(
+            Modifier.fillMaxSize().then(backdrop).statusBarsPadding().navigationBarsPadding()
+            .offset(x = playerOffset).graphicsLayer {
+                alpha = if (reduceMotion) 1f else 1f - (abs(playerDrag) / 900f).coerceIn(0f, 0.14f)
+            }.then(playerSwipeModifier),
+        ) {
+            PlayerHeader(showLyrics, state, onBack, onToggleView, onArtist)
+            PlayerCrossfade(showLyrics, Modifier.weight(1f)) { lyricsVisible ->
+                Column(Modifier.fillMaxSize()) {
+                    if (lyricsVisible) {
+                        val lyricsPage = when {
+                            lyricsLoading -> 0
+                            lyricsError.isNotBlank() -> 1
+                            lyrics.lines.isEmpty() -> 2
+                            else -> 3
+                        }
+                        PlayerCrossfade(lyricsPage, Modifier.weight(1f)) { page ->
+                            Column(Modifier.fillMaxSize()) {
+                                when {
+                                    page == 0 -> LyricsLoading(lyricsStatus, Modifier.weight(1f))
+                                    page == 1 -> LyricsError(lyricsError, onRetryLyrics, onToggleView, Modifier.weight(1f))
+                                    page == 2 -> LyricsEmpty(
+                                        onRetry = onRetryLyrics,
+                                        onOpenPlayer = onToggleView,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    else -> LyricsScreen(
+                                        lyrics = lyrics,
+                                        positionMs = (position + settings.lyricsOffsetMs).coerceAtLeast(0),
+                                        discontinuity = state.discontinuity,
+                                        onSeek = { onSeek((it - settings.lyricsOffsetMs).coerceAtLeast(0)) },
+                                        settings = LyricsSettings.MEASURED.copy(
+                                            fontSize = settings.lyricsFontSize.sp,
+                                            lineHeight = settings.lyricsLineHeight.sp,
+                                            lineSpacingDp = settings.lyricsLineSpacing,
+                                            horizontalPaddingDp = settings.lyricsHorizontalPadding,
+                                            anchorFraction = settings.lyricsAnchorPercent / 100f,
+                                            activeUnsungAlpha = settings.lyricsUnsungPercent / 100f,
+                                            sungAlpha = (settings.lyricsSungPercent / 100f).coerceIn(0.7f, 1.25f),
+                                            inactiveAlpha = settings.lyricsInactivePercent / 100f,
+                                            textAlign = if (settings.lyricsAlignment == LyricsAlignment.CENTER) {
+                                                TextAlign.Center
+                                            } else {
+                                                TextAlign.Start
+                                            },
+                                            fadeEdges = settings.fadeLyrics,
+                                            karaokeFill = settings.karaokeFill,
+                                            karaokeFillStyle = settings.karaokeFillStyle,
+                                            glowBlurDp = settings.lyricsGlowBlur.toFloat(),
+                                            glowAlpha = settings.lyricsGlowAlpha / 100f,
+                                            scrollDurationMs = settings.lyricsScrollSpeed,
+                                            boldActiveLine = settings.boldActiveLyrics,
+                                            activeScale = settings.lyricsActiveScale / 100f,
+                                            tapToSeek = settings.lyricsTapToSeek,
+                                            autoScroll = settings.lyricsAutoScroll,
+                                        ),
+                                        modifier = Modifier.weight(1f),
+                                        background = Color.Transparent,
+                                    )
+                                }
+                            }
+                        }
+                        LyricsDock(
+                            state = state,
+                            liked = liked,
+                            swipeEnabled = settings.swipeMiniPlayer,
+                            onPlayPause = onPlayPause,
+                            onPrevious = onPrevious,
+                            onNext = onNext,
+                            onSeek = onSeek,
+                            onLike = onLike,
+                            onQueue = { showQueue = true },
+                            onDismiss = onBack,
+                        )
+                    } else {
+                        StandardPlayer(
+                            state, liked, onPlayPause, onPrevious, onNext, onSeek, onLike, onShuffle, onRepeat,
+                            onQueue = { showQueue = true },
+                            transferBusy = transferBusy,
+                            transferMessage = transferMessage,
+                            onCopyTransferLog = onCopyTransferLog,
+                            onDownload = onDownload,
+                            onDownloadCover = onDownloadCover,
+                            onOpenCover = onOpenCover,
+                            onShareLink = onShareLink,
+                            onShareFile = onShareFile,
+                            onArtist = onArtist,
+                            onCopyArtist = onCopyArtist,
+                            artworkPercent = settings.playerArtworkPercent,
+                            layout = settings.playerLayout,
+                            onDismiss = onBack,
+                            gesturesEnabled = settings.fullPlayerSwipe,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+    }
+    if (showQueue) {
+        ModalBottomSheet(onDismissRequest = { showQueue = false }) {
+            Text(
+                "Очередь · ${queue.size}",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
+            val currentIndex = queue.indexOfFirst { it.id == state.mediaId }.coerceAtLeast(0)
+            val queueState = androidx.compose.foundation.lazy.rememberLazyListState(
+                initialFirstVisibleItemIndex = (currentIndex - 2).coerceAtLeast(0),
+            )
+            LazyColumn(Modifier.fillMaxWidth().height(480.dp), state = queueState) {
+                itemsIndexed(queue, key = { index, track -> "$index:${track.id}" }) { index, track ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable {
+                            onQueueTrack(index)
+                            showQueue = false
+                        }.padding(horizontal = 20.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Artwork(track.coverUrl, Modifier.size(48.dp), 9.dp)
+                        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                            Text(
+                                track.title,
+                                color = if (track.id == state.mediaId) Accent else MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(track.artist, color = SoftText, fontSize = 13.sp, maxLines = 1)
+                        }
+                        if (track.id == state.mediaId) {
+                            NowPlayingBars(state.isPlaying, Modifier.size(width = 18.dp, height = 16.dp))
+                        } else {
+                            Text(formatDuration(track.durationMs), color = SoftText, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerHeader(
+    showLyrics: Boolean,
+    state: PlayerState,
+    onBack: () -> Unit,
+    onToggleView: () -> Unit,
+    onArtist: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Свернуть") }
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(if (showLyrics) "Текст песни" else "Сейчас играет", fontWeight = FontWeight.Bold)
+            if (showLyrics) {
+                Text(
+                    listOf(state.artist, state.title).filter { it.isNotBlank() }.joinToString(" — "),
+                    color = SoftText,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clickable(onClick = onArtist),
+                )
+            }
+        }
+        IconButton(onClick = onToggleView) {
+            Icon(
+                if (showLyrics) Icons.Filled.Headphones else Icons.Filled.Lyrics,
+                if (showLyrics) "Показать плеер" else "Показать текст песни",
+            )
+        }
+    }
+}
+
+private fun fallbackCoverTint(url: String?): Color {
+    val hash = url.orEmpty().hashCode()
+    val red = 0.34f + ((hash ushr 16) and 0x7f) / 255f
+    val green = 0.34f + ((hash ushr 8) and 0x7f) / 255f
+    val blue = 0.34f + (hash and 0x7f) / 255f
+    return Color(red.coerceAtMost(0.82f), green.coerceAtMost(0.82f), blue.coerceAtMost(0.82f))
+}
+
+@Composable
+private fun LyricsLoading(status: String, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            MuzLoadingIndicator(Modifier.size(52.dp))
+            Text(
+                status.ifBlank { "Проверяем Яндекс Музыку…" },
+                color = SoftText,
+                modifier = Modifier.padding(top = 18.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LyricsError(
+    message: String,
+    onRetry: () -> Unit,
+    onOpenPlayer: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier.padding(horizontal = 30.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(message, color = SoftText, textAlign = TextAlign.Center)
+            Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onRetry) { Text("Искать ещё раз") }
+                androidx.compose.material3.TextButton(onClick = onOpenPlayer) { Text("Открыть плеер") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LyricsEmpty(onRetry: () -> Unit, onOpenPlayer: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Column(Modifier.padding(horizontal = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Текста пока нет", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(
+                "Попробуем обновить поиск или можно продолжить слушать трек без текста.",
+                color = SoftText,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onRetry) { Text("Искать ещё раз") }
+                androidx.compose.material3.TextButton(onClick = onOpenPlayer) { Text("Открыть плеер") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LyricsDock(
+    state: PlayerState,
+    liked: Boolean,
+    swipeEnabled: Boolean,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onLike: () -> Unit,
+    onQueue: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val reduceMotion = LocalReduceMotion.current
+    var drag by remember(state.mediaId) { mutableFloatStateOf(0f) }
+    var verticalDrag by remember(state.mediaId) { mutableFloatStateOf(0f) }
+    val dockOffset by animateDpAsState(
+        targetValue = (if (reduceMotion) 0f else drag / 5f).coerceIn(-30f, 30f).dp,
+        animationSpec = tween(animationDuration(180)),
+        label = "lyrics-dock-swipe",
+    )
+    val dockVerticalOffset by animateDpAsState(
+        targetValue = (if (reduceMotion) 0f else verticalDrag / 5f).coerceIn(-26f, 26f).dp,
+        animationSpec = tween(animationDuration(180)),
+        label = "lyrics-dock-vertical-swipe",
+    )
+    val swipe = if (swipeEnabled) {
+        Modifier.pointerInput(state.mediaId) {
+            detectDragGestures(
+                onDragStart = { drag = 0f; verticalDrag = 0f },
+                onDrag = { change, amount ->
+                    change.consume()
+                    drag += amount.x
+                    verticalDrag += amount.y
+                },
+                onDragEnd = {
+                    if (abs(drag) >= abs(verticalDrag)) {
+                        when {
+                            drag < -72f -> onNext()
+                            drag > 72f -> onPrevious()
+                        }
+                    } else {
+                        when {
+                            verticalDrag < -90f -> onQueue()
+                            verticalDrag > 90f -> onDismiss()
+                        }
+                    }
+                    drag = 0f
+                    verticalDrag = 0f
+                },
+                onDragCancel = { drag = 0f; verticalDrag = 0f },
+            )
+        }
+    } else Modifier
+    Column(
+        Modifier.fillMaxWidth().offset(x = dockOffset, y = dockVerticalOffset).graphicsLayer {
+            alpha = if (reduceMotion) 1f else 1f - (maxOf(abs(drag), abs(verticalDrag)) / 700f).coerceIn(0f, 0.16f)
+            scaleX = if (reduceMotion) 1f else 1f - (maxOf(abs(drag), abs(verticalDrag)) / 7000f).coerceIn(0f, 0.035f)
+            scaleY = scaleX
+        }.then(swipe)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            PlayerCrossfade(state.coverUrl, Modifier.size(50.dp)) { url -> Artwork(url, Modifier.fillMaxSize(), 9.dp) }
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(state.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(state.artist, color = SoftText, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            IconButton(onClick = onLike) {
+                Icon(
+                    if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    "Нравится",
+                    tint = if (liked) Accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Box(
+                Modifier.size(44.dp).clip(CircleShape).background(Accent).clickable(onClick = onPlayPause),
+                contentAlignment = Alignment.Center,
+            ) {
+                PlaybackIcon(state, Modifier.size(26.dp), MaterialTheme.colorScheme.onPrimary)
+            }
+        }
+        PlaybackTimeline(state, onSeek)
+    }
+}
+
+@Composable
+private fun StandardPlayer(
+    state: PlayerState,
+    liked: Boolean,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onLike: () -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+    onQueue: () -> Unit,
+    transferBusy: Boolean,
+    transferMessage: String,
+    onCopyTransferLog: () -> Unit,
+    onDownload: () -> Unit,
+    onDownloadCover: () -> Unit,
+    onOpenCover: () -> Unit,
+    onShareLink: () -> Unit,
+    onShareFile: () -> Unit,
+    onArtist: () -> Unit,
+    onCopyArtist: () -> Unit,
+    artworkPercent: Int,
+    layout: PlayerLayout,
+    onDismiss: () -> Unit,
+    gesturesEnabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.padding(horizontal = 20.dp)) {
+        if (layout == PlayerLayout.COVER_FIRST) {
+            PlayerArtwork(
+                settingsSwipe = gesturesEnabled,
+                state = state, artworkPercent = artworkPercent,
+                onSwipeUp = onQueue, onSwipeDown = onDismiss, modifier = Modifier.weight(1f),
+            )
+        }
+            PlayerDetails(
+            state, liked, onPlayPause, onPrevious, onNext, onSeek, onLike, onShuffle, onRepeat,
+            onQueue, transferBusy, transferMessage, onCopyTransferLog, onDownload, onDownloadCover, onOpenCover, onShareLink, onShareFile, onArtist, onCopyArtist,
+        )
+        if (layout == PlayerLayout.CONTROLS_FIRST) {
+            PlayerArtwork(
+                settingsSwipe = gesturesEnabled,
+                state = state, artworkPercent = artworkPercent,
+                onSwipeUp = onQueue, onSwipeDown = onDismiss, modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlayerArtwork(
+    state: PlayerState,
+    artworkPercent: Int,
+    settingsSwipe: Boolean,
+    onSwipeUp: () -> Unit,
+    onSwipeDown: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val reduceMotion = LocalReduceMotion.current
+    var verticalDrag by remember(state.mediaId) { mutableFloatStateOf(0f) }
+    val artworkOffset by animateDpAsState(
+        targetValue = (if (reduceMotion) 0f else verticalDrag / 5f).coerceIn(-34f, 34f).dp,
+        animationSpec = tween(animationDuration(180)),
+        label = "artwork-vertical-swipe",
+    )
+    val gesture = if (settingsSwipe) {
+        Modifier.pointerInput(state.mediaId) {
+            detectVerticalDragGestures(
+                onDragStart = { verticalDrag = 0f },
+                onVerticalDrag = { change, amount -> change.consume(); verticalDrag += amount },
+                onDragEnd = {
+                    when {
+                        verticalDrag < -110f -> onSwipeUp()
+                        verticalDrag > 110f -> onSwipeDown()
+                    }
+                    verticalDrag = 0f
+                },
+                onDragCancel = { verticalDrag = 0f },
+            )
+        }
+    } else Modifier
+    Box(
+        modifier.fillMaxWidth().offset(y = artworkOffset).graphicsLayer {
+            alpha = if (reduceMotion) 1f else 1f - (abs(verticalDrag) / 850f).coerceIn(0f, 0.16f)
+            scaleX = if (reduceMotion) 1f else 1f - (abs(verticalDrag) / 6000f).coerceIn(0f, 0.035f)
+            scaleY = scaleX
+        }.then(gesture),
+        contentAlignment = Alignment.Center,
+    ) {
+        PlayerCrossfade(state.coverUrl,
+            Modifier.fillMaxWidth((artworkPercent / 100f).coerceIn(0.7f, 1f)).aspectRatio(1f),
+        ) { url -> Artwork(url, Modifier.fillMaxSize(), 30.dp) }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.isBuffering,
+            enter = androidx.compose.animation.fadeIn(tween(playerTransitionDuration(180))),
+            exit = androidx.compose.animation.fadeOut(tween(playerTransitionDuration(180))),
+        ) {
+            Box(Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)), contentAlignment = Alignment.Center) {
+                MuzLoadingIndicator(Modifier.size(38.dp), PlayerAccent)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PlayerDetails(
+    state: PlayerState,
+    liked: Boolean,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onLike: () -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+    onQueue: () -> Unit,
+    transferBusy: Boolean,
+    transferMessage: String,
+    onCopyTransferLog: () -> Unit,
+    onDownload: () -> Unit,
+    onDownloadCover: () -> Unit,
+    onOpenCover: () -> Unit,
+    onShareLink: () -> Unit,
+    onShareFile: () -> Unit,
+    onArtist: () -> Unit,
+    onCopyArtist: () -> Unit,
+) {
+    Column {
+        Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                PlayerCrossfade(state.title) { title ->
+                    Text(title, fontSize = 22.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        state.artist,
+                        color = SoftText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).clickable(onClick = onArtist),
+                    )
+                    IconButton(onClick = onCopyArtist, modifier = Modifier.size(30.dp)) {
+                        Icon(Icons.Filled.ContentCopy, "Скопировать имя артиста", tint = SoftText, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+            IconButton(onClick = onLike) {
+                Icon(
+                    if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    "Нравится",
+                    tint = if (liked) PlayerAccent else MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+        PlaybackErrorBanner(state.error)
+        PlaybackTimeline(state, onSeek)
+        if (transferBusy) MuzWavyProgress(Modifier.fillMaxWidth().padding(top = 6.dp))
+        if (transferMessage.isNotBlank()) {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(transferMessage, color = SoftText, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                if (!transferBusy && transferMessage.contains("Не удалось", ignoreCase = true)) {
+                    IconButton(onClick = onCopyTransferLog, modifier = Modifier.size(30.dp)) {
+                        Icon(Icons.Filled.ContentCopy, "Скопировать диагностический лог", tint = SoftText, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
+        var moreActions by remember { mutableStateOf(false) }
+        Row(
+            Modifier.fillMaxWidth().height(48.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            IconButton(onClick = onQueue) { Icon(Icons.Filled.QueueMusic, "Очередь") }
+            IconButton(onClick = onDownload, enabled = !transferBusy) { Icon(Icons.Filled.Download, "Скачать") }
+            IconButton(onClick = onShareLink) { Icon(Icons.Filled.InsertLink, "Поделиться ссылкой") }
+            IconButton(onClick = { moreActions = true }) { Icon(Icons.Filled.MoreHoriz, "Ещё") }
+        }
+        if (moreActions) {
+            ModalBottomSheet(onDismissRequest = { moreActions = false }) {
+                PlayerSheetAction(Icons.Filled.Share, "Отправить аудиофайл", !transferBusy) { moreActions = false; onShareFile() }
+                PlayerSheetAction(Icons.Filled.Image, "Сохранить обложку", !transferBusy) { moreActions = false; onDownloadCover() }
+                PlayerSheetAction(Icons.Filled.OpenInNew, "Открыть обложку") { moreActions = false; onOpenCover() }
+                PlayerSheetAction(Icons.Filled.ContentCopy, "Скопировать имя артиста") { moreActions = false; onCopyArtist() }
+                androidx.compose.foundation.layout.Spacer(Modifier.height(24.dp))
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth().height(84.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onShuffle) {
+                Icon(Icons.Filled.Shuffle, "Перемешать", tint = if (state.shuffle) PlayerAccent else SoftText)
+            }
+            IconButton(onClick = onPrevious) { Icon(Icons.Filled.SkipPrevious, "Предыдущий", modifier = Modifier.size(34.dp)) }
+            Box(
+                Modifier.size(64.dp).clip(CircleShape).background(PlayerAccent).clickable(onClick = onPlayPause),
+                contentAlignment = Alignment.Center,
+            ) {
+                PlaybackIcon(state, Modifier.size(38.dp), OnPlayerAccent)
+            }
+            IconButton(onClick = onNext) { Icon(Icons.Filled.SkipNext, "Следующий", modifier = Modifier.size(34.dp)) }
+            IconButton(onClick = onRepeat) {
+                Icon(
+                    if (state.repeat == PlayerRepeatMode.ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                    "Повтор",
+                    tint = if (state.repeat != PlayerRepeatMode.OFF) PlayerAccent else SoftText,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerSheetAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    androidx.compose.material3.ListItem(
+        headlineContent = { Text(title) },
+        leadingContent = { Icon(icon, null) },
+        modifier = Modifier.fillMaxWidth().then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .graphicsLayer { alpha = if (enabled) 1f else 0.4f },
+    )
+}
