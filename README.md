@@ -36,8 +36,8 @@
 
 APK появится в `app/build/outputs/apk/debug/`. Тесты: `./gradlew testDebugUnitTest`.
 
-Каждый пуш в `main` собирается в GitHub Actions, APK можно скачать из артефактов сборки.
-Тег вида `v0.18` создаёт релиз с APK.
+Каждый пуш в `main` собирается в GitHub Actions и выкладывается в релиз `v<versionName>`.
+Новая версия в `app/build.gradle.kts` даёт новый релиз, та же версия обновляет APK в существующем.
 
 ### Подпись
 

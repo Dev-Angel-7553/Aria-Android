@@ -42,6 +42,7 @@ jobs:
       - name: Rename APK
         run: |
           version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)
+          echo "ARIA_VERSION=$version" >> "$GITHUB_ENV"
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk "dist/Aria-$version.apk"
 
@@ -57,7 +58,10 @@ jobs:
           path: app/build/reports/tests/
 
       - name: Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.ARIA_VERSION }}
+          name: Aria ${{ env.ARIA_VERSION }}
+          target_commitish: ${{ github.sha }}
           files: dist/*.apk
