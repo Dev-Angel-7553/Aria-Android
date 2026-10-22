@@ -39,6 +39,8 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Code
@@ -94,11 +96,12 @@ private enum class SettingsPage(val title: String) {
     ROOT("Настройки"),
     APPEARANCE("Оформление"),
     ANIMATION("Анимации"),
-    LISTS("Главный экран и списки"),
+    LISTS("Списки и поиск"),
     PLAYER("Плеер"),
     LYRICS("Текст песни"),
-    PLAYBACK("Воспроизведение"),
-    ACCOUNT("Аккаунт и данные"),
+    PLAYBACK("Звук и офлайн"),
+    ACCOUNT("Аккаунт"),
+    EXPORT("Экспорт"),
     ABOUT("О приложении"),
 }
 
@@ -132,9 +135,12 @@ internal fun SettingsScreen(
     onRefreshCache: () -> Unit = {},
 ) {
     var page by remember { mutableStateOf(SettingsPage.ROOT) }
+    var query by remember { mutableStateOf("") }
     var confirmReset by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
-    BackHandler(enabled = page != SettingsPage.ROOT) { page = SettingsPage.ROOT }
+    BackHandler(enabled = page != SettingsPage.ROOT || query.isNotBlank()) {
+        if (page != SettingsPage.ROOT) page = SettingsPage.ROOT else query = ""
+    }
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
@@ -167,71 +173,90 @@ internal fun SettingsScreen(
             }
             when (page) {
                 SettingsPage.ROOT -> {
-                    item { SettingsTitle("Интерфейс") }
-                    item { SettingsNavRow(Icons.Filled.Palette, "Оформление", themeLabel(settings)) { page = SettingsPage.APPEARANCE } }
-                    item {
-                        SettingsNavRow(
-                            Icons.Filled.AutoAwesome,
-                            "Анимации",
-                            if (settings.reduceMotion) "Минимум движения" else "Скорость ${settings.animationSpeedPercent}%",
-                        ) { page = SettingsPage.ANIMATION }
+                    item { AccountCard(account, settings.reportListening) { page = SettingsPage.ACCOUNT } }
+                    if (availableUpdate != null) {
+                        item {
+                            SettingsNavRow(Icons.Filled.SystemUpdate, "Доступна Aria ${availableUpdate.version}", "Нажмите, чтобы обновить") {
+                                page = SettingsPage.ABOUT
+                            }
+                        }
                     }
-                    item {
-                        SettingsNavRow(
-                            Icons.Filled.Dashboard,
-                            "Главный экран и списки",
-                            "${if (settings.compactLists) "Компактно" else "Обычно"} · масштаб ${settings.listScalePercent}%",
-                        ) { page = SettingsPage.LISTS }
-                    }
-                    item { SettingsTitle("Музыка") }
-                    item {
-                        SettingsNavRow(
-                            Icons.Filled.PlayCircle,
-                            "Плеер",
-                            buildString {
-                                append(if (settings.playerLayout == PlayerLayout.COVER_FIRST) "Сначала обложка" else "Сначала управление")
-                                if (settings.coverAccent) append(" · цвет обложки")
-                            },
-                        ) { page = SettingsPage.PLAYER }
-                    }
-                    item {
-                        SettingsNavRow(
-                            Icons.Filled.Lyrics,
-                            "Текст песни",
-                            LYRICS_PRESETS.firstOrNull { it.matches(settings) }?.title
-                                ?: "Своя настройка · ${settings.lyricsFontSize} sp",
-                        ) { page = SettingsPage.LYRICS }
-                    }
-                    item {
-                        SettingsNavRow(
-                            Icons.Filled.Headphones,
-                            "Воспроизведение",
-                            if (settings.dataSaver) "Экономия трафика" else "Высокое качество",
-                        ) { page = SettingsPage.PLAYBACK }
-                    }
-                    item { SettingsTitle("Профиль") }
-                    item {
-                        SettingsNavRow(
-                            Icons.Filled.AccountCircle,
-                            "Аккаунт и данные",
-                            listOfNotNull(
-                                account?.displayName ?: "Яндекс Музыка",
-                                if (settings.reportListening) "прослушивания уходят в Яндекс" else null,
-                            ).joinToString(" · "),
-                        ) { page = SettingsPage.ACCOUNT }
-                    }
-                    item {
-                        SettingsNavRow(
-                            Icons.Filled.Info,
-                            "О приложении",
-                            availableUpdate?.let { "Доступна версия ${it.version}" } ?: "Aria $appVersion",
-                        ) { page = SettingsPage.ABOUT }
-                    }
-                    item {
-                        TextButton(
-                            onClick = { confirmReset = true },
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-                        ) { Text("Сбросить все настройки") }
+                    item { SettingsSearchField(query) { query = it } }
+                    if (query.isNotBlank()) {
+                        val results = searchSettings(query)
+                        if (results.isEmpty()) {
+                            item { Text("Ничего не нашлось", color = SoftText, modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) }
+                        }
+                        results.forEach { entry ->
+                            item {
+                                SettingsNavRow(entry.page.icon(), entry.title, entry.page.title) {
+                                    query = ""
+                                    page = entry.page
+                                }
+                            }
+                        }
+                    } else {
+                        item { SettingsTitle("Внешний вид") }
+                        item { SettingsNavRow(Icons.Filled.Palette, "Оформление", themeLabel(settings)) { page = SettingsPage.APPEARANCE } }
+                        item {
+                            SettingsNavRow(
+                                Icons.Filled.AutoAwesome,
+                                "Анимации",
+                                if (settings.reduceMotion) "Минимум движения" else "Скорость ${settings.animationSpeedPercent}%",
+                            ) { page = SettingsPage.ANIMATION }
+                        }
+                        item { SettingsTitle("Музыка") }
+                        item {
+                            SettingsNavRow(
+                                Icons.Filled.PlayCircle,
+                                "Плеер",
+                                buildString {
+                                    append(if (settings.playerLayout == PlayerLayout.COVER_FIRST) "Сначала обложка" else "Сначала управление")
+                                    if (settings.coverAccent) append(" · цвет обложки")
+                                },
+                            ) { page = SettingsPage.PLAYER }
+                        }
+                        item {
+                            SettingsNavRow(
+                                Icons.Filled.Lyrics,
+                                "Текст песни",
+                                LYRICS_PRESETS.firstOrNull { it.matches(settings) }?.title
+                                    ?: "Своя настройка · ${settings.lyricsFontSize} sp",
+                            ) { page = SettingsPage.LYRICS }
+                        }
+                        item {
+                            SettingsNavRow(
+                                Icons.Filled.Headphones,
+                                "Звук и офлайн",
+                                listOf(
+                                    if (settings.dataSaver) "Экономия трафика" else "Высокое качество",
+                                    if (settings.cacheSizeMb == 0) "кэш выключен" else "кэш ${formatSize(cacheUsedBytes)} из ${formatSize(settings.cacheSizeMb * 1024L * 1024L)}",
+                                ).joinToString(" · "),
+                            ) { page = SettingsPage.PLAYBACK }
+                        }
+                        item { SettingsTitle("Библиотека") }
+                        item {
+                            SettingsNavRow(
+                                Icons.Filled.Dashboard,
+                                "Списки и поиск",
+                                "${if (settings.compactLists) "Компактно" else "Обычно"} · масштаб ${settings.listScalePercent}%",
+                            ) { page = SettingsPage.LISTS }
+                        }
+                        item { SettingsNavRow(Icons.Filled.FileDownload, "Экспорт", "Плейлисты в CSV для других сервисов") { page = SettingsPage.EXPORT } }
+                        item { SettingsTitle("Приложение") }
+                        item {
+                            SettingsNavRow(
+                                Icons.Filled.Info,
+                                "О приложении",
+                                availableUpdate?.let { "Доступна версия ${it.version}" } ?: "Aria $appVersion",
+                            ) { page = SettingsPage.ABOUT }
+                        }
+                        item {
+                            TextButton(
+                                onClick = { confirmReset = true },
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                            ) { Text("Сбросить все настройки") }
+                        }
                     }
                 }
                 SettingsPage.APPEARANCE -> appearanceSettings(settings, onChange)
@@ -246,8 +271,8 @@ internal fun SettingsScreen(
                 )
                 SettingsPage.ACCOUNT -> accountSettings(
                     account, settings, onChange, { confirmLogout = true }, onSyncNow, syncBusy,
-                    exportBusy, onExportCollection,
                 )
+                SettingsPage.EXPORT -> exportSettings(exportBusy, onExportCollection)
             }
         }
     }
@@ -291,6 +316,7 @@ private fun LazyListScope.animationSettings(settings: AppSettings, onChange: (Ap
     }
     item { SettingSwitch("Переходы в плеере", "Плавная смена обложки, текста и кнопок", settings.animatePlayerTransitions) { onChange(settings.copy(animatePlayerTransitions = it)) } }
     item { SettingSwitch("Анимация загрузки", "Пульсация обложек, индикаторы ожидания и «играет сейчас» в списках", settings.animateLoading) { onChange(settings.copy(animateLoading = it)) } }
+    item { SettingSwitch("Плавное появление обложек", "Обложка проявляется, а не возникает резко", settings.animateImageLoading) { onChange(settings.copy(animateImageLoading = it)) } }
     item {
         SectionReset("Сбросить анимации") { defaults ->
             onChange(
@@ -299,6 +325,7 @@ private fun LazyListScope.animationSettings(settings: AppSettings, onChange: (Ap
                     reduceMotion = defaults.reduceMotion,
                     animatePlayerTransitions = defaults.animatePlayerTransitions,
                     animateLoading = defaults.animateLoading,
+                    animateImageLoading = defaults.animateImageLoading,
                 ),
             )
         }
@@ -338,9 +365,23 @@ private fun LazyListScope.appearanceSettings(settings: AppSettings, onChange: (A
             }
         }
     }
+    item { SettingsTitle("Форма") }
+    item { SettingSlider("Скругление интерфейса", settings.cornerRadiusPercent, 0..160, 10, { "$it%" }) { onChange(settings.copy(cornerRadiusPercent = it)) } }
+    item { SettingSlider("Скругление обложек", settings.artworkCornerPercent, 0..160, 10, { "$it%" }) { onChange(settings.copy(artworkCornerPercent = it)) } }
+    item { SettingsTitle("Навигация") }
+    item { SettingSwitch("Подписи под значками", "Текст в нижней панели", settings.showNavigationLabels) { onChange(settings.copy(showNavigationLabels = it)) } }
     item {
         SectionReset("Сбросить оформление") { defaults ->
-            onChange(settings.copy(themeMode = defaults.themeMode, useDynamicColors = defaults.useDynamicColors, accentStyle = defaults.accentStyle))
+            onChange(
+                settings.copy(
+                    themeMode = defaults.themeMode,
+                    useDynamicColors = defaults.useDynamicColors,
+                    accentStyle = defaults.accentStyle,
+                    cornerRadiusPercent = defaults.cornerRadiusPercent,
+                    artworkCornerPercent = defaults.artworkCornerPercent,
+                    showNavigationLabels = defaults.showNavigationLabels,
+                ),
+            )
         }
     }
 }
@@ -362,14 +403,10 @@ private fun AccentSwatch(accent: AccentStyle, selected: Boolean, onClick: () -> 
 }
 
 private fun LazyListScope.listSettings(settings: AppSettings, onChange: (AppSettings) -> Unit) {
-    item { SettingsTitle("Отображение") }
+    item { SettingsTitle("Списки треков") }
     item { SettingSwitch("Компактные списки", "Больше треков помещается на экране", settings.compactLists) { onChange(settings.copy(compactLists = it)) } }
-    item { SettingSwitch("Подписи навигации", "Текст под значками в нижней панели", settings.showNavigationLabels) { onChange(settings.copy(showNavigationLabels = it)) } }
-    item { SettingsTitle("Размеры и форма") }
-    item { SettingSlider("Скругление обложек", settings.artworkCornerPercent, 0..160, 10, { "$it%" }) { onChange(settings.copy(artworkCornerPercent = it)) } }
-    item { SettingSlider("Скругление интерфейса", settings.cornerRadiusPercent, 0..160, 10, { "$it%" }) { onChange(settings.copy(cornerRadiusPercent = it)) } }
     item { SettingSlider("Масштаб строк", settings.listScalePercent, 80..125, 5, { "$it%" }) { onChange(settings.copy(listScalePercent = it)) } }
-    item { SettingSlider("Треков за страницу", settings.listPageSize, 30..180, 10, { "$it" }) { onChange(settings.copy(listPageSize = it)) } }
+    item { SettingSlider("Треков за раз", settings.listPageSize, 30..180, 10, { "$it" }) { onChange(settings.copy(listPageSize = it)) } }
     item { SettingSwitch("Заранее загружать обложки", "Готовит обложки следующих треков очереди", settings.preloadArtwork) { onChange(settings.copy(preloadArtwork = it)) } }
     item { SettingsTitle("Поиск") }
     item {
@@ -386,9 +423,6 @@ private fun LazyListScope.listSettings(settings: AppSettings, onChange: (AppSett
             onChange(
                 settings.copy(
                     compactLists = defaults.compactLists,
-                    showNavigationLabels = defaults.showNavigationLabels,
-                    artworkCornerPercent = defaults.artworkCornerPercent,
-                    cornerRadiusPercent = defaults.cornerRadiusPercent,
                     listScalePercent = defaults.listScalePercent,
                     listPageSize = defaults.listPageSize,
                     preloadArtwork = defaults.preloadArtwork,
@@ -405,6 +439,7 @@ private fun LazyListScope.playerSettings(settings: AppSettings, onChange: (AppSe
     item { SettingSwitch("Свайпы мини-плеера", "Влево — следующий, вправо — предыдущий", settings.swipeMiniPlayer) { onChange(settings.copy(swipeMiniPlayer = it)) } }
     item { SettingSwitch("Прогресс мини-плеера", "Тонкая полоса под треком", settings.showMiniPlayerProgress) { onChange(settings.copy(showMiniPlayerProgress = it)) } }
     item { SettingSwitch("Жесты полного плеера", "Влево/вправо — трек, вверх — очередь, вниз — свернуть", settings.fullPlayerSwipe) { onChange(settings.copy(fullPlayerSwipe = it)) } }
+    item { SettingSwitch("Не выключать экран", "Пока приложение открыто", settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) } }
     item { SettingsTitle("Цвет и обложка") }
     item { SettingSwitch("Цвет обложки в фоне", "Мягкий градиент цвета обложки сверху экрана", settings.coverColorBackground) { onChange(settings.copy(coverColorBackground = it)) } }
     item {
@@ -413,17 +448,14 @@ private fun LazyListScope.playerSettings(settings: AppSettings, onChange: (AppSe
         }
     }
     item { SettingSwitch("Акцент от обложки", "Кнопки и ползунок берут цвет обложки", settings.coverAccent) { onChange(settings.copy(coverAccent = it)) } }
-    item { SettingSwitch("Плавная загрузка обложек", "Плавно показывает загруженное изображение", settings.animateImageLoading) { onChange(settings.copy(animateImageLoading = it)) } }
     item { SettingSlider("Размер обложки", settings.playerArtworkPercent, 70..110, 5, { "$it%" }) { onChange(settings.copy(playerArtworkPercent = it)) } }
-    item { SettingsTitle("Очередь") }
-    item { SettingSwitch("Предзагрузка следующего трека", "Готовит аудиоссылку заранее", settings.preloadNextTracks) { onChange(settings.copy(preloadNextTracks = it)) } }
     item { SettingsTitle("Компоновка") }
     PlayerLayout.entries.forEach { layout ->
         item { SettingRadio(if (layout == PlayerLayout.COVER_FIRST) "Сначала обложка" else "Сначала управление", settings.playerLayout == layout) { onChange(settings.copy(playerLayout = layout)) } }
     }
     item {
         SectionReset("Сбросить плеер") { defaults ->
-            onChange(settings.copy(openPlayerOnTrack = defaults.openPlayerOnTrack, swipeMiniPlayer = defaults.swipeMiniPlayer, showMiniPlayerProgress = defaults.showMiniPlayerProgress, playerBlurBackground = defaults.playerBlurBackground, coverColorBackground = defaults.coverColorBackground, coverAccent = defaults.coverAccent, animateImageLoading = defaults.animateImageLoading, preloadNextTracks = defaults.preloadNextTracks, playerLayout = defaults.playerLayout, playerArtworkPercent = defaults.playerArtworkPercent, fullPlayerSwipe = defaults.fullPlayerSwipe))
+            onChange(settings.copy(openPlayerOnTrack = defaults.openPlayerOnTrack, swipeMiniPlayer = defaults.swipeMiniPlayer, showMiniPlayerProgress = defaults.showMiniPlayerProgress, playerBlurBackground = defaults.playerBlurBackground, coverColorBackground = defaults.coverColorBackground, coverAccent = defaults.coverAccent, keepScreenOn = defaults.keepScreenOn, playerLayout = defaults.playerLayout, playerArtworkPercent = defaults.playerArtworkPercent, fullPlayerSwipe = defaults.fullPlayerSwipe))
         }
     }
 }
@@ -560,9 +592,9 @@ private fun LazyListScope.playbackSettings(
     onClearCache: () -> Unit,
     onRefreshCache: () -> Unit,
 ) {
-    item { SettingsTitle("Качество и устройство") }
+    item { SettingsTitle("Качество") }
     item { SettingSwitch("Экономия трафика", "Запрашивает поток с меньшим битрейтом", settings.dataSaver) { onChange(settings.copy(dataSaver = it)) } }
-    item { SettingSwitch("Не выключать экран", "Пока приложение открыто", settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) } }
+    item { SettingSwitch("Предзагрузка следующего трека", "Следующий трек начинается без паузы", settings.preloadNextTracks) { onChange(settings.copy(preloadNextTracks = it)) } }
     item { SettingsTitle("Кэш и офлайн") }
     item {
         androidx.compose.runtime.LaunchedEffect(Unit) { onRefreshCache() }
@@ -592,7 +624,7 @@ private fun LazyListScope.playbackSettings(
             onClearCache,
         )
     }
-    item { SectionReset("Сбросить воспроизведение") { defaults -> onChange(settings.copy(dataSaver = defaults.dataSaver, keepScreenOn = defaults.keepScreenOn, cacheSizeMb = defaults.cacheSizeMb)) } }
+    item { SectionReset("Сбросить воспроизведение") { defaults -> onChange(settings.copy(dataSaver = defaults.dataSaver, preloadNextTracks = defaults.preloadNextTracks, cacheSizeMb = defaults.cacheSizeMb)) } }
 }
 
 private fun LazyListScope.aboutSettings(
@@ -793,20 +825,8 @@ private fun LazyListScope.accountSettings(
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
     syncBusy: Boolean,
-    exportBusy: Boolean,
-    onExportCollection: (share: Boolean) -> Unit,
 ) {
-    item {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(52.dp).clip(CircleShape).background(Accent), contentAlignment = Alignment.Center) {
-                Text(account?.displayName?.firstOrNull()?.uppercase() ?: "Я", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Black)
-            }
-            Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                Text(account?.displayName ?: "Яндекс Музыка", fontWeight = FontWeight.Bold)
-                Text(account?.login.orEmpty(), color = SoftText, fontSize = 13.sp)
-            }
-        }
-    }
+    item { AccountCard(account, settings.reportListening, onClick = null) }
     item { SettingsTitle("Яндекс Музыка") }
     item {
         SettingSwitch(
@@ -836,18 +856,138 @@ private fun LazyListScope.accountSettings(
     item {
         SettingsActionRow(Icons.Filled.Sync, if (syncBusy) "Синхронизация…" else "Синхронизировать сейчас", null, !syncBusy, onSyncNow)
     }
-    item { SettingsTitle("Экспорт") }
+    item { SettingsTitle("Выход") }
+    item { TextButton(onClick = onLogout, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Выйти и удалить токен", color = MaterialTheme.colorScheme.error) } }
+}
+
+private fun LazyListScope.exportSettings(exportBusy: Boolean, onExportCollection: (share: Boolean) -> Unit) {
+    item {
+        Text(
+            "CSV по строке на трек: исполнитель, название, альбом, плейлист, длительность и ссылка. " +
+                "Такой файл понимают TuneMyMusic, Soundiiz и Excel. Отдельный плейлист можно выгрузить из его меню.",
+            color = SoftText,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+        )
+    }
+    item { SettingsTitle("Вся коллекция") }
     item {
         SettingsActionRow(
             Icons.Filled.FileDownload,
-            if (exportBusy) "Готовим CSV…" else "Вся коллекция в CSV",
-            "«Мне нравится» и все плейлисты в одном файле: исполнитель, название, альбом. Подходит для TuneMyMusic, Soundiiz и Excel",
+            if (exportBusy) "Готовим CSV…" else "Сохранить в Загрузки",
+            "«Мне нравится» и все плейлисты в одном файле",
             !exportBusy,
         ) { onExportCollection(false) }
     }
-    item { SettingsActionRow(Icons.Filled.Share, "Отправить CSV коллекции", null, !exportBusy) { onExportCollection(true) } }
-    item { SettingsTitle("Выход") }
-    item { TextButton(onClick = onLogout, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Выйти и удалить токен", color = MaterialTheme.colorScheme.error) } }
+    item { SettingsActionRow(Icons.Filled.Share, "Отправить файлом", "Через Telegram, почту или любое приложение", !exportBusy) { onExportCollection(true) } }
+}
+
+@Composable
+private fun AccountCard(account: YandexClient.Account?, reportListening: Boolean, onClick: (() -> Unit)?) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(24.dp * LocalCornerRadiusScale.current))
+            .background(scheme.surfaceContainerHigh)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(52.dp).clip(CircleShape).background(Accent), contentAlignment = Alignment.Center) {
+            Text(account?.displayName?.firstOrNull()?.uppercase() ?: "Я", color = scheme.onPrimary, fontWeight = FontWeight.Black, fontSize = 20.sp)
+        }
+        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+            Text(account?.displayName ?: "Яндекс Музыка", fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                listOfNotNull(account?.login?.takeIf { it.isNotBlank() }, if (reportListening) "прослушивания в Яндексе" else null).joinToString(" · "),
+                color = SoftText,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (onClick != null) Icon(Icons.Filled.ChevronRight, null, tint = SoftText)
+    }
+}
+
+@Composable
+private fun SettingsSearchField(query: String, onQuery: (String) -> Unit) {
+    androidx.compose.material3.OutlinedTextField(
+        value = query,
+        onValueChange = onQuery,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        singleLine = true,
+        placeholder = { Text("Поиск по настройкам") },
+        leadingIcon = { Icon(Icons.Filled.Search, null) },
+        trailingIcon = if (query.isNotEmpty()) {
+            { IconButton(onClick = { onQuery("") }) { Icon(Icons.Filled.Close, "Очистить") } }
+        } else null,
+        shape = RoundedCornerShape(28.dp * LocalCornerRadiusScale.current),
+    )
+}
+
+private class SettingsEntry(val title: String, val page: SettingsPage, val keywords: String = "")
+
+private val SETTINGS_INDEX = listOf(
+    SettingsEntry("Тема", SettingsPage.APPEARANCE, "тёмная светлая amoled чёрная системная"),
+    SettingsEntry("Monet / динамические цвета", SettingsPage.APPEARANCE, "обои цвет"),
+    SettingsEntry("Цвет акцента", SettingsPage.APPEARANCE, "жёлтый синий розовый зелёный оранжевый"),
+    SettingsEntry("Скругление интерфейса", SettingsPage.APPEARANCE, "углы форма"),
+    SettingsEntry("Скругление обложек", SettingsPage.APPEARANCE, "углы форма"),
+    SettingsEntry("Подписи под значками", SettingsPage.APPEARANCE, "навигация нижняя панель"),
+    SettingsEntry("Скорость анимаций", SettingsPage.ANIMATION),
+    SettingsEntry("Уменьшить движение", SettingsPage.ANIMATION, "анимации выключить"),
+    SettingsEntry("Переходы в плеере", SettingsPage.ANIMATION),
+    SettingsEntry("Анимация загрузки", SettingsPage.ANIMATION),
+    SettingsEntry("Плавное появление обложек", SettingsPage.ANIMATION),
+    SettingsEntry("Открывать плеер при выборе", SettingsPage.PLAYER),
+    SettingsEntry("Свайпы мини-плеера", SettingsPage.PLAYER, "жесты"),
+    SettingsEntry("Прогресс мини-плеера", SettingsPage.PLAYER),
+    SettingsEntry("Жесты полного плеера", SettingsPage.PLAYER, "свайпы"),
+    SettingsEntry("Не выключать экран", SettingsPage.PLAYER, "экран"),
+    SettingsEntry("Цвет обложки в фоне", SettingsPage.PLAYER, "градиент фон"),
+    SettingsEntry("Акцент от обложки", SettingsPage.PLAYER, "цвет кнопок"),
+    SettingsEntry("Размер обложки", SettingsPage.PLAYER),
+    SettingsEntry("Компоновка плеера", SettingsPage.PLAYER, "сначала обложка управление"),
+    SettingsEntry("Вид текста песни", SettingsPage.LYRICS, "пресет крупно компактно по центру"),
+    SettingsEntry("Караоке-заливка", SettingsPage.LYRICS, "текст свечение glow"),
+    SettingsEntry("Сдвиг текста", SettingsPage.LYRICS, "синхронизация опаздывает раньше позже"),
+    SettingsEntry("Размер шрифта текста", SettingsPage.LYRICS, "кегль"),
+    SettingsEntry("Сразу открывать текст", SettingsPage.LYRICS),
+    SettingsEntry("Экономия трафика", SettingsPage.PLAYBACK, "качество битрейт мобильный интернет"),
+    SettingsEntry("Предзагрузка следующего трека", SettingsPage.PLAYBACK),
+    SettingsEntry("Размер кэша", SettingsPage.PLAYBACK, "офлайн память"),
+    SettingsEntry("Очистить кэш", SettingsPage.PLAYBACK, "память место"),
+    SettingsEntry("Компактные списки", SettingsPage.LISTS),
+    SettingsEntry("Масштаб строк", SettingsPage.LISTS),
+    SettingsEntry("Треков за раз", SettingsPage.LISTS, "страница"),
+    SettingsEntry("История поиска", SettingsPage.LISTS),
+    SettingsEntry("Экспорт в CSV", SettingsPage.EXPORT, "tunemymusic soundiiz excel перенос плейлисты"),
+    SettingsEntry("Прослушивания в Яндексе", SettingsPage.ACCOUNT, "история моя волна"),
+    SettingsEntry("Синхронизация библиотеки", SettingsPage.ACCOUNT, "обновить"),
+    SettingsEntry("Выйти из аккаунта", SettingsPage.ACCOUNT, "токен"),
+    SettingsEntry("Обновления", SettingsPage.ABOUT, "версия github"),
+)
+
+private fun searchSettings(query: String): List<SettingsEntry> {
+    val words = query.trim().lowercase().split(' ').filter { it.isNotBlank() }
+    return SETTINGS_INDEX.filter { entry ->
+        val haystack = "${entry.title} ${entry.page.title} ${entry.keywords}".lowercase()
+        words.all { haystack.contains(it) }
+    }
+}
+
+private fun SettingsPage.icon(): ImageVector = when (this) {
+    SettingsPage.APPEARANCE -> Icons.Filled.Palette
+    SettingsPage.ANIMATION -> Icons.Filled.AutoAwesome
+    SettingsPage.LISTS -> Icons.Filled.Dashboard
+    SettingsPage.PLAYER -> Icons.Filled.PlayCircle
+    SettingsPage.LYRICS -> Icons.Filled.Lyrics
+    SettingsPage.PLAYBACK -> Icons.Filled.Headphones
+    SettingsPage.ACCOUNT -> Icons.Filled.AccountCircle
+    SettingsPage.EXPORT -> Icons.Filled.FileDownload
+    SettingsPage.ABOUT -> Icons.Filled.Info
+    SettingsPage.ROOT -> Icons.Filled.Search
 }
 
 @Composable
