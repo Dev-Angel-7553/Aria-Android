@@ -4,9 +4,6 @@ import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -338,7 +335,7 @@ internal fun QuoteEditor(
                         ) {
                             QuoteCardContent(quote, title, artist, coverUrl, coverColor, look)
                         }
-                        AnimatedVisibility(busy && progress >= 0, enter = fadeIn(), exit = fadeOut()) {
+                        if (busy && progress >= 0) {
                             Column(
                                 Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)).padding(24.dp),
                                 verticalArrangement = Arrangement.Center,
