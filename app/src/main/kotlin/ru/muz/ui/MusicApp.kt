@@ -410,6 +410,29 @@ fun MusicApp(
         }
     }
 
+    fun playTracks(
+        tracks: List<YandexClient.Track>,
+        index: Int,
+        source: PlaySource,
+        isWave: Boolean = false,
+    ) {
+        if (tracks.isEmpty()) return
+        val chosen = tracks.getOrNull(index)
+        val list = if (settings.hideExplicit) tracks.filter { !it.explicit || it === chosen } else tracks
+        val start = list.indexOfFirst { it === chosen }.coerceAtLeast(0)
+        playSource = source
+        waveSession = isWave
+        lastWaveContinuation = ""
+        queue = list
+        playback.playQueue(
+            list.map(::playable),
+            start,
+            source,
+        )
+        showLyrics = settings.showLyricsByDefault
+        if (settings.openPlayerOnTrack) showPlayer = true
+    }
+
     fun startStation(station: String, title: String) {
         val client = api ?: return
         toast("Запускаем $title…")
@@ -472,29 +495,6 @@ fun MusicApp(
                 onFailure = { toast(it.message ?: "Не удалось настроить волну") },
             )
         }
-    }
-
-    fun playTracks(
-        tracks: List<YandexClient.Track>,
-        index: Int,
-        source: PlaySource,
-        isWave: Boolean = false,
-    ) {
-        if (tracks.isEmpty()) return
-        val chosen = tracks.getOrNull(index)
-        val list = if (settings.hideExplicit) tracks.filter { !it.explicit || it === chosen } else tracks
-        val start = list.indexOfFirst { it === chosen }.coerceAtLeast(0)
-        playSource = source
-        waveSession = isWave
-        lastWaveContinuation = ""
-        queue = list
-        playback.playQueue(
-            list.map(::playable),
-            start,
-            source,
-        )
-        showLyrics = settings.showLyricsByDefault
-        if (settings.openPlayerOnTrack) showPlayer = true
     }
 
     fun downloadTrack(target: YandexClient.Track?, shareFile: Boolean) {
