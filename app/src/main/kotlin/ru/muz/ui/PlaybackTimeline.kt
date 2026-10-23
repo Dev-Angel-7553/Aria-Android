@@ -35,6 +35,8 @@ internal fun PlaybackTimeline(
     state: PlayerState,
     onSeek: (Long) -> Unit,
     accent: Color = PlayerAccent,
+    remaining: Boolean = false,
+    label: String = "",
 ) {
     val position by rememberPlaybackPosition(state)
     var preview by remember(state.mediaId) { mutableStateOf<Float?>(null) }
@@ -50,8 +52,18 @@ internal fun PlaybackTimeline(
         ) }
         Row(Modifier.fillMaxWidth()) {
             Text(formatDuration(preview?.let { (state.durationMs * it).toLong() } ?: position), color = SoftText, fontSize = 12.sp)
-            Text(formatDuration(state.durationMs), color = SoftText, fontSize = 12.sp,
-                modifier = Modifier.weight(1f), textAlign = TextAlign.End)
+            if (label.isNotBlank()) {
+                Text(label, color = SoftText, fontSize = 11.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, maxLines = 1)
+            } else {
+                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+            }
+            val shown = preview?.let { (state.durationMs * it).toLong() } ?: position
+            Text(
+                if (remaining && state.durationMs > 0) "−" + formatDuration((state.durationMs - shown).coerceAtLeast(0)) else formatDuration(state.durationMs),
+                color = SoftText,
+                fontSize = 12.sp,
+                textAlign = TextAlign.End,
+            )
         }
     }
 }

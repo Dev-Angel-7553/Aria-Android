@@ -41,6 +41,10 @@ import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.InsertLink
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.FormatQuote
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -203,17 +207,62 @@ internal fun FullPlayerScreen(
         )
     } else Modifier.background(AppBackground)
 
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val like = {
+        if (settings.haptics) haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+        onLike()
+    }
+    val modern = settings.lyricsModern
+    var touches by remember { mutableStateOf(0) }
+    var dockVisible by remember { mutableStateOf(true) }
+    LaunchedEffect(touches, state.isPlaying, showLyrics, settings.lyricsAutoHide, modern) {
+        dockVisible = true
+        if (showLyrics && modern && settings.lyricsAutoHide && state.isPlaying) {
+            kotlinx.coroutines.delay(3_500)
+            dockVisible = false
+        }
+    }
+    var lyricsMenu by remember { mutableStateOf(false) }
+    var menuSleep by remember { mutableStateOf(false) }
+    var menuSpeed by remember { mutableStateOf(false) }
+    val sleepLabel = rememberSleepLabel(tools.sleepEndsAt)
     androidx.compose.runtime.CompositionLocalProvider(
         LocalPlayerAccent provides if (settings.coverAccent) animatedAccent else null,
         LocalOnPlayerAccent provides if (settings.coverAccent) Color(ColorMath.contentColorFor(animatedAccent.toArgb())) else null,
     ) {
+      Box(Modifier.fillMaxSize()) {
+        if (settings.coverColorBackground) {
+            MovingCoverBackground(animatedTint, strength = if (showLyrics && modern) 1f else 0.62f)
+        }
         Column(
-            Modifier.fillMaxSize().then(backdrop).statusBarsPadding().navigationBarsPadding()
+            Modifier.fillMaxSize().then(if (settings.coverColorBackground) Modifier else backdrop).statusBarsPadding().navigationBarsPadding()
             .offset(x = playerOffset).graphicsLayer {
                 alpha = if (reduceMotion) 1f else 1f - (abs(playerDrag) / 900f).coerceIn(0f, 0.14f)
-            }.then(playerSwipeModifier),
+            }.then(playerSwipeModifier)
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                        if (event.type == androidx.compose.ui.input.pointer.PointerEventType.Press) touches++
+                    }
+                }
+            },
         ) {
-            PlayerHeader(showLyrics, state, onBack, onToggleView, onArtist, rememberSleepLabel(tools.sleepEndsAt)) { tools.onSleep(0) }
+            if (showLyrics && modern) {
+                ModernLyricsHeader(
+                    state = state,
+                    liked = liked,
+                    sleepLabel = sleepLabel,
+                    onBack = onBack,
+                    onCover = onToggleView,
+                    onArtist = onArtist,
+                    onLike = like,
+                    onMore = { lyricsMenu = true },
+                    onCancelSleep = { tools.onSleep(0) },
+                )
+            } else {
+                PlayerHeader(showLyrics, state, onBack, onToggleView, onArtist, sleepLabel) { tools.onSleep(0) }
+            }
             PlayerCrossfade(showLyrics, Modifier.weight(1f)) { lyricsVisible ->
                 Column(Modifier.fillMaxSize()) {
                     if (lyricsVisible) {
@@ -240,11 +289,13 @@ internal fun FullPlayerScreen(
                                         onSeek = { onSeek((it - settings.lyricsOffsetMs).coerceAtLeast(0)) },
                                         onLongPressLine = { quoteStart = it },
                                         settings = LyricsSettings.MEASURED.copy(
+                                            modern = settings.lyricsModern,
+                                            blurDistant = settings.lyricsBlur,
                                             fontSize = settings.lyricsFontSize.sp,
                                             lineHeight = settings.lyricsLineHeight.sp,
                                             lineSpacingDp = settings.lyricsLineSpacing,
                                             horizontalPaddingDp = settings.lyricsHorizontalPadding,
-                                            anchorFraction = settings.lyricsAnchorPercent / 100f,
+                                            anchorFraction = (if (settings.lyricsModern) settings.lyricsModernAnchor else settings.lyricsAnchorPercent) / 100f,
                                             activeUnsungAlpha = settings.lyricsUnsungPercent / 100f,
                                             sungAlpha = (settings.lyricsSungPercent / 100f).coerceIn(0.7f, 1.25f),
                                             inactiveAlpha = settings.lyricsInactivePercent / 100f,
@@ -270,21 +321,43 @@ internal fun FullPlayerScreen(
                                 }
                             }
                         }
-                        LyricsDock(
-                            state = state,
-                            liked = liked,
-                            swipeEnabled = settings.swipeMiniPlayer,
-                            onPlayPause = onPlayPause,
-                            onPrevious = onPrevious,
-                            onNext = onNext,
-                            onSeek = onSeek,
-                            onLike = onLike,
-                            onQueue = { showQueue = true },
-                            onDismiss = onBack,
-                        )
+                        if (modern) {
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = dockVisible,
+                                enter = androidx.compose.animation.expandVertically(tween(playerTransitionDuration(320))) +
+                                    androidx.compose.animation.fadeIn(tween(playerTransitionDuration(320))),
+                                exit = androidx.compose.animation.shrinkVertically(tween(playerTransitionDuration(420))) +
+                                    androidx.compose.animation.fadeOut(tween(playerTransitionDuration(300))),
+                            ) {
+                                ModernLyricsDock(
+                                    state = state,
+                                    label = if (settings.privateSession) "Приватно" else "",
+                                    onPlayPause = onPlayPause,
+                                    onPrevious = onPrevious,
+                                    onNext = onNext,
+                                    onSeek = onSeek,
+                                    onCover = onToggleView,
+                                    onQueue = { showQueue = true },
+                                )
+                            }
+                            if (!dockVisible) HiddenDockHint { touches++ }
+                        } else {
+                            LyricsDock(
+                                state = state,
+                                liked = liked,
+                                swipeEnabled = settings.swipeMiniPlayer,
+                                onPlayPause = onPlayPause,
+                                onPrevious = onPrevious,
+                                onNext = onNext,
+                                onSeek = onSeek,
+                                onLike = like,
+                                onQueue = { showQueue = true },
+                                onDismiss = onBack,
+                            )
+                        }
                     } else {
                         StandardPlayer(
-                            state, liked, onPlayPause, onPrevious, onNext, onSeek, onLike, onShuffle, onRepeat,
+                            state, liked, onPlayPause, onPrevious, onNext, onSeek, like, onShuffle, onRepeat,
                             onQueue = { showQueue = true },
                             transferBusy = transferBusy,
                             transferMessage = transferMessage,
@@ -302,13 +375,31 @@ internal fun FullPlayerScreen(
                             layout = settings.playerLayout,
                             onDismiss = onBack,
                             gesturesEnabled = settings.fullPlayerSwipe,
+                            doubleTapLike = settings.doubleTapLike,
+                            liked = liked,
+                            privateLabel = if (settings.privateSession) "Приватно" else "",
                             modifier = Modifier.weight(1f),
                         )
                     }
                 }
             }
         }
+      }
     }
+    if (lyricsMenu) {
+        ModalBottomSheet(onDismissRequest = { lyricsMenu = false }) {
+            PlayerSheetAction(Icons.Filled.Image, "Обложка и управление") { lyricsMenu = false; onToggleView() }
+            PlayerSheetAction(Icons.Filled.QueueMusic, "Очередь") { lyricsMenu = false; showQueue = true }
+            PlayerSheetAction(Icons.Filled.FormatQuote, "Карточка с цитатой") { lyricsMenu = false; onQuote() }
+            PlayerSheetAction(Icons.Filled.Bedtime, if (sleepLabel != null) "Таймер сна: $sleepLabel" else "Таймер сна") { lyricsMenu = false; menuSleep = true }
+            PlayerSheetAction(Icons.Filled.Speed, "Скорость") { lyricsMenu = false; menuSpeed = true }
+            PlayerSheetAction(Icons.Filled.InsertLink, "Поделиться ссылкой") { lyricsMenu = false; onShareLink() }
+            PlayerSheetAction(Icons.Filled.Person, "К исполнителю") { lyricsMenu = false; onArtist() }
+            androidx.compose.foundation.layout.Spacer(Modifier.height(24.dp))
+        }
+    }
+    if (menuSleep) SleepTimerSheet(tools.sleepEndsAt, tools.onSleep) { menuSleep = false }
+    if (menuSpeed) SpeedSheet(state.playbackSpeed, tools.skipSilence, tools.onSpeed, tools.onSkipSilence) { menuSpeed = false }
     quoteStart?.let { start ->
         QuoteEditor(
             lines = lyrics.lines,
@@ -593,14 +684,27 @@ private fun StandardPlayer(
     layout: PlayerLayout,
     onDismiss: () -> Unit,
     gesturesEnabled: Boolean,
+    doubleTapLike: Boolean = true,
+    liked: Boolean = false,
+    privateLabel: String = "",
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.padding(horizontal = 20.dp)) {
+        if (privateLabel.isNotBlank()) {
+            Text(
+                "Приватный режим: прослушивания не уходят в Яндекс",
+                color = SoftText,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            )
+        }
         if (layout == PlayerLayout.COVER_FIRST) {
             PlayerArtwork(
                 settingsSwipe = gesturesEnabled,
                 state = state, artworkPercent = artworkPercent,
                 onSwipeUp = onQueue, onSwipeDown = onDismiss, modifier = Modifier.weight(1f),
+                onDoubleTap = if (doubleTapLike) ({ if (!liked) onLike() }) else null,
             )
         }
             PlayerDetails(
@@ -613,6 +717,7 @@ private fun StandardPlayer(
                 settingsSwipe = gesturesEnabled,
                 state = state, artworkPercent = artworkPercent,
                 onSwipeUp = onQueue, onSwipeDown = onDismiss, modifier = Modifier.weight(1f),
+                onDoubleTap = if (doubleTapLike) ({ if (!liked) onLike() }) else null,
             )
         }
     }
@@ -626,9 +731,25 @@ private fun PlayerArtwork(
     onSwipeUp: () -> Unit,
     onSwipeDown: () -> Unit,
     modifier: Modifier = Modifier,
+    onDoubleTap: (() -> Unit)? = null,
 ) {
     val reduceMotion = LocalReduceMotion.current
     var verticalDrag by remember(state.mediaId) { mutableFloatStateOf(0f) }
+    var hearts by remember { mutableStateOf(0) }
+    val heart = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(hearts) {
+        if (hearts == 0) return@LaunchedEffect
+        heart.snapTo(0f)
+        heart.animateTo(1f, tween(playerTransitionDuration(700)))
+    }
+    val doubleTap = if (onDoubleTap != null) {
+        Modifier.pointerInput(state.mediaId) {
+            androidx.compose.foundation.gestures.detectTapGestures(onDoubleTap = {
+                hearts++
+                onDoubleTap()
+            })
+        }
+    } else Modifier
     val artworkOffset by animateDpAsState(
         targetValue = (if (reduceMotion) 0f else verticalDrag / 5f).coerceIn(-34f, 34f).dp,
         animationSpec = tween(animationDuration(180)),
@@ -659,8 +780,21 @@ private fun PlayerArtwork(
         contentAlignment = Alignment.Center,
     ) {
         PlayerCrossfade(state.coverUrl,
-            Modifier.fillMaxWidth((artworkPercent / 100f).coerceIn(0.7f, 1f)).aspectRatio(1f),
+            Modifier.fillMaxWidth((artworkPercent / 100f).coerceIn(0.7f, 1f)).aspectRatio(1f).then(doubleTap),
         ) { url -> Artwork(url, Modifier.fillMaxSize(), 30.dp) }
+        if (heart.value in 0.001f..0.999f) {
+            val k = heart.value
+            Icon(
+                Icons.Filled.Favorite,
+                null,
+                tint = Color.White.copy(alpha = (1f - k) * 0.95f),
+                modifier = Modifier.size(110.dp).graphicsLayer {
+                    val sc = 0.6f + 0.6f * kotlin.math.sin(k * kotlin.math.PI.toFloat() * 0.6f)
+                    scaleX = sc
+                    scaleY = sc
+                },
+            )
+        }
         androidx.compose.animation.AnimatedVisibility(
             visible = state.isBuffering,
             enter = androidx.compose.animation.fadeIn(tween(playerTransitionDuration(180))),

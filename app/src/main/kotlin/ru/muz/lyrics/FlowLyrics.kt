@@ -1,0 +1,334 @@
+package ru.muz.lyrics
+
+import android.os.Build
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import kotlin.math.abs
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun FlowLyricsScreen(
+    lyrics: Lyrics,
+    positionMs: Long,
+    onSeek: (Long) -> Unit,
+    settings: LyricsSettings,
+    modifier: Modifier = Modifier,
+    discontinuity: Long = 0,
+    onLongPressLine: ((Int) -> Unit)? = null,
+) {
+    val items = remember(lyrics) { LyricsFlow.build(lyrics) }
+    val listState = rememberLazyListState()
+    val active = if (lyrics.synced) LyricsFlow.activeAt(items, positionMs) else -1
+    val dragged by listState.interactionSource.collectIsDraggedAsState()
+    var following by remember(lyrics) { mutableStateOf(true) }
+    LaunchedEffect(dragged) {
+        if (dragged) following = false
+        else if (!following) {
+            kotlinx.coroutines.delay(3_000)
+            following = true
+        }
+    }
+    LaunchedEffect(discontinuity) { following = true }
+    val reduceMotion = ru.muz.ui.LocalReduceMotion.current
+    val canBlur = settings.blurDistant && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    var shift by remember { mutableFloatStateOf(0f) }
+    var elapsed by remember { mutableFloatStateOf(10_000f) }
+    var waveFrom by remember { mutableIntStateOf(0) }
+    val duration = ru.muz.ui.animationDuration(settings.scrollDurationMs.coerceAtLeast(380) + 160)
+
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val anchor = maxHeight * settings.anchorFraction
+        LaunchedEffect(lyrics, active, following, settings.autoScroll, discontinuity) {
+            if (!lyrics.synced || !following || !settings.autoScroll || active < 0) return@LaunchedEffect
+            withFrameMillis { }
+            val info = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == active }
+            if (info == null || reduceMotion || duration <= 1) {
+                listState.scrollToItem(active, 0)
+                return@LaunchedEffect
+            }
+            val distance = info.offset.toFloat()
+            if (abs(distance) < 1f) return@LaunchedEffect
+            listState.scrollBy(distance)
+            shift = distance
+            waveFrom = active
+            val start = withFrameMillis { it }
+            val total = duration + STAGGER_MS * 8f
+            while (true) {
+                val now = withFrameMillis { it }
+                elapsed = (now - start).toFloat()
+                if (elapsed >= total) break
+            }
+            elapsed = 10_000f
+        }
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize()
+                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    if (settings.fadeEdges) {
+                        drawRect(
+                            Brush.verticalGradient(
+                                0f to Color.Transparent,
+                                0.07f to Color.Black,
+                                0.86f to Color.Black,
+                                1f to Color.Transparent,
+                            ),
+                            blendMode = BlendMode.DstIn,
+                        )
+                    }
+                },
+            contentPadding = PaddingValues(
+                start = settings.horizontalPaddingDp.dp,
+                end = settings.horizontalPaddingDp.dp,
+                top = if (lyrics.synced) anchor else 24.dp,
+                bottom = if (lyrics.synced) maxHeight - anchor else 32.dp,
+            ),
+        ) {
+            itemsIndexed(items, key = { i, item -> "${item.startMs}-$i" }) { index, item ->
+                val distance = if (active < 0) 1 else index - active
+                val itemModifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        if (elapsed < 9_999f && shift != 0f) {
+                            val delay = ((index - waveFrom).coerceAtLeast(0)) * STAGGER_MS
+                            val local = ((elapsed - delay) / duration).coerceIn(0f, 1f)
+                            translationY = shift * (1f - easeOut(local))
+                        } else {
+                            translationY = 0f
+                        }
+                    }
+                when (item) {
+                    is FlowItem.Pause -> PauseDots(
+                        active = index == active,
+                        progress = if (index == active) item.progressAt(positionMs) else 0f,
+                        distance = distance,
+                        canBlur = canBlur,
+                        settings = settings,
+                        modifier = itemModifier,
+                    )
+                    is FlowItem.Line -> FlowLine(
+                        line = item.line,
+                        active = index == active,
+                        sung = active >= 0 && index < active,
+                        distance = distance,
+                        progress = if (index == active) {
+                            if (settings.karaokeFill) item.line.progressAt(positionMs) else 1f
+                        } else 0f,
+                        synced = lyrics.synced,
+                        canBlur = canBlur,
+                        settings = settings,
+                        modifier = itemModifier
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                            .then(
+                                if (lyrics.synced && (settings.tapToSeek || onLongPressLine != null)) {
+                                    Modifier.combinedClickable(
+                                        onClick = { if (settings.tapToSeek) onSeek(item.line.startMs) },
+                                        onLongClick = onLongPressLine?.let { { it(item.index) } },
+                                    )
+                                } else Modifier,
+                            )
+                            .padding(horizontal = 6.dp, vertical = (settings.lineSpacingDp / 2).dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private const val STAGGER_MS = 42f
+
+private fun easeOut(t: Float): Float {
+    val p = 1f - t
+    return 1f - p * p * p
+}
+
+@Composable
+private fun FlowLine(
+    line: LyricLine,
+    active: Boolean,
+    sung: Boolean,
+    distance: Int,
+    progress: Float,
+    synced: Boolean,
+    canBlur: Boolean,
+    settings: LyricsSettings,
+    modifier: Modifier,
+) {
+    val fade = ru.muz.ui.animationDuration(320)
+    val alpha by animateFloatAsState(
+        when {
+            !synced -> 0.92f
+            active -> 1f
+            sung -> settings.inactiveAlpha * 0.8f
+            else -> settings.inactiveAlpha
+        },
+        tween(fade),
+        label = "flow-alpha",
+    )
+    val blurTarget = if (!canBlur || !synced || active) 0f else (abs(distance).coerceAtMost(5) * 1.1f).coerceAtMost(5f)
+    val blur by animateFloatAsState(blurTarget, tween(fade), label = "flow-blur")
+    val scale by animateFloatAsState(if (active || !synced) 1f else 0.985f, tween(fade), label = "flow-scale")
+    var layout by remember(line.text, settings.fontSize) { mutableStateOf<TextLayoutResult?>(null) }
+    val base = MaterialTheme.colorScheme.onSurface
+    val text = line.text
+    Box(
+        modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
+                    if (settings.textAlign == TextAlign.Center) 0.5f else 0f,
+                    0.5f,
+                )
+            }
+            .then(if (blur > 0.05f) Modifier.blur(blur.dp) else Modifier),
+    ) {
+        Text(
+            text,
+            modifier = Modifier.fillMaxWidth(),
+            color = base.copy(alpha = if (active && settings.karaokeFill) settings.activeUnsungAlpha * 0.62f else alpha),
+            fontSize = settings.fontSize,
+            lineHeight = settings.lineHeight,
+            fontWeight = FontWeight.Bold,
+            textAlign = settings.textAlign,
+            onTextLayout = { layout = it },
+        )
+        if (active && progress > 0f && text.isNotBlank()) {
+            val soft = with(LocalDensity.current) { 22.dp.toPx() }
+            Text(
+                text,
+                modifier = Modifier.fillMaxWidth().clearAndSetSemantics { }.softReveal(progress, text, layout, soft),
+                color = base.copy(alpha = settings.sungAlpha.coerceAtMost(1f)),
+                fontSize = settings.fontSize,
+                lineHeight = settings.lineHeight,
+                fontWeight = FontWeight.Bold,
+                textAlign = settings.textAlign,
+            )
+        }
+    }
+}
+
+private fun Modifier.softReveal(fraction: Float, text: String, layout: TextLayoutResult?, soft: Float): Modifier =
+    graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent {
+        drawContent()
+        val result = layout ?: return@drawWithContent
+        if (text.isEmpty()) return@drawWithContent
+        val progress = fraction.coerceIn(0f, 1f) * text.length
+        for (line in 0 until result.lineCount) {
+            val lineStart = result.getLineStart(line)
+            val lineEnd = result.getLineEnd(line, visibleEnd = true)
+            val top = result.getLineTop(line) - 2f
+            val bottom = result.getLineBottom(line) + 2f
+            val left = minOf(result.getLineLeft(line), result.getLineRight(line)) - 2f
+            val right = maxOf(result.getLineLeft(line), result.getLineRight(line)) + soft
+            if (lineEnd <= lineStart) continue
+            if (progress >= lineEnd) continue
+            if (progress <= lineStart) {
+                drawRect(Color.Black, Offset(left, top), Size(right - left, bottom - top), blendMode = BlendMode.DstOut)
+                continue
+            }
+            val index = progress.toInt().coerceIn(lineStart, lineEnd - 1)
+            val glyph = result.getBoundingBox(index)
+            val x = glyph.left + glyph.width * (progress - index)
+            drawRect(
+                Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = x - soft / 2f, endX = x + soft / 2f),
+                Offset(x - soft / 2f, top),
+                Size(right - (x - soft / 2f), bottom - top),
+                blendMode = BlendMode.DstOut,
+            )
+        }
+    }
+
+@Composable
+private fun PauseDots(
+    active: Boolean,
+    progress: Float,
+    distance: Int,
+    canBlur: Boolean,
+    settings: LyricsSettings,
+    modifier: Modifier,
+) {
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "pause")
+    val breath by transition.animateFloat(
+        0.92f,
+        1.08f,
+        androidx.compose.animation.core.infiniteRepeatable(tween(1100), androidx.compose.animation.core.RepeatMode.Reverse),
+        label = "pause-breath",
+    )
+    val shown by animateFloatAsState(if (active) 1f else 0.35f, tween(ru.muz.ui.animationDuration(320)), label = "pause-shown")
+    val base = MaterialTheme.colorScheme.onSurface
+    val blur = if (canBlur && !active) (abs(distance).coerceAtMost(4) * 1.1f) else 0f
+    Row(
+        modifier.height(if (active) 44.dp else 30.dp).padding(horizontal = 10.dp)
+            .then(if (blur > 0f) Modifier.blur(blur.dp) else Modifier)
+            .graphicsLayer {
+                val k = if (active) breath else 1f
+                scaleX = k
+                scaleY = k
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
+                    if (settings.textAlign == TextAlign.Center) 0.5f else 0f,
+                    0.5f,
+                )
+            },
+        horizontalArrangement = if (settings.textAlign == TextAlign.Center) Arrangement.Center else Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(3) { i ->
+            val lit = (progress * 3f - i).coerceIn(0f, 1f)
+            Box(
+                Modifier.padding(end = 9.dp).size(if (active) 11.dp else 8.dp).clip(CircleShape)
+                    .background(base.copy(alpha = shown * (0.35f + 0.65f * lit))),
+            )
+        }
+    }
+}

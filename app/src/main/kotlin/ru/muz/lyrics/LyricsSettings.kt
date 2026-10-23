@@ -32,6 +32,8 @@ data class LyricsSettings(
     val autoScroll: Boolean = true,
     val showTranslation: Boolean = false,
     val blurredCoverBackground: Boolean = false,
+    val modern: Boolean = true,
+    val blurDistant: Boolean = true,
 ) {
     companion object {
         val MEASURED = LyricsSettings()

@@ -78,6 +78,18 @@ data class AppSettings(
     val homeSections: List<HomeSection> = listOf(HomeSection.WAVE, HomeSection.RECENT, HomeSection.PLAYLISTS, HomeSection.CHART),
     val tabs: List<AppTab> = AppTab.entries.toList(),
     val startTab: AppTab = AppTab.HOME,
+    val lyricsModern: Boolean = true,
+    val lyricsBlur: Boolean = true,
+    val lyricsAutoHide: Boolean = true,
+    val lyricsModernAnchor: Int = 20,
+    val privateSession: Boolean = false,
+    val normalizeVolume: Boolean = true,
+    val waveMood: String = "all",
+    val waveDiversity: String = "default",
+    val waveLanguage: String = "any",
+    val hideExplicit: Boolean = false,
+    val doubleTapLike: Boolean = true,
+    val haptics: Boolean = true,
 )
 
 class AppPreferences(context: Context) {
@@ -154,6 +166,18 @@ class AppPreferences(context: Context) {
             homeSections = enumList(prefs.getString("home_sections", null), AppSettings().homeSections),
             tabs = enumList(prefs.getString("tabs", null), AppSettings().tabs).ifEmpty { AppSettings().tabs },
             startTab = enumValue(prefs.getString("start_tab", null), AppTab.HOME),
+            lyricsModern = prefs.getBoolean("lyrics_modern", true),
+            lyricsBlur = prefs.getBoolean("lyrics_blur", true),
+            lyricsAutoHide = prefs.getBoolean("lyrics_auto_hide", true),
+            lyricsModernAnchor = prefs.getInt("lyrics_modern_anchor", 20).coerceIn(10, 45),
+            privateSession = prefs.getBoolean("private_session", false),
+            normalizeVolume = prefs.getBoolean("normalize_volume", true),
+            waveMood = prefs.getString("wave_mood", null) ?: "all",
+            waveDiversity = prefs.getString("wave_diversity", null) ?: "default",
+            waveLanguage = prefs.getString("wave_language", null) ?: "any",
+            hideExplicit = prefs.getBoolean("hide_explicit", false),
+            doubleTapLike = prefs.getBoolean("double_tap_like", true),
+            haptics = prefs.getBoolean("haptics", true),
         )
     }
 
@@ -223,6 +247,18 @@ class AppPreferences(context: Context) {
             .putString("home_sections", value.homeSections.joinToString(",") { it.name })
             .putString("tabs", value.tabs.joinToString(",") { it.name })
             .putString("start_tab", value.startTab.name)
+            .putBoolean("lyrics_modern", value.lyricsModern)
+            .putBoolean("lyrics_blur", value.lyricsBlur)
+            .putBoolean("lyrics_auto_hide", value.lyricsAutoHide)
+            .putInt("lyrics_modern_anchor", value.lyricsModernAnchor)
+            .putBoolean("private_session", value.privateSession)
+            .putBoolean("normalize_volume", value.normalizeVolume)
+            .putString("wave_mood", value.waveMood)
+            .putString("wave_diversity", value.waveDiversity)
+            .putString("wave_language", value.waveLanguage)
+            .putBoolean("hide_explicit", value.hideExplicit)
+            .putBoolean("double_tap_like", value.doubleTapLike)
+            .putBoolean("haptics", value.haptics)
             .remove("pure_black")
             .remove("prefetch_pages")
             .apply()

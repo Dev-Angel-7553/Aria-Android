@@ -606,6 +606,30 @@ private val LYRICS_PRESETS = listOf(
 )
 
 private fun LazyListScope.lyricsSettings(settings: AppSettings, onChange: (AppSettings) -> Unit) {
+    item { SettingsTitle("Стиль") }
+    item {
+        Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = settings.lyricsModern, onClick = { onChange(settings.copy(lyricsModern = true)) }, label = { Text("Новый") })
+            FilterChip(selected = !settings.lyricsModern, onClick = { onChange(settings.copy(lyricsModern = false)) }, label = { Text("Классический") })
+        }
+    }
+    item {
+        Text(
+            if (settings.lyricsModern) "Строка сверху, дальние строки размыты, текст плывёт волной, кнопки прячутся сами"
+            else "Прежний вид: строка посередине, всё чётко, кнопки всегда на месте",
+            color = SoftText,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+        )
+    }
+    item {
+        AnimatedVisibility(settings.lyricsModern) {
+            Column {
+                SettingSwitch("Размывать дальние строки", "На Android 12 и новее", settings.lyricsBlur) { onChange(settings.copy(lyricsBlur = it)) }
+                SettingSwitch("Прятать кнопки", "Через 3 секунды без касаний, нажатие возвращает", settings.lyricsAutoHide) { onChange(settings.copy(lyricsAutoHide = it)) }
+            }
+        }
+    }
     item { SettingsTitle("Вид") }
     item {
         LazyRow(
@@ -673,7 +697,11 @@ private fun LyricsFineTuning(settings: AppSettings, onChange: (AppSettings) -> U
         SettingSlider("Высота строки (перенос)", settings.lyricsLineHeight, 28..64, 2, { "$it sp" }) { onChange(settings.copy(lyricsLineHeight = it)) }
         SettingSlider("Отступ между строками", settings.lyricsLineSpacing, 4..34, 1, { "$it dp" }) { onChange(settings.copy(lyricsLineSpacing = it)) }
         SettingSlider("Поля по бокам", settings.lyricsHorizontalPadding, 8..48, 2, { "$it dp" }) { onChange(settings.copy(lyricsHorizontalPadding = it)) }
-        SettingSlider("Активная строка на высоте", settings.lyricsAnchorPercent, 25..55, 1, { "$it%" }) { onChange(settings.copy(lyricsAnchorPercent = it)) }
+        if (settings.lyricsModern) {
+            SettingSlider("Активная строка на высоте", settings.lyricsModernAnchor, 10..45, 1, { "$it%" }) { onChange(settings.copy(lyricsModernAnchor = it)) }
+        } else {
+            SettingSlider("Активная строка на высоте", settings.lyricsAnchorPercent, 25..55, 1, { "$it%" }) { onChange(settings.copy(lyricsAnchorPercent = it)) }
+        }
         SettingSlider("Увеличение активной строки", settings.lyricsActiveScale, 0..5, 1, { "+$it%" }) { onChange(settings.copy(lyricsActiveScale = it)) }
         SettingSwitch("Жирная активная строка", null, settings.boldActiveLyrics) { onChange(settings.copy(boldActiveLyrics = it)) }
         Text("Выравнивание", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 12.dp))

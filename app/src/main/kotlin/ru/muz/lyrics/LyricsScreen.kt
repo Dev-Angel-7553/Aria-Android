@@ -63,6 +63,10 @@ fun LyricsScreen(
         }
         return
     }
+    if (settings.modern) {
+        FlowLyricsScreen(lyrics, positionMs, onSeek, settings, modifier.background(background), discontinuity, onLongPressLine)
+        return
+    }
 
     val listState = rememberLazyListState()
     val activeIndex = if (lyrics.synced) lyrics.activeIndexAt(positionMs) else -1
