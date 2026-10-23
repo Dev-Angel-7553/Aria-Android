@@ -83,7 +83,7 @@ internal fun FlowLyricsScreen(
     var shift by remember { mutableFloatStateOf(0f) }
     var elapsed by remember { mutableFloatStateOf(10_000f) }
     var waveFrom by remember { mutableIntStateOf(0) }
-    val duration = ru.muz.ui.animationDuration(settings.scrollDurationMs.coerceAtLeast(380) + 160)
+    val duration = ru.muz.ui.animationDuration(settings.scrollDurationMs.coerceAtLeast(380) + 360)
 
     BoxWithConstraints(modifier.fillMaxSize()) {
         val anchor = maxHeight * settings.anchorFraction
@@ -97,8 +97,9 @@ internal fun FlowLyricsScreen(
             }
             val distance = info.offset.toFloat()
             if (abs(distance) < 1f) return@LaunchedEffect
+            val residual = if (elapsed < 9_999f) shift * (1f - flowEase((elapsed / duration).coerceIn(0f, 1f))) else 0f
             listState.scrollBy(distance)
-            shift = distance
+            shift = distance + residual
             waveFrom = active
             val start = withFrameMillis { it }
             val total = duration + STAGGER_MS * 8f
@@ -143,7 +144,7 @@ internal fun FlowLyricsScreen(
                         if (elapsed < 9_999f && shift != 0f) {
                             val delay = ((index - waveFrom).coerceAtLeast(0)) * STAGGER_MS
                             val local = ((elapsed - delay) / duration).coerceIn(0f, 1f)
-                            translationY = shift * (1f - easeOut(local))
+                            translationY = shift * (1f - flowEase(local))
                         } else {
                             translationY = 0f
                         }
@@ -186,12 +187,11 @@ internal fun FlowLyricsScreen(
     }
 }
 
-private const val STAGGER_MS = 42f
+private const val STAGGER_MS = 55f
 
-private fun easeOut(t: Float): Float {
-    val p = 1f - t
-    return 1f - p * p * p
-}
+private val FLOW_EASING = androidx.compose.animation.core.CubicBezierEasing(0.3f, 0f, 0.12f, 1f)
+
+private fun flowEase(t: Float): Float = FLOW_EASING.transform(t.coerceIn(0f, 1f))
 
 @Composable
 private fun FlowLine(
@@ -205,20 +205,27 @@ private fun FlowLine(
     settings: LyricsSettings,
     modifier: Modifier,
 ) {
-    val fade = ru.muz.ui.animationDuration(320)
+    val fade = ru.muz.ui.animationDuration(520)
     val alpha by animateFloatAsState(
         when {
             !synced -> 0.92f
+            active && settings.karaokeFill -> settings.activeUnsungAlpha * 0.62f
             active -> 1f
             sung -> settings.inactiveAlpha * 0.8f
             else -> settings.inactiveAlpha
         },
-        tween(fade),
+        tween(fade, easing = androidx.compose.animation.core.FastOutSlowInEasing),
         label = "flow-alpha",
     )
+    val overlay by animateFloatAsState(
+        if (active && settings.karaokeFill) 1f else 0f,
+        tween(fade, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "flow-overlay",
+    )
+    val shownProgress = if (active) progress else 1f
     val blurTarget = if (!canBlur || !synced || active) 0f else (abs(distance).coerceAtMost(5) * 1.1f).coerceAtMost(5f)
-    val blur by animateFloatAsState(blurTarget, tween(fade), label = "flow-blur")
-    val scale by animateFloatAsState(if (active || !synced) 1f else 0.985f, tween(fade), label = "flow-scale")
+    val blur by animateFloatAsState(blurTarget, tween(fade, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "flow-blur")
+    val scale by animateFloatAsState(if (active || !synced) 1f else 0.985f, tween(fade, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "flow-scale")
     var layout by remember(line.text, settings.fontSize) { mutableStateOf<TextLayoutResult?>(null) }
     val base = MaterialTheme.colorScheme.onSurface
     val text = line.text
@@ -237,19 +244,19 @@ private fun FlowLine(
         Text(
             text,
             modifier = Modifier.fillMaxWidth(),
-            color = base.copy(alpha = if (active && settings.karaokeFill) settings.activeUnsungAlpha * 0.62f else alpha),
+            color = base.copy(alpha = alpha),
             fontSize = settings.fontSize,
             lineHeight = settings.lineHeight,
             fontWeight = FontWeight.Bold,
             textAlign = settings.textAlign,
             onTextLayout = { layout = it },
         )
-        if (active && progress > 0f && text.isNotBlank()) {
-            val soft = with(LocalDensity.current) { 22.dp.toPx() }
+        if (overlay > 0.01f && shownProgress > 0f && text.isNotBlank()) {
+            val soft = with(LocalDensity.current) { 18.dp.toPx() }
             Text(
                 text,
-                modifier = Modifier.fillMaxWidth().clearAndSetSemantics { }.softReveal(progress, text, layout, soft),
-                color = base.copy(alpha = settings.sungAlpha.coerceAtMost(1f)),
+                modifier = Modifier.fillMaxWidth().clearAndSetSemantics { }.softReveal(shownProgress, text, layout, soft),
+                color = base.copy(alpha = settings.sungAlpha.coerceAtMost(1f) * overlay),
                 fontSize = settings.fontSize,
                 lineHeight = settings.lineHeight,
                 fontWeight = FontWeight.Bold,
@@ -263,30 +270,30 @@ private fun Modifier.softReveal(fraction: Float, text: String, layout: TextLayou
     graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent {
         drawContent()
         val result = layout ?: return@drawWithContent
-        if (text.isEmpty()) return@drawWithContent
+        if (text.isEmpty() || fraction >= 0.999f) return@drawWithContent
         val progress = fraction.coerceIn(0f, 1f) * text.length
-        for (line in 0 until result.lineCount) {
+        val far = size.height + size.width + 2_000f
+        val last = result.lineCount - 1
+        for (line in 0..last) {
             val lineStart = result.getLineStart(line)
             val lineEnd = result.getLineEnd(line, visibleEnd = true)
-            val top = result.getLineTop(line) - 2f
-            val bottom = result.getLineBottom(line) + 2f
-            val left = minOf(result.getLineLeft(line), result.getLineRight(line)) - 2f
-            val right = maxOf(result.getLineLeft(line), result.getLineRight(line)) + soft
-            if (lineEnd <= lineStart) continue
-            if (progress >= lineEnd) continue
+            val top = if (line == 0) -far else result.getLineTop(line)
+            val bottom = if (line == last) far else result.getLineTop(line + 1)
+            if (lineEnd <= lineStart || progress >= lineEnd) continue
             if (progress <= lineStart) {
-                drawRect(Color.Black, Offset(left, top), Size(right - left, bottom - top), blendMode = BlendMode.DstOut)
+                drawRect(Color.Black, Offset(-far, top), Size(far * 2f, bottom - top), blendMode = BlendMode.DstOut)
                 continue
             }
             val index = progress.toInt().coerceIn(lineStart, lineEnd - 1)
             val glyph = result.getBoundingBox(index)
             val x = glyph.left + glyph.width * (progress - index)
             drawRect(
-                Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = x - soft / 2f, endX = x + soft / 2f),
-                Offset(x - soft / 2f, top),
-                Size(right - (x - soft / 2f), bottom - top),
+                Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = x - soft, endX = x),
+                Offset(x - soft, top),
+                Size(soft, bottom - top),
                 blendMode = BlendMode.DstOut,
             )
+            drawRect(Color.Black, Offset(x, top), Size(far, bottom - top), blendMode = BlendMode.DstOut)
         }
     }
 
@@ -306,11 +313,11 @@ private fun PauseDots(
         androidx.compose.animation.core.infiniteRepeatable(tween(1100), androidx.compose.animation.core.RepeatMode.Reverse),
         label = "pause-breath",
     )
-    val shown by animateFloatAsState(if (active) 1f else 0.35f, tween(ru.muz.ui.animationDuration(320)), label = "pause-shown")
+    val shown by animateFloatAsState(if (active) 1f else 0.35f, tween(ru.muz.ui.animationDuration(520)), label = "pause-shown")
     val base = MaterialTheme.colorScheme.onSurface
     val blur = if (canBlur && !active) (abs(distance).coerceAtMost(4) * 1.1f) else 0f
     Row(
-        modifier.height(if (active) 44.dp else 30.dp).padding(horizontal = 10.dp)
+        modifier.height(40.dp).padding(horizontal = 10.dp)
             .then(if (blur > 0f) Modifier.blur(blur.dp) else Modifier)
             .graphicsLayer {
                 val k = if (active) breath else 1f
@@ -327,7 +334,11 @@ private fun PauseDots(
         repeat(3) { i ->
             val lit = (progress * 3f - i).coerceIn(0f, 1f)
             Box(
-                Modifier.padding(end = 9.dp).size(if (active) 11.dp else 8.dp).clip(CircleShape)
+                Modifier.padding(end = 9.dp).size(11.dp).graphicsLayer {
+                    val k = if (active) 1f else 0.75f
+                    scaleX = k
+                    scaleY = k
+                }.clip(CircleShape)
                     .background(base.copy(alpha = shown * (0.35f + 0.65f * lit))),
             )
         }

@@ -86,6 +86,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -888,66 +889,46 @@ private fun MiniPlayerPreview(settings: AppSettings) {
 
 @Composable
 private fun LyricsPreview(settings: AppSettings) {
+    var position by remember { mutableStateOf(0L) }
+    var loops by remember { mutableStateOf(0L) }
     val reduceMotion = LocalReduceMotion.current
-    val fill = if (reduceMotion || !settings.karaokeFill) 0.55f else {
-        val transition = rememberInfiniteTransition(label = "lyrics-preview")
-        val value by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(2600, easing = LinearEasing), RepeatMode.Restart),
-            label = "lyrics-preview-fill",
-        )
-        value
-    }
-    val fontSize = (settings.lyricsFontSize * 0.72f).sp
-    val align = if (settings.lyricsAlignment == LyricsAlignment.CENTER) TextAlign.Center else TextAlign.Start
-    val ink = MaterialTheme.colorScheme.onSurface
-    val activeWeight = if (settings.boldActiveLyrics) FontWeight.Bold else FontWeight.SemiBold
-    val glow = settings.karaokeFill && settings.karaokeFillStyle == KaraokeFillStyle.SOFT_GLOW && settings.lyricsGlowAlpha > 0
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)
-            .clip(RoundedCornerShape(20.dp * LocalCornerRadiusScale.current))
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(horizontal = (settings.lyricsHorizontalPadding * 0.6f).dp, vertical = 14.dp),
-    ) {
-        Text(
-            "Я верю в музыку",
-            color = ink.copy(alpha = settings.lyricsInactivePercent / 100f),
-            fontSize = fontSize,
-            textAlign = align,
-            modifier = Modifier.fillMaxWidth(),
-            maxLines = 1,
-        )
-        Box(Modifier.fillMaxWidth().padding(vertical = (settings.lyricsLineSpacing * 0.4f).dp)) {
-            val style = TextStyle(fontSize = fontSize * (1f + settings.lyricsActiveScale / 100f), fontWeight = activeWeight, textAlign = align)
-            Text(
-                "Она всегда рядом",
-                style = style,
-                color = ink.copy(alpha = if (settings.karaokeFill) settings.lyricsUnsungPercent / 100f else 1f),
-                modifier = Modifier.fillMaxWidth(),
-                maxLines = 1,
-            )
-            if (settings.karaokeFill) {
-                Text(
-                    "Она всегда рядом",
-                    style = style.copy(
-                        shadow = if (glow) Shadow(ink.copy(alpha = settings.lyricsGlowAlpha / 100f), blurRadius = settings.lyricsGlowBlur * 2f) else null,
-                    ),
-                    color = ink.copy(alpha = (settings.lyricsSungPercent / 100f).coerceAtMost(1f)),
-                    modifier = Modifier.fillMaxWidth().clipToBounds().drawWithContent {
-                        clipRect(right = size.width * fill) { this@drawWithContent.drawContent() }
-                    },
-                    maxLines = 1,
-                )
-            }
+    LaunchedEffect(reduceMotion) {
+        if (reduceMotion) {
+            position = 8_500L
+            return@LaunchedEffect
         }
+        val start = androidx.compose.runtime.withFrameMillis { it }
+        while (true) {
+            val now = androidx.compose.runtime.withFrameMillis { it }
+            val t = (now - start) % SampleLyrics.lengthMs
+            if (t < position) loops++
+            position = t
+        }
+    }
+    val tint = Accent
+    Box(
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp).height(300.dp)
+            .clip(RoundedCornerShape(24.dp * LocalCornerRadiusScale.current)),
+    ) {
+        if (settings.coverColorBackground) {
+            MovingCoverBackground(tint, strength = 1f)
+        } else {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerLow))
+        }
+        ru.muz.lyrics.LyricsScreen(
+            lyrics = SampleLyrics.lyrics,
+            positionMs = position,
+            onSeek = {},
+            settings = lyricsSettingsFor(settings, scale = 0.82f),
+            background = androidx.compose.ui.graphics.Color.Transparent,
+            discontinuity = loops,
+            modifier = Modifier.fillMaxSize(),
+        )
         Text(
-            "И звучит для меня",
-            color = ink.copy(alpha = settings.lyricsInactivePercent / 100f),
-            fontSize = fontSize,
-            textAlign = align,
-            modifier = Modifier.fillMaxWidth(),
-            maxLines = 1,
+            "Так будет выглядеть текст",
+            color = SoftText,
+            fontSize = 11.sp,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp),
         )
     }
 }

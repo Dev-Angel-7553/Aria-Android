@@ -192,9 +192,31 @@ private fun DockIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, titl
 }
 
 @Composable
-internal fun HiddenDockHint(onShow: () -> Unit) {
-    Box(Modifier.fillMaxWidth().height(28.dp).clickable(onClick = onShow), contentAlignment = Alignment.Center) {
-        Box(Modifier.width(56.dp).height(4.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)))
+internal fun DockOverlay(visible: Boolean, modifier: Modifier, onShow: () -> Unit, content: @Composable () -> Unit) {
+    val duration = playerTransitionDuration(460)
+    Box(modifier.fillMaxWidth()) {
+        androidx.compose.animation.AnimatedVisibility(
+            visible = visible,
+            enter = androidx.compose.animation.slideInVertically(tween(duration, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 2 } +
+                androidx.compose.animation.fadeIn(tween(duration)),
+            exit = androidx.compose.animation.slideOutVertically(tween(duration, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 2 } +
+                androidx.compose.animation.fadeOut(tween(duration)),
+        ) {
+            Box(
+                Modifier.fillMaxWidth().background(
+                    Brush.verticalGradient(listOf(Color.Transparent, AppBackground.copy(alpha = 0.55f), AppBackground.copy(alpha = 0.78f))),
+                ).padding(top = 28.dp),
+            ) { content() }
+        }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = !visible,
+            enter = androidx.compose.animation.fadeIn(tween(duration)),
+            exit = androidx.compose.animation.fadeOut(tween(duration / 2)),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            Box(Modifier.fillMaxWidth().height(36.dp).clickable(onClick = onShow), contentAlignment = Alignment.Center) {
+                Box(Modifier.width(56.dp).height(4.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)))
+            }
+        }
     }
-    Spacer(Modifier.height(0.dp))
 }

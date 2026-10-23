@@ -273,7 +273,8 @@ internal fun FullPlayerScreen(
                             lyrics.lines.isEmpty() -> 2
                             else -> 3
                         }
-                        PlayerCrossfade(lyricsPage, Modifier.weight(1f)) { page ->
+                      Box(Modifier.weight(1f).fillMaxWidth()) {
+                        PlayerCrossfade(lyricsPage, Modifier.fillMaxSize()) { page ->
                             Column(Modifier.fillMaxSize()) {
                                 when {
                                     page == 0 -> LyricsLoading(lyricsStatus, Modifier.weight(1f))
@@ -289,33 +290,7 @@ internal fun FullPlayerScreen(
                                         discontinuity = state.discontinuity,
                                         onSeek = { onSeek((it - settings.lyricsOffsetMs).coerceAtLeast(0)) },
                                         onLongPressLine = { quoteStart = it },
-                                        settings = LyricsSettings.MEASURED.copy(
-                                            modern = settings.lyricsModern,
-                                            blurDistant = settings.lyricsBlur,
-                                            fontSize = settings.lyricsFontSize.sp,
-                                            lineHeight = settings.lyricsLineHeight.sp,
-                                            lineSpacingDp = settings.lyricsLineSpacing,
-                                            horizontalPaddingDp = settings.lyricsHorizontalPadding,
-                                            anchorFraction = (if (settings.lyricsModern) settings.lyricsModernAnchor else settings.lyricsAnchorPercent) / 100f,
-                                            activeUnsungAlpha = settings.lyricsUnsungPercent / 100f,
-                                            sungAlpha = (settings.lyricsSungPercent / 100f).coerceIn(0.7f, 1.25f),
-                                            inactiveAlpha = settings.lyricsInactivePercent / 100f,
-                                            textAlign = if (settings.lyricsAlignment == LyricsAlignment.CENTER) {
-                                                TextAlign.Center
-                                            } else {
-                                                TextAlign.Start
-                                            },
-                                            fadeEdges = settings.fadeLyrics,
-                                            karaokeFill = settings.karaokeFill,
-                                            karaokeFillStyle = settings.karaokeFillStyle,
-                                            glowBlurDp = settings.lyricsGlowBlur.toFloat(),
-                                            glowAlpha = settings.lyricsGlowAlpha / 100f,
-                                            scrollDurationMs = settings.lyricsScrollSpeed,
-                                            boldActiveLine = settings.boldActiveLyrics,
-                                            activeScale = settings.lyricsActiveScale / 100f,
-                                            tapToSeek = settings.lyricsTapToSeek,
-                                            autoScroll = settings.lyricsAutoScroll,
-                                        ),
+                                        settings = lyricsSettingsFor(settings),
                                         modifier = Modifier.weight(1f),
                                         background = Color.Transparent,
                                     )
@@ -323,13 +298,7 @@ internal fun FullPlayerScreen(
                             }
                         }
                         if (modern) {
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = dockVisible,
-                                enter = androidx.compose.animation.expandVertically(tween(playerTransitionDuration(320))) +
-                                    androidx.compose.animation.fadeIn(tween(playerTransitionDuration(320))),
-                                exit = androidx.compose.animation.shrinkVertically(tween(playerTransitionDuration(420))) +
-                                    androidx.compose.animation.fadeOut(tween(playerTransitionDuration(300))),
-                            ) {
+                            DockOverlay(dockVisible, Modifier.align(Alignment.BottomCenter), onShow = { touches++ }) {
                                 ModernLyricsDock(
                                     state = state,
                                     label = if (settings.privateSession) "Приватно" else "",
@@ -341,8 +310,9 @@ internal fun FullPlayerScreen(
                                     onQueue = { showQueue = true },
                                 )
                             }
-                            if (!dockVisible) HiddenDockHint { touches++ }
-                        } else {
+                        }
+                      }
+                        if (!modern) {
                             LyricsDock(
                                 state = state,
                                 liked = liked,
