@@ -506,6 +506,8 @@ private fun LazyListScope.playerSettings(settings: AppSettings, onChange: (AppSe
     item { SettingSwitch("Прогресс мини-плеера", "Тонкая полоса под треком", settings.showMiniPlayerProgress) { onChange(settings.copy(showMiniPlayerProgress = it)) } }
     item { SettingSwitch("Жесты полного плеера", "Влево/вправо — трек, вверх — очередь, вниз — свернуть", settings.fullPlayerSwipe) { onChange(settings.copy(fullPlayerSwipe = it)) } }
     item { SettingSwitch("Не выключать экран", "Пока приложение открыто", settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) } }
+    item { SettingSwitch("Двойной тап по обложке", "Ставит «Мне нравится»", settings.doubleTapLike) { onChange(settings.copy(doubleTapLike = it)) } }
+    item { SettingSwitch("Вибрация", "Лёгкий отклик на «Мне нравится»", settings.haptics) { onChange(settings.copy(haptics = it)) } }
     item { SettingsTitle("Цвет и обложка") }
     item { SettingSwitch("Цвет обложки в фоне", "Мягкий градиент цвета обложки сверху экрана", settings.coverColorBackground) { onChange(settings.copy(coverColorBackground = it)) } }
     item {
@@ -730,6 +732,10 @@ private fun LazyListScope.playbackSettings(
     item { SettingsTitle("Качество") }
     item { SettingSwitch("Экономия трафика", "Запрашивает поток с меньшим битрейтом", settings.dataSaver) { onChange(settings.copy(dataSaver = it)) } }
     item { SettingSwitch("Предзагрузка следующего трека", "Следующий трек начинается без паузы", settings.preloadNextTracks) { onChange(settings.copy(preloadNextTracks = it)) } }
+    item { SettingSwitch("Выравнивать громкость", "Тихие и громкие треки звучат одинаково, по данным Яндекса", settings.normalizeVolume) { onChange(settings.copy(normalizeVolume = it)) } }
+    item { SettingsTitle("Рекомендации") }
+    item { SettingSwitch("Приватный режим", "Прослушивания не уходят в Яндекс и не влияют на «Мою волну». Локальная статистика считается", settings.privateSession) { onChange(settings.copy(privateSession = it)) } }
+    item { SettingSwitch("Без откровенных треков", "Пропускать треки с пометкой E в волне и при запуске списков", settings.hideExplicit) { onChange(settings.copy(hideExplicit = it)) } }
     item { SettingsTitle("Кэш и офлайн") }
     item {
         androidx.compose.runtime.LaunchedEffect(Unit) { onRefreshCache() }

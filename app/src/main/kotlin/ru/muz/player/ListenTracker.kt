@@ -28,6 +28,7 @@ internal class ListenTracker(context: Context, private val player: Player) : Pla
     private var currentId = ""
     private var title = ""
     private var artist = ""
+    private var station = ru.muz.yandex.PlaySource.WAVE_STATION
     private var client: YandexClient? = null
     private var clientToken: String? = null
 
@@ -67,14 +68,16 @@ internal class ListenTracker(context: Context, private val player: Player) : Pla
         artist = metadata.artist?.toString().orEmpty()
         val duration = extras?.getLong(MediaExtras.DURATION, 0L)?.takeIf { it > 0 }
             ?: player.duration.takeIf { it > 0 } ?: 0L
+        val source = MediaExtras.source(extras)
         send(
             session.start(
                 trackId = id,
                 albumId = extras?.getString(MediaExtras.ALBUM_ID).orEmpty(),
                 durationMs = duration,
-                source = MediaExtras.source(extras),
+                source = source,
             ),
         )
+        station = source.station
         stats.recordStart(id, title, artist, metadata.artworkUri?.toString())
     }
 
@@ -97,7 +100,9 @@ internal class ListenTracker(context: Context, private val player: Player) : Pla
 
     private fun send(events: List<ListenEvent>) {
         if (events.isEmpty()) return
-        if (!AppPreferences(app).load().reportListening) return
+        val prefs = AppPreferences(app).load()
+        if (!prefs.reportListening || prefs.privateSession) return
+        val stationNow = station
         val token = TokenStore(app).token ?: return
         val api = client?.takeIf { clientToken == token } ?: YandexClient(token).also {
             client = it
@@ -107,7 +112,7 @@ internal class ListenTracker(context: Context, private val player: Player) : Pla
             events.forEach { event ->
                 when (event) {
                     is ListenEvent.PlayAudio -> api.reportPlay(event)
-                    else -> api.waveFeedback(event)
+                    else -> api.waveFeedback(event, stationNow)
                 }
             }
         }

@@ -170,9 +170,11 @@ class YandexClient(
         if (fromFeed.isNotEmpty()) fromFeed else playlists().getOrThrow()
     }
 
-    suspend fun myWave(queue: String? = null): Result<List<Track>> = runCatching {
+    suspend fun myWave(queue: String? = null): Result<List<Track>> = stationTracks(PlaySource.WAVE_STATION, queue)
+
+    suspend fun stationTracks(station: String, queue: String? = null): Result<List<Track>> = runCatching {
         val result = apiGet(
-            path = "rotor/station/user:onyourwave/tracks",
+            path = "rotor/station/$station/tracks",
             query = buildMap {
                 put("settings2", "true")
                 queue?.takeIf { it.isNotBlank() }?.let { put("queue", it.substringBefore(':')) }
@@ -269,6 +271,42 @@ class YandexClient(
         if (albumId.isBlank()) trackId else "$trackId:$albumId"
 
     private fun seconds(value: Double): String = String.format(java.util.Locale.ROOT, "%.3f", value.coerceAtLeast(0.0))
+
+    suspend fun setStationSettings(station: String, mood: String, diversity: String, language: String): Result<Unit> = runCatching {
+        val body = buildJsonObject {
+            put("moodEnergy", mood)
+            put("diversity", diversity)
+            put("language", language)
+            put("type", "rotor")
+        }
+        runCatching { apiPostJson("rotor/station/$station/settings3", emptyMap(), body.toString()) }
+            .recoverCatching {
+                apiPost(
+                    "rotor/station/$station/settings2",
+                    mapOf("moodEnergy" to mood, "diversity" to diversity, "language" to language, "type" to "rotor"),
+                )
+            }.getOrThrow()
+        Unit
+    }
+
+    suspend fun setDisliked(trackId: String, disliked: Boolean): Result<Boolean> = runCatching {
+        val uid = requireAccount().uid
+        val action = if (disliked) "add-multiple" else "remove"
+        apiPost("users/$uid/dislikes/tracks/$action", mapOf("track-ids" to trackId))
+        disliked
+    }
+
+    suspend fun stationDislike(station: String, trackId: String, albumId: String, playedSeconds: Double): Result<Unit> = runCatching {
+        val body = buildJsonObject {
+            put("type", "dislike")
+            put("timestamp", Instant.now().toString())
+            put("trackId", waveTrackId(trackId.substringBefore(':'), albumId))
+            put("totalPlayedSeconds", playedSeconds)
+        }
+        val query = buildMap { lastWaveBatchId.takeIf { it.isNotBlank() }?.let { put("batch-id", it) } }
+        apiPostJson("rotor/station/$station/feedback", query, body.toString())
+        Unit
+    }
 
     data class CreatedPlaylist(val kind: String, val revision: Int, val ownerUid: String)
 
@@ -587,6 +625,7 @@ class YandexClient(
                 it.primitive("hasAvailableSyncLyrics")?.booleanOrNull == true ||
                     it.primitive("hasAvailableTextLyrics")?.booleanOrNull == true
             } ?: false,
+            loudness = obj("r128")?.primitive("i")?.content?.toFloatOrNull() ?: Float.NaN,
         )
     }
 
@@ -668,6 +707,7 @@ class YandexClient(
         val id: String, val albumId: String, val title: String, val artist: String, val album: String,
         val durationMs: Long, val coverUrl: String?, val explicit: Boolean, val lyricsAvailable: Boolean,
         val artistId: String = "",
+        val loudness: Float = Float.NaN,
     )
     data class Playlist(
         val id: String, val ownerUid: String, val kind: String, val uuid: String, val title: String,

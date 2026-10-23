@@ -83,6 +83,7 @@ class MuzPlayerService : MediaLibraryService() {
         )
         exo.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                applyLoudness(mediaItem)
                 updateLikeButton()
                 saveQueue()
             }
@@ -168,6 +169,22 @@ class MuzPlayerService : MediaLibraryService() {
         resume.save(items, exo.currentMediaItemIndex, exo.currentPosition)
     }
 
+    private var loudnessGain = 1f
+    private var fadeGain = 1f
+
+    private fun applyVolume() {
+        player?.volume = (loudnessGain * fadeGain).coerceIn(0f, 1f)
+    }
+
+    private fun applyLoudness(item: MediaItem?) {
+        val enabled = ru.muz.settings.AppPreferences(this).load().normalizeVolume
+        val lufs = item?.mediaMetadata?.extras?.getFloat(MediaExtras.LOUDNESS, Float.NaN) ?: Float.NaN
+        loudnessGain = if (enabled && !lufs.isNaN()) {
+            Math.pow(10.0, (ru.muz.player.Loudness.gainDb(lufs)) / 20.0).toFloat()
+        } else 1f
+        applyVolume()
+    }
+
     private fun setSleep(minutes: Int) {
         val exo = player ?: return
         if (minutes == MediaExtras.SLEEP_QUERY) {
@@ -176,7 +193,8 @@ class MuzPlayerService : MediaLibraryService() {
         }
         sleepJob?.cancel()
         sleepJob = null
-        exo.volume = 1f
+        fadeGain = 1f
+        applyVolume()
         exo.pauseAtEndOfMediaItems = false
         sleepEndsAt = when {
             minutes == MediaExtras.SLEEP_END_OF_TRACK -> {
@@ -191,11 +209,13 @@ class MuzPlayerService : MediaLibraryService() {
                     delay((durationMs - fadeMs).coerceAtLeast(0))
                     val steps = 24
                     for (step in steps downTo 1) {
-                        exo.volume = step / steps.toFloat()
+                        fadeGain = step / steps.toFloat()
+                        applyVolume()
                         delay(fadeMs / steps)
                     }
                     exo.pause()
-                    exo.volume = 1f
+                    fadeGain = 1f
+                    applyVolume()
                     sleepEndsAt = 0L
                     sleepJob = null
                     broadcastSleep()

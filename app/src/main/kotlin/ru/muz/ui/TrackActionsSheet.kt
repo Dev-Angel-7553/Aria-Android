@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.InsertLink
@@ -45,6 +48,9 @@ internal fun TrackActionsSheet(
     onShareFile: () -> Unit,
     onDownloadCover: () -> Unit = {},
     onOpenCover: () -> Unit = {},
+    onTrackWave: (() -> Unit)? = null,
+    onArtistWave: (() -> Unit)? = null,
+    onDislike: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
@@ -54,6 +60,8 @@ internal fun TrackActionsSheet(
                 Text(track.artist, color = SoftText, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
+        onTrackWave?.let { Action(Icons.Filled.GraphicEq, "Волна по треку", it) }
+        onArtistWave?.let { Action(Icons.Filled.Person, "Волна по исполнителю", it) }
         Action(Icons.Filled.QueuePlayNext, "Играть следующим", onPlayNext)
         Action(Icons.Filled.PlaylistAdd, "Добавить в очередь", onAddToQueue)
         Action(if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, if (liked) "Убрать лайк" else "Мне нравится", onToggleLike)
@@ -62,6 +70,7 @@ internal fun TrackActionsSheet(
         Action(Icons.Filled.OpenInNew, "Открыть обложку", onOpenCover)
         Action(Icons.Filled.InsertLink, "Поделиться ссылкой", onShareLink)
         Action(Icons.Filled.Share, if (busy) "Подготовка файла…" else "Отправить аудиофайл", onShareFile, !busy)
+        onDislike?.let { Action(Icons.Filled.Block, "Не рекомендовать", it) }
     }
 }
 

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.GraphicEq
@@ -329,7 +330,7 @@ internal fun CompactPlayer(
 }
 
 @Composable
-internal fun MyWaveCard(trackCount: Int = 0, onClick: () -> Unit) {
+internal fun MyWaveCard(trackCount: Int = 0, subtitle: String = "", onTune: (() -> Unit)? = null, onClick: () -> Unit) {
     val corners = LocalCornerRadiusScale.current
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
@@ -352,13 +353,18 @@ internal fun MyWaveCard(trackCount: Int = 0, onClick: () -> Unit) {
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                if (trackCount > 0) "${ru.muz.text.tracksLabel(trackCount)} по вашему вкусу" else "Персональный поток по вашей истории",
+                subtitle.ifBlank { if (trackCount > 0) "${ru.muz.text.tracksLabel(trackCount)} по вашему вкусу" else "Персональный поток по вашей истории" },
                 color = SoftText,
                 fontSize = 13.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 3.dp),
             )
+        }
+        if (onTune != null) {
+            androidx.compose.material3.IconButton(onClick = onTune) {
+                Icon(Icons.Filled.Tune, "Настроить волну", tint = SoftText)
+            }
         }
         Icon(Icons.Filled.PlayArrow, "Слушать", tint = Accent, modifier = Modifier.size(30.dp))
     }

@@ -7,6 +7,7 @@ data class PlaySource(
     val playlistId: String = "",
     val wave: Boolean = false,
     val sessionId: String = UUID.randomUUID().toString(),
+    val station: String = WAVE_STATION,
 ) {
     companion object {
         const val WAVE_STATION = "user:onyourwave"
@@ -22,6 +23,16 @@ data class PlaySource(
             playlistId = if (ownerUid.isNotBlank() && kind.isNotBlank()) "$ownerUid:$kind" else "",
         )
         fun other() = PlaySource("mobile-other-default")
+        fun station(id: String) = PlaySource(
+            from = when {
+                id.startsWith("track:") -> "mobile-radio-track"
+                id.startsWith("artist:") -> "mobile-radio-artist"
+                id.startsWith("album:") -> "mobile-radio-album"
+                else -> "mobile-radio-${id.replace(':', '-')}"
+            },
+            wave = true,
+            station = id,
+        )
     }
 }
 

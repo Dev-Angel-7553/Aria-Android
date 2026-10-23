@@ -132,6 +132,7 @@ fun MusicApp(
     var transferBusy by remember { mutableStateOf(false) }
     var statsSnapshot by remember { mutableStateOf(ListeningStatsSnapshot()) }
     var actionTrack by remember { mutableStateOf<YandexClient.Track?>(null) }
+    var showWaveSettings by remember { mutableStateOf(false) }
     var actionPlaylist by remember { mutableStateOf<YandexClient.Playlist?>(null) }
     var artistLoading by remember { mutableStateOf(false) }
     var waveSession by remember { mutableStateOf(false) }
@@ -409,6 +410,70 @@ fun MusicApp(
         }
     }
 
+    fun startStation(station: String, title: String) {
+        val client = api ?: return
+        toast("Запускаем $title…")
+        scope.launch {
+            client.stationTracks(station).fold(
+                onSuccess = { tracks ->
+                    val playableTracks = if (settings.hideExplicit) tracks.filterNot { it.explicit } else tracks
+                    if (playableTracks.isEmpty()) toast("Для этой волны пока нет треков")
+                    else playTracks(playableTracks, 0, PlaySource.station(station), isWave = true)
+                },
+                onFailure = { toast(it.message ?: "Волна не запустилась") },
+            )
+        }
+    }
+
+    fun trackWave(track: YandexClient.Track) = startStation("track:${track.id.substringBefore(':')}", "волну по треку")
+
+    fun artistWave(track: YandexClient.Track) {
+        if (track.artistId.isBlank()) {
+            toast("Не знаю исполнителя этого трека")
+            return
+        }
+        startStation("artist:${track.artistId}", "волну по исполнителю")
+    }
+
+    fun dislikeTrack(track: YandexClient.Track) {
+        val client = api ?: return
+        val isCurrent = track.id == player.mediaId
+        scope.launch {
+            client.setDisliked(track.id, true).fold(
+                onSuccess = {
+                    toast("Больше не будем это рекомендовать")
+                    wave = wave.filterNot { it.id == track.id }
+                    if (isCurrent) {
+                        if (waveSession && !settings.privateSession && settings.reportListening) {
+                            client.stationDislike(playSource.station, track.id, track.albumId, player.positionMs / 1000.0)
+                        }
+                        playback.skipNext()
+                    }
+                },
+                onFailure = { toast(it.message ?: "Не получилось") },
+            )
+        }
+    }
+
+    fun applyWaveSettings(mood: String, diversity: String, language: String) {
+        updateSettings(settings.copy(waveMood = mood, waveDiversity = diversity, waveLanguage = language))
+        val client = api ?: return
+        scope.launch {
+            client.setStationSettings(PlaySource.WAVE_STATION, mood, diversity, language).fold(
+                onSuccess = {
+                    client.myWave().onSuccess { fresh ->
+                        wave = fresh
+                        if (waveSession && playSource.station == PlaySource.WAVE_STATION && fresh.isNotEmpty()) {
+                            playTracks(fresh, 0, PlaySource.wave(), isWave = true)
+                        }
+                    }
+                    toast("Волна настроена")
+                },
+                onFailure = { toast(it.message ?: "Не удалось настроить волну") },
+            )
+        }
+    }
+
     fun playTracks(
         tracks: List<YandexClient.Track>,
         index: Int,
@@ -416,13 +481,16 @@ fun MusicApp(
         isWave: Boolean = false,
     ) {
         if (tracks.isEmpty()) return
+        val chosen = tracks.getOrNull(index)
+        val list = if (settings.hideExplicit) tracks.filter { !it.explicit || it === chosen } else tracks
+        val start = list.indexOfFirst { it === chosen }.coerceAtLeast(0)
         playSource = source
         waveSession = isWave
         lastWaveContinuation = ""
-        queue = tracks
+        queue = list
         playback.playQueue(
-            tracks.map(::playable),
-            index,
+            list.map(::playable),
+            start,
             source,
         )
         showLyrics = settings.showLyricsByDefault
@@ -836,10 +904,10 @@ fun MusicApp(
         ) {
             lastWaveContinuation = continuation
             waveLoadingMore = true
-            client.myWave(continuation).fold(
+            client.stationTracks(playSource.station, continuation).fold(
                 onSuccess = { nextBatch ->
                     val existingIds = queue.mapTo(hashSetOf()) { it.id.substringBefore(':') }
-                    val fresh = nextBatch.filter { existingIds.add(it.id.substringBefore(':')) }
+                    val fresh = nextBatch.filter { existingIds.add(it.id.substringBefore(':')) && !(settings.hideExplicit && it.explicit) }
                     fresh.forEach { track ->
                         playback.addToQueue(
                             playable(track),
@@ -956,6 +1024,13 @@ fun MusicApp(
                                 val id = player.mediaId
                                 suspend { client.streamUrl(id) }
                             },
+                            onTrackWave = { currentTrack?.let(::trackWave) },
+                            onDislike = { currentTrack?.let(::dislikeTrack) },
+                            privateSession = settings.privateSession,
+                            onPrivate = { value ->
+                                updateSettings(settings.copy(privateSession = value))
+                                toast(if (value) "Приватный режим: прослушивания не уходят в Яндекс" else "Приватный режим выключен")
+                            },
                         ),
                         lyrics = if (lyricsTrackId == player.mediaId) lyrics else Lyrics.EMPTY,
                         lyricsLoading = lyricsLoading || (showLyrics && lyricsTrackId != player.mediaId),
@@ -1063,6 +1138,8 @@ fun MusicApp(
                         account = account,
                         stats = statsSnapshot,
                         statsSource = listeningStats,
+                        waveSubtitle = waveSettingsLabel(settings),
+                        onWaveSettings = { showWaveSettings = true },
                         onPlayStatTracks = { list, index ->
                             playTracks(
                                 list.map {
@@ -1163,6 +1240,12 @@ fun MusicApp(
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = snackbarBottom),
             )
         }
+        if (showWaveSettings) {
+            WaveSettingsSheet(settings, onApply = { mood, diversity, language ->
+                showWaveSettings = false
+                applyWaveSettings(mood, diversity, language)
+            }) { showWaveSettings = false }
+        }
         actionTrack?.let { track ->
             TrackActionsSheet(
                 track = track,
@@ -1188,6 +1271,9 @@ fun MusicApp(
                     onShareFile = { downloadTrack(track, true); actionTrack = null },
                     onDownloadCover = { downloadCover(track); actionTrack = null },
                     onOpenCover = { TrackTransfer.openCover(context, track); actionTrack = null },
+                    onTrackWave = { trackWave(track); actionTrack = null },
+                    onArtistWave = if (track.artistId.isNotBlank()) ({ artistWave(track); actionTrack = null }) else null,
+                    onDislike = { dislikeTrack(track); actionTrack = null },
             )
         }
         actionPlaylist?.let { playlist ->

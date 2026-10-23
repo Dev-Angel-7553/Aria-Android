@@ -15,6 +15,8 @@ internal object MediaExtras {
     const val WAVE = "aria.wave"
     const val SESSION = "aria.session"
     const val LIKED = "aria.liked"
+    const val STATION = "aria.station"
+    const val LOUDNESS = "aria.loudness"
 
     const val CMD_TOGGLE_LIKE = "aria.toggleLike"
     const val CMD_SET_LIKED = "aria.setLiked"
@@ -34,10 +36,12 @@ internal object MediaExtras {
         putString(ALBUM_ID, track.albumId)
         putLong(DURATION, track.durationMs)
         putBoolean(LIKED, track.liked)
+        if (!track.loudness.isNaN()) putFloat(LOUDNESS, track.loudness)
         putString(FROM, source.from)
         putString(PLAYLIST, source.playlistId)
         putBoolean(WAVE, source.wave)
         putString(SESSION, source.sessionId)
+        putString(STATION, source.station)
     }
 
     fun source(extras: Bundle?): PlaySource {
@@ -47,6 +51,7 @@ internal object MediaExtras {
             from = extras.getString(FROM) ?: PlaySource.other().from,
             playlistId = extras.getString(PLAYLIST).orEmpty(),
             wave = extras.getBoolean(WAVE, false),
+            station = extras.getString(STATION) ?: PlaySource.WAVE_STATION,
         )
         return if (session.isBlank()) base else base.copy(sessionId = session)
     }
@@ -78,6 +83,7 @@ internal object MediaExtras {
         albumId = value.albumId,
         durationMs = value.durationMs,
         liked = liked,
+        loudness = value.loudness,
     )
 
     fun trackId(item: MediaItem): String =

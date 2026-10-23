@@ -21,6 +21,9 @@ import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ModalBottomSheet
@@ -55,6 +58,10 @@ internal data class PlayerTools(
     val onSkipSilence: (Boolean) -> Unit = {},
     val trackLink: String? = null,
     val resolveAudio: (suspend () -> Result<String>)? = null,
+    val onTrackWave: () -> Unit = {},
+    val onDislike: () -> Unit = {},
+    val privateSession: Boolean = false,
+    val onPrivate: (Boolean) -> Unit = {},
 )
 
 internal fun PlayerAction.title(): String = when (this) {
@@ -68,6 +75,9 @@ internal fun PlayerAction.title(): String = when (this) {
     PlayerAction.SPEED -> "Скорость"
     PlayerAction.QUOTE -> "Карточка с цитатой"
     PlayerAction.COPY_ARTIST -> "Скопировать имя артиста"
+    PlayerAction.TRACK_WAVE -> "Волна по треку"
+    PlayerAction.DISLIKE -> "Не рекомендовать"
+    PlayerAction.PRIVATE -> "Приватный режим"
 }
 
 internal fun PlayerAction.icon(): ImageVector = when (this) {
@@ -81,6 +91,9 @@ internal fun PlayerAction.icon(): ImageVector = when (this) {
     PlayerAction.SPEED -> Icons.Filled.Speed
     PlayerAction.QUOTE -> Icons.Filled.FormatQuote
     PlayerAction.COPY_ARTIST -> Icons.Filled.ContentCopy
+    PlayerAction.TRACK_WAVE -> Icons.Filled.GraphicEq
+    PlayerAction.DISLIKE -> Icons.Filled.Block
+    PlayerAction.PRIVATE -> Icons.Filled.VisibilityOff
 }
 
 @Composable

@@ -98,6 +98,8 @@ internal fun MainShell(
     account: YandexClient.Account?,
     stats: ListeningStatsSnapshot,
     statsSource: ru.muz.stats.ListeningStats? = null,
+    waveSubtitle: String = "",
+    onWaveSettings: () -> Unit = {},
     onPlayStatTracks: (List<ru.muz.stats.TrackStat>, Int) -> Unit = { _, _ -> },
     update: AppRelease? = null,
     updateProgress: Float? = null,
@@ -163,7 +165,7 @@ internal fun MainShell(
                 onTrackMore,
                 onPlaylistMore,
                 update, updateProgress, onUpdate, onDismissUpdate,
-                homeSections, playlists,
+                homeSections, playlists, waveSubtitle, onWaveSettings,
             )
             MainTab.LIBRARY -> LibraryScreen(
                 liked, likedAlbums, playlists, busy, collectionMessage, compact, listScalePercent, listPageSize, padding,
@@ -210,6 +212,8 @@ private fun HomeScreen(
     onDismissUpdate: () -> Unit,
     sections: List<HomeSection>,
     playlists: List<YandexClient.Playlist>,
+    waveSubtitle: String = "",
+    onWaveSettings: () -> Unit = {},
 ) {
     LazyColumn(
         Modifier.fillMaxSize().padding(padding),
@@ -253,7 +257,7 @@ private fun HomeScreen(
         }
         sections.forEach { section ->
             when (section) {
-                HomeSection.WAVE -> item(key = "home-wave") { MyWaveCard(wave.size, if (wave.isEmpty()) onRefresh else onPlayWave) }
+                HomeSection.WAVE -> item(key = "home-wave") { MyWaveCard(wave.size, waveSubtitle, onWaveSettings, if (wave.isEmpty()) onRefresh else onPlayWave) }
                 HomeSection.RECENT -> {
                     if (liked.isNotEmpty()) item(key = "home-recent-title") { SectionTitle("Недавно добавленное") }
                     itemsIndexed(liked.take(12), key = { _, it -> "recent-${it.id}" }) { index, track ->

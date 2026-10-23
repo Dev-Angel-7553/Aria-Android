@@ -394,6 +394,9 @@ internal fun FullPlayerScreen(
             PlayerSheetAction(Icons.Filled.Bedtime, if (sleepLabel != null) "Таймер сна: $sleepLabel" else "Таймер сна") { lyricsMenu = false; menuSleep = true }
             PlayerSheetAction(Icons.Filled.Speed, "Скорость") { lyricsMenu = false; menuSpeed = true }
             PlayerSheetAction(Icons.Filled.InsertLink, "Поделиться ссылкой") { lyricsMenu = false; onShareLink() }
+            PlayerSheetAction(PlayerAction.TRACK_WAVE.icon(), "Волна по треку") { lyricsMenu = false; tools.onTrackWave() }
+            PlayerSheetAction(PlayerAction.DISLIKE.icon(), "Не рекомендовать") { lyricsMenu = false; tools.onDislike() }
+            PlayerSheetAction(PlayerAction.PRIVATE.icon(), if (tools.privateSession) "Выключить приватный режим" else "Приватный режим") { lyricsMenu = false; tools.onPrivate(!tools.privateSession) }
             PlayerSheetAction(Icons.Filled.Person, "К исполнителю") { lyricsMenu = false; onArtist() }
             androidx.compose.foundation.layout.Spacer(Modifier.height(24.dp))
         }
@@ -892,6 +895,9 @@ private fun PlayerDetails(
                 PlayerAction.SPEED -> showSpeed = true
                 PlayerAction.QUOTE -> onQuote()
                 PlayerAction.COPY_ARTIST -> onCopyArtist()
+                PlayerAction.TRACK_WAVE -> tools.onTrackWave()
+                PlayerAction.DISLIKE -> tools.onDislike()
+                PlayerAction.PRIVATE -> tools.onPrivate(!tools.privateSession)
             }
         }
         val inRow = tools.actions.take(5)
@@ -901,6 +907,7 @@ private fun PlayerDetails(
         ) {
             inRow.forEach { action ->
                 val active = (action == PlayerAction.SLEEP && tools.sleepEndsAt != 0L) ||
+                    (action == PlayerAction.PRIVATE && tools.privateSession) ||
                     (action == PlayerAction.SPEED && kotlin.math.abs(state.playbackSpeed - 1f) > 0.01f)
                 IconButton(onClick = { run(action) }, enabled = enabled(action)) {
                     Icon(action.icon(), action.title(), tint = if (active) PlayerAccent else LocalContentColor.current)

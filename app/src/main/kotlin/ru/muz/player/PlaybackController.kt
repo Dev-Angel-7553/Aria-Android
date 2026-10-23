@@ -252,5 +252,6 @@ class PlaybackController(context: Context) {
         val albumId: String = "",
         val durationMs: Long = 0,
         val liked: Boolean = false,
+        val loudness: Float = Float.NaN,
     )
 }

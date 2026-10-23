@@ -5,7 +5,7 @@ import ru.muz.lyrics.KaraokeFillStyle
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 enum class AccentStyle { YELLOW, ORANGE, PINK, BLUE, GREEN, CUSTOM }
-enum class PlayerAction { QUEUE, DOWNLOAD, LINK, SHARE_FILE, SAVE_COVER, OPEN_COVER, SLEEP, SPEED, QUOTE, COPY_ARTIST }
+enum class PlayerAction { QUEUE, DOWNLOAD, LINK, SHARE_FILE, SAVE_COVER, OPEN_COVER, SLEEP, SPEED, QUOTE, COPY_ARTIST, TRACK_WAVE, DISLIKE, PRIVATE }
 enum class PlayShape { CIRCLE, SQUIRCLE, SQUARE }
 enum class HomeSection { WAVE, RECENT, PLAYLISTS, CHART }
 enum class AppTab { HOME, LIBRARY, SEARCH, STATS }
