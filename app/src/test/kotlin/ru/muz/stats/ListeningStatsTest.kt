@@ -132,7 +132,8 @@ class ListeningStatsTest {
         assertEquals(7, week.bars.size)
         assertTrue(week.bars.last().current)
         assertEquals(60_000, week.hours[21])
-        assertEquals(0L, week.previousMs)
+        assertEquals(100_000L, week.previousMs)
+        assertEquals(50, week.change)
 
         val month = stats.period(StatsPeriod.MONTH)
         assertEquals(250_000, month.listenedMs)
