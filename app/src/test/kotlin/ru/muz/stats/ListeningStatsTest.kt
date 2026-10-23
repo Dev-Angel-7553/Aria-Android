@@ -108,6 +108,52 @@ class ListeningStatsTest {
         assertTrue(!savedDays.has("0"))
     }
 
+    @Test
+    fun `period stats compare with previous range and rank tracks`() {
+        val store = MemoryStore()
+        val clock = MutableClock(day = 20_000, hour = 9)
+        val stats = ListeningStats(store, clock)
+        stats.recordStart("old", "Старая", "Артист Б", "https://c/old")
+        stats.addListening(100_000, "old", "Старая", "Артист Б")
+        clock.day = 20_010
+        stats.recordStart("one", "Первая", "Артист А", "https://c/one")
+        stats.addListening(90_000, "one", "Первая", "Артист А")
+        clock.day = 20_011
+        clock.hour = 21
+        stats.recordStart("two", "Вторая", "Артист А", "https://c/two")
+        stats.addListening(60_000, "two", "Вторая", "Артист А")
+
+        val week = stats.period(StatsPeriod.WEEK)
+        assertEquals(150_000, week.listenedMs)
+        assertEquals(2, week.activeDays)
+        assertEquals(listOf("one", "two"), week.topTracks.map { it.id })
+        assertEquals("https://c/one", week.topTracks.first().coverUrl)
+        assertEquals("Артист А", week.topArtists.single().name)
+        assertEquals(7, week.bars.size)
+        assertTrue(week.bars.last().current)
+        assertEquals(60_000, week.hours[21])
+        assertEquals(0L, week.previousMs)
+
+        val month = stats.period(StatsPeriod.MONTH)
+        assertEquals(250_000, month.listenedMs)
+        assertEquals(30, month.bars.size)
+
+        val reloaded = ListeningStats(store, clock)
+        assertEquals(listOf("one", "two"), reloaded.period(StatsPeriod.WEEK).topTracks.map { it.id })
+    }
+
+    @Test
+    fun `reset clears everything`() {
+        val store = MemoryStore()
+        val stats = ListeningStats(store, MutableClock(day = 10, hour = 1))
+        stats.recordStart("one", "Первая", "Артист")
+        stats.addListening(40_000, "one", "Первая", "Артист")
+        stats.reset()
+        assertEquals(0, stats.snapshot().listenedMs)
+        assertTrue(!stats.period(StatsPeriod.WEEK).hasData)
+        assertTrue(!ListeningStats(store, MutableClock(day = 10, hour = 1)).snapshot().hasData)
+    }
+
     private class MemoryStore(var value: String? = null) : StatsStore {
         override fun read(): String? = value
         override fun write(value: String) {

@@ -1062,6 +1062,19 @@ fun MusicApp(
                         showMiniPlayerProgress = settings.showMiniPlayerProgress,
                         account = account,
                         stats = statsSnapshot,
+                        statsSource = listeningStats,
+                        onPlayStatTracks = { list, index ->
+                            playTracks(
+                                list.map {
+                                    YandexClient.Track(
+                                        id = it.id, albumId = it.id.substringAfter(':', ""), title = it.title, artist = it.artist,
+                                        album = "", durationMs = 0L, coverUrl = it.coverUrl, explicit = false, lyricsAvailable = false,
+                                    )
+                                },
+                                index,
+                                PlaySource.other(),
+                            )
+                        },
                         tabs = visibleTabs,
                         onImportCsv = ::pickCsv,
                         homeSections = settings.homeSections,

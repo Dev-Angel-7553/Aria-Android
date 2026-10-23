@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -376,7 +377,6 @@ internal fun FullPlayerScreen(
                             onDismiss = onBack,
                             gesturesEnabled = settings.fullPlayerSwipe,
                             doubleTapLike = settings.doubleTapLike,
-                            liked = liked,
                             privateLabel = if (settings.privateSession) "Приватно" else "",
                             modifier = Modifier.weight(1f),
                         )
@@ -685,7 +685,6 @@ private fun StandardPlayer(
     onDismiss: () -> Unit,
     gesturesEnabled: Boolean,
     doubleTapLike: Boolean = true,
-    liked: Boolean = false,
     privateLabel: String = "",
     modifier: Modifier = Modifier,
 ) {
@@ -744,7 +743,7 @@ private fun PlayerArtwork(
     }
     val doubleTap = if (onDoubleTap != null) {
         Modifier.pointerInput(state.mediaId) {
-            androidx.compose.foundation.gestures.detectTapGestures(onDoubleTap = {
+            detectTapGestures(onDoubleTap = {
                 hearts++
                 onDoubleTap()
             })

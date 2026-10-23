@@ -16,6 +16,7 @@ data class TrackStat(
     val artist: String,
     val listenedMs: Long,
     val starts: Int,
+    val coverUrl: String? = null,
 )
 
 data class DayStat(val epochDay: Long, val listenedMs: Long, val starts: Int)
@@ -56,7 +57,34 @@ internal object SystemStatsClock : StatsClock {
     override fun hour(): Int = LocalTime.now().hour
 }
 
-private class TrackAcc(var title: String, var artist: String, var ms: Long, var starts: Int)
+private class TrackAcc(var title: String, var artist: String, var ms: Long, var starts: Int, var cover: String? = null)
+
+enum class StatsPeriod(val days: Int) { WEEK(7), MONTH(30), YEAR(365), ALL(0) }
+
+data class StatsBar(val label: String, val listenedMs: Long, val current: Boolean = false)
+
+data class ArtistShare(val name: String, val listenedMs: Long, val coverUrl: String?)
+
+data class PeriodStats(
+    val period: StatsPeriod,
+    val listenedMs: Long = 0,
+    val previousMs: Long? = null,
+    val starts: Int = 0,
+    val activeDays: Int = 0,
+    val uniqueTracks: Int = 0,
+    val uniqueArtists: Int = 0,
+    val topTracks: List<TrackStat> = emptyList(),
+    val topArtists: List<ArtistShare> = emptyList(),
+    val bars: List<StatsBar> = emptyList(),
+    val hours: List<Long> = List(24) { 0L },
+    val currentStreak: Int = 0,
+    val bestStreak: Int = 0,
+    val bestDay: DayStat? = null,
+) {
+    val hasData: Boolean get() = listenedMs > 0 || starts > 0
+    val change: Int? get() = previousMs?.takeIf { it > 0 }?.let { (((listenedMs - it) * 100) / it).toInt() }
+    val averageDayMs: Long get() = if (activeDays > 0) listenedMs / activeDays else 0L
+}
 
 class ListeningStats(
     private val store: StatsStore,
@@ -66,6 +94,9 @@ class ListeningStats(
     private val tracks = HashMap<String, TrackAcc>()
     private val days = HashMap<Long, LongArray>()
     private val hours = LongArray(24)
+    private val dayTracks = HashMap<Long, HashMap<String, Long>>()
+    private val dayArtists = HashMap<Long, HashMap<String, Long>>()
+    private val dayHours = HashMap<Long, LongArray>()
 
     private var carryMs = 0L
     private var carryStarts = 0
@@ -81,12 +112,15 @@ class ListeningStats(
     fun addListening(durationMs: Long, artist: String) = addListening(durationMs, "", "", artist)
 
     @Synchronized
-    fun recordStart(trackId: String, title: String, artist: String) {
+    fun recordStart(trackId: String, title: String, artist: String) = recordStart(trackId, title, artist, null)
+
+    @Synchronized
+    fun recordStart(trackId: String, title: String, artist: String, cover: String?) {
         load()
         val day = days.getOrPut(clock.epochDay()) { LongArray(2) }
         day[1]++
-        if (artist.isNotBlank()) artistAcc(artist).starts++
-        if (trackId.isNotBlank()) trackAcc(trackId, title, artist).starts++
+        if (artist.isNotBlank()) artistAcc(artist).also { if (!cover.isNullOrBlank()) it.cover = cover }.starts++
+        if (trackId.isNotBlank()) trackAcc(trackId, title, artist).also { if (!cover.isNullOrBlank()) it.cover = cover }.starts++
         dirty = true
         persist()
     }
@@ -97,7 +131,12 @@ class ListeningStats(
         load()
         val day = days.getOrPut(clock.epochDay()) { LongArray(2) }
         day[0] += durationMs
-        hours[clock.hour().coerceIn(0, 23)] += durationMs
+        val today = clock.epochDay()
+        val hour = clock.hour().coerceIn(0, 23)
+        hours[hour] += durationMs
+        dayHours.getOrPut(today) { LongArray(24) }[hour] += durationMs
+        if (artist.isNotBlank()) dayArtists.getOrPut(today) { HashMap() }.merge(artist, durationMs, Long::plus)
+        if (trackId.isNotBlank()) dayTracks.getOrPut(today) { HashMap() }.merge(trackId, durationMs, Long::plus)
         if (artist.isNotBlank()) artistAcc(artist).ms += durationMs
         if (trackId.isNotBlank()) trackAcc(trackId, title, artist).ms += durationMs
         dirty = true
@@ -131,7 +170,7 @@ class ListeningStats(
         val topTrackList = tracks.entries
             .sortedWith(compareByDescending<Map.Entry<String, TrackAcc>> { it.value.ms }
                 .thenByDescending { it.value.starts })
-            .map { TrackStat(it.key, it.value.title, it.value.artist, it.value.ms, it.value.starts) }
+            .map { TrackStat(it.key, it.value.title, it.value.artist, it.value.ms, it.value.starts, it.value.cover) }
         val longest = days.entries
             .filter { it.value[0] > 0 }
             .maxByOrNull { it.value[0] }
@@ -155,6 +194,110 @@ class ListeningStats(
             recentDays = recentDays(today, RECENT_DAYS),
             hourHistogram = hours.toList(),
         )
+    }
+
+    @Synchronized
+    fun period(period: StatsPeriod): PeriodStats {
+        load()
+        val today = clock.epochDay()
+        if (period == StatsPeriod.ALL) {
+            val all = snapshot()
+            return PeriodStats(
+                period = period,
+                listenedMs = all.listenedMs,
+                starts = all.trackStarts,
+                activeDays = all.activeDays,
+                uniqueTracks = all.uniqueTracks,
+                uniqueArtists = all.uniqueArtists,
+                topTracks = all.topTracks,
+                topArtists = artists.values.sortedByDescending { it.ms }.take(TOP_SHOWN).map { ArtistShare(it.title, it.ms, it.cover) },
+                bars = monthBars(today, 12),
+                hours = hours.toList(),
+                currentStreak = all.currentStreak,
+                bestStreak = all.bestStreak,
+                bestDay = all.longestDay,
+            )
+        }
+        val from = today - period.days + 1
+        val range = from..today
+        val previous = (from - period.days) until from
+        val trackMs = HashMap<String, Long>()
+        val artistMs = HashMap<String, Long>()
+        val hourMs = LongArray(24)
+        dayTracks.filterKeys { it in range }.values.forEach { map -> map.forEach { (k, v) -> trackMs.merge(k, v, Long::plus) } }
+        dayArtists.filterKeys { it in range }.values.forEach { map -> map.forEach { (k, v) -> artistMs.merge(k, v, Long::plus) } }
+        dayHours.filterKeys { it in range }.values.forEach { array -> for (i in 0 until 24) hourMs[i] += array[i] }
+        val inRange = days.filterKeys { it in range }
+        val best = inRange.entries.filter { it.value[0] > 0 }.maxByOrNull { it.value[0] }?.let { DayStat(it.key, it.value[0], it.value[1].toInt()) }
+        val previousMs = days.filterKeys { it in previous }.values.sumOf { it[0] }
+        val hasHistory = days.keys.any { it < from }
+        return PeriodStats(
+            period = period,
+            listenedMs = inRange.values.sumOf { it[0] },
+            previousMs = if (hasHistory) previousMs else null,
+            starts = inRange.values.sumOf { it[1].toInt() },
+            activeDays = inRange.count { it.value[0] > 0 || it.value[1] > 0 },
+            uniqueTracks = trackMs.size,
+            uniqueArtists = artistMs.size,
+            topTracks = trackMs.entries.sortedByDescending { it.value }.take(TOP_SHOWN).map { (id, ms) ->
+                val meta = tracks[id]
+                TrackStat(id, meta?.title.orEmpty(), meta?.artist.orEmpty(), ms, meta?.starts ?: 0, meta?.cover)
+            }.filter { it.title.isNotBlank() },
+            topArtists = artistMs.entries.sortedByDescending { it.value }.take(TOP_SHOWN).map { (name, ms) ->
+                ArtistShare(name, ms, artists[name]?.cover)
+            },
+            bars = when (period) {
+                StatsPeriod.WEEK -> dayBars(today, 7, weekday = true)
+                StatsPeriod.MONTH -> dayBars(today, 30, weekday = false)
+                else -> monthBars(today, 12)
+            },
+            hours = hourMs.toList(),
+            currentStreak = currentStreak(today),
+            bestStreak = maxOf(bestStreak(), currentStreak(today)),
+            bestDay = best,
+        )
+    }
+
+    @Synchronized
+    fun reset() {
+        load()
+        artists.clear()
+        tracks.clear()
+        days.clear()
+        dayTracks.clear()
+        dayArtists.clear()
+        dayHours.clear()
+        hours.fill(0L)
+        carryMs = 0L
+        carryStarts = 0
+        legacyDays = 0
+        dirty = true
+        persist()
+    }
+
+    @Synchronized
+    fun exportJson(): String {
+        load()
+        dirty = true
+        persist()
+        return store.read().orEmpty()
+    }
+
+    private fun dayBars(today: Long, count: Int, weekday: Boolean): List<StatsBar> =
+        (today - count + 1..today).map { day ->
+            val date = LocalDate.ofEpochDay(day)
+            val label = if (weekday) WEEKDAYS[date.dayOfWeek.value - 1] else date.dayOfMonth.toString()
+            StatsBar(label, days[day]?.get(0) ?: 0L, day == today)
+        }
+
+    private fun monthBars(today: Long, count: Int): List<StatsBar> {
+        val now = LocalDate.ofEpochDay(today).withDayOfMonth(1)
+        return (count - 1 downTo 0).map { back ->
+            val month = now.minusMonths(back.toLong())
+            val start = month.toEpochDay()
+            val end = month.plusMonths(1).toEpochDay() - 1
+            StatsBar(MONTHS[month.monthValue - 1], days.filterKeys { it in start..end }.values.sumOf { it[0] }, back == 0)
+        }
     }
 
     private fun rangeMs(from: Long, to: Long): Long =
@@ -231,6 +374,21 @@ class ListeningStats(
             json.optJSONArray("hours")?.let { array ->
                 for (i in 0 until minOf(24, array.length())) hours[i] = array.optLong(i)
             }
+            json.optJSONObject("covers")?.let { obj ->
+                obj.keys().forEach { key -> tracks[key]?.cover = obj.optString(key).takeIf { it.isNotBlank() } }
+            }
+            json.optJSONObject("artistCovers")?.let { obj ->
+                obj.keys().forEach { key -> artists[key]?.cover = obj.optString(key).takeIf { it.isNotBlank() } }
+            }
+            readNested(json.optJSONObject("dt"), dayTracks)
+            readNested(json.optJSONObject("da"), dayArtists)
+            json.optJSONObject("dh")?.let { obj ->
+                obj.keys().forEach { key ->
+                    val array = obj.optJSONArray(key) ?: return@forEach
+                    val day = key.toLongOrNull() ?: return@forEach
+                    dayHours[day] = LongArray(24) { i -> array.optLong(i) }
+                }
+            }
         }.onFailure {
         }
     }
@@ -255,12 +413,44 @@ class ListeningStats(
             }
         })
         json.put("hours", JSONArray().apply { hours.forEach { put(it) } })
+        json.put("covers", JSONObject().apply { tracks.forEach { (id, acc) -> acc.cover?.let { put(id, it) } } })
+        json.put("artistCovers", JSONObject().apply { artists.forEach { (name, acc) -> acc.cover?.let { put(name, it) } } })
+        json.put("dt", writeNested(dayTracks))
+        json.put("da", writeNested(dayArtists))
+        json.put("dh", JSONObject().apply { dayHours.forEach { (day, array) -> put(day.toString(), JSONArray().apply { array.forEach { put(it) } }) } })
         store.write(json.toString())
         dirty = false
         unpersistedListeningMs = 0L
     }
 
+    private fun readNested(obj: JSONObject?, target: HashMap<Long, HashMap<String, Long>>) {
+        obj ?: return
+        obj.keys().forEach { key ->
+            val day = key.toLongOrNull() ?: return@forEach
+            val inner = obj.optJSONObject(key) ?: return@forEach
+            val map = HashMap<String, Long>()
+            inner.keys().forEach { name -> map[name] = inner.optLong(name) }
+            target[day] = map
+        }
+    }
+
+    private fun writeNested(source: HashMap<Long, HashMap<String, Long>>): JSONObject = JSONObject().apply {
+        source.forEach { (day, map) -> put(day.toString(), JSONObject().apply { map.forEach { (k, v) -> put(k, v) } }) }
+    }
+
     private fun prune() {
+        val today = clock.epochDay()
+        val oldest = today - MAX_DAYS
+        listOf(dayTracks, dayArtists).forEach { nested ->
+            nested.keys.filter { it < oldest }.forEach(nested::remove)
+            nested.forEach { (day, map) ->
+                val limit = if (nested === dayTracks) DAY_TRACKS else DAY_ARTISTS
+                if (day != today && map.size > limit) {
+                    map.entries.sortedBy { it.value }.take(map.size - limit).forEach { map.remove(it.key) }
+                }
+            }
+        }
+        dayHours.keys.filter { it < oldest }.forEach(dayHours::remove)
         if (days.size > MAX_DAYS) {
             days.keys.sorted().dropLast(MAX_DAYS).forEach { key ->
                 val value = days.remove(key) ?: return@forEach
@@ -282,7 +472,11 @@ class ListeningStats(
     companion object {
         const val MAX_DAYS = 400
         const val MAX_ARTISTS = 300
-        const val MAX_TRACKS = 300
+        const val MAX_TRACKS = 1500
+        const val DAY_TRACKS = 40
+        const val DAY_ARTISTS = 25
+        private val WEEKDAYS = listOf("пн", "вт", "ср", "чт", "пт", "сб", "вс")
+        private val MONTHS = listOf("янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек")
         const val TOP_SHOWN = 10
         const val RECENT_DAYS = 14
         const val PERSIST_INTERVAL_MS = 30_000L

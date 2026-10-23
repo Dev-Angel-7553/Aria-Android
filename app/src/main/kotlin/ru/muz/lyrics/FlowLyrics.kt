@@ -1,6 +1,7 @@
 package ru.muz.lyrics
 
 import android.os.Build
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi

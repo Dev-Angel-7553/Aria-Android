@@ -75,7 +75,7 @@ internal class ListenTracker(context: Context, private val player: Player) : Pla
                 source = MediaExtras.source(extras),
             ),
         )
-        stats.recordStart(id, title, artist)
+        stats.recordStart(id, title, artist, metadata.artworkUri?.toString())
     }
 
     private fun updateTicker() {

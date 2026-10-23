@@ -97,6 +97,8 @@ internal fun MainShell(
     showMiniPlayerProgress: Boolean,
     account: YandexClient.Account?,
     stats: ListeningStatsSnapshot,
+    statsSource: ru.muz.stats.ListeningStats? = null,
+    onPlayStatTracks: (List<ru.muz.stats.TrackStat>, Int) -> Unit = { _, _ -> },
     update: AppRelease? = null,
     updateProgress: Float? = null,
     onUpdate: () -> Unit = {},
@@ -179,7 +181,7 @@ internal fun MainShell(
                 onAlbum,
                 onArtist,
             )
-            MainTab.STATS -> StatisticsScreen(stats = stats, padding = padding)
+            MainTab.STATS -> StatisticsScreen(stats = stats, padding = padding, source = statsSource, onPlayTracks = onPlayStatTracks)
         }
     }
 }
