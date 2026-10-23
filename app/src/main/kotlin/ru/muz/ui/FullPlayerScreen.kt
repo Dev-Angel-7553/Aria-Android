@@ -736,10 +736,11 @@ private fun PlayerArtwork(
     var verticalDrag by remember(state.mediaId) { mutableFloatStateOf(0f) }
     var hearts by remember { mutableStateOf(0) }
     val heart = remember { androidx.compose.animation.core.Animatable(0f) }
+    val heartDuration = playerTransitionDuration(700)
     LaunchedEffect(hearts) {
         if (hearts == 0) return@LaunchedEffect
         heart.snapTo(0f)
-        heart.animateTo(1f, tween(playerTransitionDuration(700)))
+        heart.animateTo(1f, tween(heartDuration))
     }
     val doubleTap = if (onDoubleTap != null) {
         Modifier.pointerInput(state.mediaId) {
