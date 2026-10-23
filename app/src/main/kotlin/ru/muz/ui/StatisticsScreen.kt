@@ -90,6 +90,7 @@ internal fun StatsPeriod.headline(): String = when (this) {
 }
 
 internal fun formatListening(ms: Long): String {
+    if (ms in 1_000L until 60_000L) return "${ms / 1_000L} с"
     val minutes = ms.coerceAtLeast(0L) / 60_000L
     val hours = minutes / 60L
     val rest = minutes % 60L
@@ -122,7 +123,7 @@ internal fun StatisticsScreen(
         item {
             Text("Статистика", fontSize = 26.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 20.dp))
             Text(
-                if (stats.hasData) "Считается только то, что реально играло" else "История появится после первого трека",
+                if (data.hasData || stats.hasData) "Считается только то, что реально играло" else "История появится после первого трека",
                 color = SoftText,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(horizontal = 20.dp),
@@ -361,7 +362,7 @@ private fun StreakRow(data: PeriodStats) {
             Text("в среднем за день", color = SoftText, fontSize = 11.sp)
         }
     }
-    data.bestDay?.let { day ->
+    data.bestDay?.takeIf { it.listenedMs >= 60_000L }?.let { day ->
         val date = LocalDate.ofEpochDay(day.epochDay)
         Text(
             "Самый музыкальный день: ${date.dayOfMonth} ${MONTHS_GEN[date.monthValue - 1]}, ${formatListening(day.listenedMs)}",

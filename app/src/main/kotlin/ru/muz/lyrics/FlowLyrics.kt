@@ -98,9 +98,11 @@ internal fun FlowLyricsScreen(
             val distance = info.offset.toFloat()
             if (abs(distance) < 1f) return@LaunchedEffect
             val residual = if (elapsed < 9_999f) shift * (1f - flowEase((elapsed / duration).coerceIn(0f, 1f))) else 0f
-            listState.scrollBy(distance)
             shift = distance + residual
             waveFrom = active
+            elapsed = 0f
+            val consumed = listState.scrollBy(distance)
+            if (abs(consumed - distance) > 0.5f) shift = consumed + residual
             val start = withFrameMillis { it }
             val total = duration + STAGGER_MS * 8f
             while (true) {
