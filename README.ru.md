@@ -2,7 +2,7 @@
   <img src="docs/icon.png" width="112" alt="Aria">
 </p>
 
-[English](README.md) · **Русский**
+[English](README.md) · **Русский** · [Страница загрузки](https://dev-angel-7553.github.io/Aria-Android/)
 
 # Aria
 

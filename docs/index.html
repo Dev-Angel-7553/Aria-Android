@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aria</title>
+<meta name="description" content="Unofficial Yandex Music client for Android, Linux and Windows">
+<link rel="icon" href="icon.png">
+<style>
+:root{--bg:#fbf8fb;--fg:#1d1b20;--soft:#6b6570;--card:#f0e9f1;--accent:#8a4fb3;--on:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#141217;--fg:#ece6ef;--soft:#a39cab;--card:#201c25;--accent:#d6b4f0;--on:#2b1740}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:56px 16px 64px}
+img.logo{width:96px;height:96px;border-radius:24px;display:block}
+h1{font-size:40px;margin:20px 0 4px;letter-spacing:-.5px}
+p.lead{color:var(--soft);margin:0 0 32px;font-size:18px}
+.grid{display:grid;gap:12px}
+a.btn{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-radius:20px;background:var(--card);color:var(--fg);text-decoration:none}
+a.btn.main{background:var(--accent);color:var(--on)}
+a.btn b{display:block;font-size:17px}
+a.btn span{font-size:14px;opacity:.75}
+a.btn i{font-style:normal;font-size:14px;opacity:.75;white-space:nowrap}
+h2{font-size:20px;margin:40px 0 8px}
+ul{padding-left:20px;margin:0;color:var(--soft)}
+li{margin:4px 0}
+footer{margin-top:40px;color:var(--soft);font-size:14px}
+footer a{color:inherit}
+</style>
+</head>
+<body>
+<main>
+<img class="logo" src="icon.png" alt="Aria">
+<h1>Aria</h1>
+<p class="lead">Unofficial Yandex Music client with word-by-word lyrics.</p>
+<div class="grid">
+<a class="btn main" id="apk" href="https://github.com/Dev-Angel-7553/Aria-Android/releases/latest"><div><b>Android</b><span>APK, Android 8.0 and newer</span></div><i id="apk-v"></i></a>
+<a class="btn" id="linux" href="https://github.com/Dev-Angel-7553/Aria-Desktop/releases/latest"><div><b>Linux</b><span>tar.gz with its own Java</span></div><i id="linux-v"></i></a>
+<a class="btn" id="windows" href="https://github.com/Dev-Angel-7553/Aria-Desktop/releases/latest"><div><b>Windows</b><span>zip, unpack and run Aria.exe</span></div><i id="windows-v"></i></a>
+</div>
+<h2>What it does</h2>
+<ul>
+<li>Karaoke lyrics: the active line stays put, the text fills in as it is sung</li>
+<li>My Wave, collection, search, playlists, offline cache</li>
+<li>Quote cards for stories, listening statistics, CSV export</li>
+<li>Listens count in Yandex, the wave learns from skips</li>
+</ul>
+<footer>
+Not affiliated with Yandex. You need a Yandex Plus subscription of your own.<br>
+<a href="https://github.com/Dev-Angel-7553/Aria-Android">Android source</a> ·
+<a href="https://github.com/Dev-Angel-7553/Aria-Desktop">Desktop source</a>
+</footer>
+</main>
+<script>
+function load(repo,done){
+  fetch("https://api.github.com/repos/Dev-Angel-7553/"+repo+"/releases/latest")
+    .then(function(r){return r.ok?r.json():null})
+    .then(function(j){if(j)done(j)})
+    .catch(function(){})
+}
+function pick(j,re){
+  for(var i=0;i<j.assets.length;i++){if(re.test(j.assets[i].name))return j.assets[i].browser_download_url}
+  return null
+}
+function set(id,url,tag){
+  var a=document.getElementById(id);
+  if(url)a.href=url;
+  document.getElementById(id+"-v").textContent=tag
+}
+load("Aria-Android",function(j){set("apk",pick(j,/\.apk$/),j.tag_name)});
+load("Aria-Desktop",function(j){
+  set("linux",pick(j,/linux.*\.tar\.gz$/),j.tag_name);
+  set("windows",pick(j,/windows.*\.zip$/),j.tag_name)
+})
+</script>
+</body>
+</html>
