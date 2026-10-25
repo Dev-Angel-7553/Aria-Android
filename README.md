@@ -2,91 +2,81 @@
   <img src="docs/icon.png" width="112" alt="Aria">
 </p>
 
+**English** · [Русский](README.ru.md)
+
 # Aria
 
-Неофициальный клиент Яндекс Музыки для Android. Начинался ради нормального экрана с текстом
-песни: активная строка стоит на месте, а текст заливается по словам, пока его поют. Потом
-оброс всем остальным.
+An unofficial Yandex Music client for Android. It started as a way to get a proper lyrics screen: the active line stays in place while the text fills in word by word as it is sung. Then it grew into everything else.
 
-## Что есть
+## Features
 
-- главная с «Моей волной» и чартом, коллекция, поиск, плейлисты, альбомы, исполнители
-- текст песни с караоке-заливкой: активная строка сверху, дальние размыты, паузы в песне показываются точками; если у Яндекса текста нет, ищется на LRCLIB
-- карточки с цитатой из песни для сторис: зажмите строку на экране текста. Карточку можно сохранить картинкой или видео, где звучит этот кусок песни
-- фоновое воспроизведение, управление из шторки и с гарнитуры
-- прослушивания засчитываются в Яндексе: попадают в историю, «Моя волна» учится на пропусках; есть приватный режим
-- настройки «Моей волны» (настроение, характер, язык), волна по треку и по исполнителю, «Не рекомендовать»
-- выравнивание громкости между треками по данным Яндекса
-- экспорт плейлиста или всей коллекции в CSV и импорт CSV из Spotify, TuneMyMusic, Exportify
-- офлайн-кэш, таймер сна, скорость воспроизведения, пропуск тишины
-- виджеты на рабочий стол, кнопка «нравится» в шторке, Android Auto
-- скачивание треков и обложек
-- своя статистика прослушиваний: неделя, месяц, год, топы с обложками, сравнение с прошлым периодом, картинка с итогами
-- плитка в шторке быстрых настроек: играть и пауза
-- почти всё настраивается: тема, любой цвет акцента, шрифт, размер текста, блоки главной, вкладки, кнопки плеера; настройки можно сохранить в файл
+- home with My Wave and the chart, collection, search, playlists, albums, artists
+- karaoke lyrics: the active line stays on top, distant lines are blurred, pauses in the song are shown as dots; if Yandex has no lyrics, they are looked up on LRCLIB
+- quote cards for stories: long-press a line on the lyrics screen. A card can be saved as an image or as a video with that part of the song playing
+- background playback, controls from the notification shade and the headset
+- listens are counted by Yandex: they go into history and My Wave learns from skips; there is a private mode
+- My Wave settings (mood, character, language), wave by track and by artist, "Don't recommend"
+- loudness normalization between tracks based on Yandex data
+- export a playlist or the whole collection to CSV, import CSV from Spotify, TuneMyMusic, Exportify
+- offline cache, sleep timer, playback speed, silence skipping
+- home screen widgets, a like button in the notification, Android Auto
+- downloading tracks and covers
+- own listening statistics: week, month, year, tops with covers, comparison with the previous period, a summary image
+- a quick settings tile: play and pause
+- almost everything is configurable: theme, any accent color, font, text size, home blocks, tabs, player buttons; settings can be saved to a file
 
-## Жесты
+## Gestures
 
-| Где | Что сделать | Что будет |
+| Where | What to do | What happens |
 | --- | --- | --- |
-| обложка в плеере | двойной тап | трек в «Мне нравится» |
-| экран текста | тап по строке | перемотка на неё |
-| экран текста | зажать строку | карточка с цитатой |
-| экран текста | не трогать пару секунд | панель управления прячется, тап возвращает |
-| обложка в плеере | смахнуть вниз | свернуть плеер |
-| обложка в плеере | смахнуть вверх | очередь |
+| cover in the player | double tap | the track goes to Liked |
+| lyrics screen | tap a line | seek to it |
+| lyrics screen | long-press a line | quote card |
+| lyrics screen | leave it alone for a few seconds | the control panel hides, a tap brings it back |
+| cover in the player | swipe down | collapse the player |
+| cover in the player | swipe up | queue |
 
-Перемотку тапом, двойной тап и вибрацию можно выключить в настройках.
+Tap to seek, double tap and vibration can be turned off in the settings.
 
-## Установка
+## Installation
 
-Готовый APK лежит в [Releases](../../releases). Android 8.0 и новее. Дальше приложение само
-находит новые версии и предлагает обновиться.
+The ready-made APK is in [Releases](../../releases). Android 8.0 and newer. After that the app finds new versions on its own and offers to update.
 
-Для входа нужен OAuth-токен Яндекс Музыки. Как его достать, расписано прямо на экране входа:
-открываете страницу Яндекса, входите, копируете адрес и вставляете в приложение. Токен хранится только на телефоне, в зашифрованном
-хранилище, и отправляется только в Яндекс. В репозитории и в APK токена нет.
+You need a Yandex Music OAuth token to sign in. How to get it is explained right on the login screen: open the Yandex page, sign in, copy the address and paste it into the app. The token is stored only on the phone, in encrypted storage, and is sent only to Yandex. There is no token in the repository or in the APK.
 
-## Сборка
+## Build
 
-Нужны JDK 17 и Android SDK с платформой 35.
+You need JDK 17 and the Android SDK with platform 35.
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-APK появится в `app/build/outputs/apk/debug/`. Тесты: `./gradlew testDebugUnitTest`.
+The APK appears in `app/build/outputs/apk/debug/`. Tests: `./gradlew testDebugUnitTest`.
 
-Каждый пуш в `main` собирается в GitHub Actions и выкладывается в релиз `v<versionName>`.
-Новая версия в `app/build.gradle.kts` даёт новый релиз, та же версия обновляет APK в существующем.
+Every push to `main` is built in GitHub Actions and published as release `v<versionName>`. A new version in `app/build.gradle.kts` makes a new release, the same version updates the APK in the existing one.
 
-### Подпись
+### Signing
 
-Чтобы обновления ставились поверх старой версии, релизы должны подписываться одним ключом.
-Ключ в репозиторий не кладётся, CI берёт его из секретов:
+For updates to install over the previous version, releases must be signed with the same key. The key is not stored in the repository, CI takes it from secrets:
 
-| Секрет | Что это |
+| Secret | What it is |
 | --- | --- |
-| `ARIA_KEYSTORE_BASE64` | keystore в base64 |
-| `ARIA_KEYSTORE_PASSWORD` | пароль keystore |
-| `ARIA_KEY_ALIAS` | алиас ключа |
-| `ARIA_KEY_PASSWORD` | пароль ключа |
+| `ARIA_KEYSTORE_BASE64` | the keystore in base64 |
+| `ARIA_KEYSTORE_PASSWORD` | keystore password |
+| `ARIA_KEY_ALIAS` | key alias |
+| `ARIA_KEY_PASSWORD` | key password |
 
-Локально те же значения передаются переменными окружения, путь к файлу в `ARIA_KEYSTORE`.
-Без них релизная сборка подписывается отладочным ключом.
+Locally the same values are passed as environment variables, the path to the file goes in `ARIA_KEYSTORE`. Without them a release build is signed with the debug key.
 
-## Экспорт в CSV
+## CSV export
 
-В меню плейлиста или в «Настройки → Аккаунт и данные → Экспорт». В файле по строке на трек:
-название, исполнитель, альбом, плейлист, длительность и ссылка на Яндекс Музыку. Файл
-сохраняется в `Загрузки/Aria`.
+In the playlist menu or in Settings → Account and data → Export. The file has one row per track: title, artist, album, playlist, duration and a Yandex Music link. The file is saved to `Downloads/Aria`.
 
-## Стек
+## Stack
 
-Kotlin, Jetpack Compose, Material 3, Media3 (ExoPlayer + MediaSession), OkHttp,
-kotlinx.serialization, Coil, WorkManager.
+Kotlin, Jetpack Compose, Material 3, Media3 (ExoPlayer + MediaSession), OkHttp, kotlinx.serialization, Coil, WorkManager.
 
-## Дисклеймер
+## Disclaimer
 
-Проект не связан с Яндексом. API Яндекс Музыки неофициальное и может поменяться в любой момент.
-Для использования нужна своя подписка Яндекс Плюс.
+The project is not affiliated with Yandex. The Yandex Music API is unofficial and may change at any moment. You need your own Yandex Plus subscription to use it.
