@@ -112,7 +112,21 @@ internal fun ThinSeekBar(
     enabled: Boolean = true,
     bufferedProgress: Float = 0f,
     onPreview: (Float?) -> Unit = {},
+    animated: Boolean = false,
 ) {
+    val wavy = LocalWavySeekBar.current && !LocalReduceMotion.current
+    val phase = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    LaunchedEffect(wavy, animated) {
+        if (wavy && animated) {
+            var last = 0L
+            while (true) {
+                androidx.compose.runtime.withFrameNanos { now ->
+                    if (last != 0L) phase.floatValue = (phase.floatValue + (now - last) / 1_000_000_000f * 5f) % (2f * Math.PI.toFloat())
+                    last = now
+                }
+            }
+        }
+    }
     val target = progress.coerceIn(0f, 1f)
     var draft by remember(mediaId) { mutableStateOf<Float?>(null) }
     var pending by remember(mediaId) { mutableStateOf<Float?>(null) }
@@ -159,7 +173,25 @@ internal fun ThinSeekBar(
                 .background(if (enabled) accent else trackColor))
         },
         track = {
-            Canvas(Modifier.fillMaxWidth().height(4.dp)) {
+            if (wavy) Canvas(Modifier.fillMaxWidth().height(16.dp)) {
+                val y = size.height / 2
+                val stroke = 4.dp.toPx()
+                val amplitude = 3.dp.toPx()
+                val length = 22.dp.toPx()
+                val end = size.width * shown.coerceIn(0f, 1f)
+                drawLine(trackColor, androidx.compose.ui.geometry.Offset(end, y), androidx.compose.ui.geometry.Offset(size.width, y), stroke, StrokeCap.Round)
+                if (end > 0f) {
+                    val path = androidx.compose.ui.graphics.Path()
+                    var x = 0f
+                    while (x <= end) {
+                        val ramp = (x / (length * 0.6f)).coerceAtMost(1f)
+                        val py = y + amplitude * ramp * kotlin.math.sin(x / length * 2f * Math.PI.toFloat() - phase.floatValue)
+                        if (x == 0f) path.moveTo(x, py) else path.lineTo(x, py)
+                        x += 2f
+                    }
+                    drawPath(path, if (enabled) accent else trackColor, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                }
+            } else Canvas(Modifier.fillMaxWidth().height(4.dp)) {
                 val y = size.height / 2
                 fun segment(fraction: Float, color: Color) {
                     drawLine(color, androidx.compose.ui.geometry.Offset(0f, y),

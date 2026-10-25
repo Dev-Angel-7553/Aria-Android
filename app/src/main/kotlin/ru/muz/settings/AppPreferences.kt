@@ -1,6 +1,7 @@
 package ru.muz.settings
 
 import android.content.Context
+import ru.muz.lyrics.KaraokeDirection
 import ru.muz.lyrics.KaraokeFillStyle
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
@@ -82,6 +83,10 @@ data class AppSettings(
     val lyricsBlur: Boolean = true,
     val lyricsAutoHide: Boolean = true,
     val lyricsModernAnchor: Int = 20,
+    val karaokeDirection: KaraokeDirection = KaraokeDirection.HORIZONTAL,
+    val wavySeekBar: Boolean = true,
+    val accentControls: Boolean = true,
+    val speedChangesPitch: Boolean = false,
     val privateSession: Boolean = false,
     val normalizeVolume: Boolean = true,
     val waveMood: String = "all",
@@ -170,6 +175,10 @@ class AppPreferences(context: Context) {
             lyricsBlur = prefs.getBoolean("lyrics_blur", true),
             lyricsAutoHide = prefs.getBoolean("lyrics_auto_hide", true),
             lyricsModernAnchor = prefs.getInt("lyrics_modern_anchor", 20).coerceIn(10, 45),
+            karaokeDirection = enumValue(prefs.getString("karaoke_direction", null), KaraokeDirection.HORIZONTAL),
+            wavySeekBar = prefs.getBoolean("wavy_seek_bar", true),
+            accentControls = prefs.getBoolean("accent_controls", true),
+            speedChangesPitch = prefs.getBoolean("speed_changes_pitch", false),
             privateSession = prefs.getBoolean("private_session", false),
             normalizeVolume = prefs.getBoolean("normalize_volume", true),
             waveMood = prefs.getString("wave_mood", null) ?: "all",
@@ -251,6 +260,10 @@ class AppPreferences(context: Context) {
             .putBoolean("lyrics_blur", value.lyricsBlur)
             .putBoolean("lyrics_auto_hide", value.lyricsAutoHide)
             .putInt("lyrics_modern_anchor", value.lyricsModernAnchor)
+            .putString("karaoke_direction", value.karaokeDirection.name)
+            .putBoolean("wavy_seek_bar", value.wavySeekBar)
+            .putBoolean("accent_controls", value.accentControls)
+            .putBoolean("speed_changes_pitch", value.speedChangesPitch)
             .putBoolean("private_session", value.privateSession)
             .putBoolean("normalize_volume", value.normalizeVolume)
             .putString("wave_mood", value.waveMood)

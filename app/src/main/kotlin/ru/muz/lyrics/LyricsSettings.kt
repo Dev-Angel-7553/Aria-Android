@@ -10,6 +10,11 @@ enum class KaraokeFillStyle {
     WORD_PULSE,
 }
 
+enum class KaraokeDirection {
+    HORIZONTAL,
+    VERTICAL,
+}
+
 data class LyricsSettings(
     val fontSize: TextUnit = 29.sp,
     val lineHeight: TextUnit = 40.sp,
@@ -34,6 +39,7 @@ data class LyricsSettings(
     val blurredCoverBackground: Boolean = false,
     val modern: Boolean = true,
     val blurDistant: Boolean = true,
+    val fillDirection: KaraokeDirection = KaraokeDirection.HORIZONTAL,
 ) {
     companion object {
         val MEASURED = LyricsSettings()

@@ -154,6 +154,7 @@ internal fun ModernLyricsDock(
     onSeek: (Long) -> Unit,
     onCover: () -> Unit,
     onQueue: () -> Unit,
+    accentControls: Boolean = false,
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 6.dp)) {
         PlaybackTimeline(state, onSeek, remaining = true, label = label)
@@ -164,10 +165,13 @@ internal fun ModernLyricsDock(
         ) {
             IconButton(onClick = onPrevious, modifier = Modifier.size(56.dp)) { Icon(Icons.Filled.SkipPrevious, "Предыдущий", modifier = Modifier.size(40.dp)) }
             Box(
-                Modifier.size(64.dp).clip(CircleShape).clickable(onClick = onPlayPause),
+                Modifier.then(if (accentControls) Modifier.size(width = 92.dp, height = 62.dp) else Modifier.size(64.dp))
+                    .clip(if (accentControls) RoundedCornerShape(31.dp) else CircleShape)
+                    .then(if (accentControls) Modifier.background(PlayerAccent) else Modifier)
+                    .clickable(onClick = onPlayPause),
                 contentAlignment = Alignment.Center,
             ) {
-                PlaybackIcon(state, Modifier.size(48.dp), MaterialTheme.colorScheme.onSurface)
+                PlaybackIcon(state, Modifier.size(if (accentControls) 38.dp else 48.dp), if (accentControls) OnPlayerAccent else MaterialTheme.colorScheme.onSurface)
             }
             IconButton(onClick = onNext, modifier = Modifier.size(56.dp)) { Icon(Icons.Filled.SkipNext, "Следующий", modifier = Modifier.size(40.dp)) }
         }

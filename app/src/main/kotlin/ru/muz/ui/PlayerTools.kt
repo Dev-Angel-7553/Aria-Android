@@ -54,6 +54,8 @@ internal data class PlayerTools(
     val sleepEndsAt: Long = 0L,
     val onSleep: (Int) -> Unit = {},
     val onSpeed: (Float) -> Unit = {},
+    val speedChangesPitch: Boolean = false,
+    val onSpeedChangesPitch: (Boolean) -> Unit = {},
     val skipSilence: Boolean = false,
     val onSkipSilence: (Boolean) -> Unit = {},
     val trackLink: String? = null,
@@ -160,6 +162,8 @@ internal fun SpeedSheet(
     skipSilence: Boolean,
     onSpeed: (Float) -> Unit,
     onSkipSilence: (Boolean) -> Unit,
+    changesPitch: Boolean,
+    onChangesPitch: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var value by remember { mutableStateOf(speed) }
@@ -185,6 +189,13 @@ internal fun SpeedSheet(
                         label = { Text(String.format(java.util.Locale.ROOT, "%.2f×", preset).replace('.', ',').replace(",00×", "×")) },
                     )
                 }
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Менять тон", fontWeight = FontWeight.SemiBold)
+                    Text("Выше скорость — выше голос, как у пластинки", color = SoftText, fontSize = 13.sp)
+                }
+                Switch(checked = changesPitch, onCheckedChange = onChangesPitch)
             }
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

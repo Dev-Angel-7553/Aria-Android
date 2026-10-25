@@ -184,9 +184,10 @@ class PlaybackController(context: Context) {
         controller?.sendCustomCommand(SessionCommand(MediaExtras.CMD_SLEEP, Bundle.EMPTY), args)
     }
 
-    fun setSpeed(speed: Float) {
+    fun setSpeed(speed: Float, changePitch: Boolean = false) {
         controller?.let {
-            it.setPlaybackSpeed(speed.coerceIn(0.5f, 2f))
+            val value = speed.coerceIn(0.5f, 2f)
+            it.playbackParameters = androidx.media3.common.PlaybackParameters(value, if (changePitch) value else 1f)
             publish(it)
         }
     }

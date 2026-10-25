@@ -13,8 +13,8 @@ android {
         applicationId = "ru.muz"
         minSdk = 26
         targetSdk = 35
-        versionCode = 25
-        versionName = "0.25"
+        versionCode = 26
+        versionName = "0.26"
     }
 
     val releaseKeystore = System.getenv("ARIA_KEYSTORE")?.let(::file)?.takeIf { it.exists() }

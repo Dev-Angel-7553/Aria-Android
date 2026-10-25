@@ -66,7 +66,8 @@ class MuzPlayerService : MediaLibraryService() {
         player = exo
         val prefs = ru.muz.settings.AppPreferences(this).load()
         exo.skipSilenceEnabled = prefs.skipSilence
-        exo.setPlaybackSpeed(prefs.playbackSpeedPercent / 100f)
+        val startSpeed = prefs.playbackSpeedPercent / 100f
+        exo.playbackParameters = androidx.media3.common.PlaybackParameters(startSpeed, if (prefs.speedChangesPitch) startSpeed else 1f)
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,

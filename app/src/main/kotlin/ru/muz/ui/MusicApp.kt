@@ -1011,8 +1011,13 @@ fun MusicApp(
                             sleepEndsAt = sleepEndsAt,
                             onSleep = playback::setSleepTimer,
                             onSpeed = { speed ->
-                                playback.setSpeed(speed)
+                                playback.setSpeed(speed, settings.speedChangesPitch)
                                 updateSettings(settings.copy(playbackSpeedPercent = (speed * 100).toInt()))
+                            },
+                            speedChangesPitch = settings.speedChangesPitch,
+                            onSpeedChangesPitch = { enabled ->
+                                playback.setSpeed(player.playbackSpeed, enabled)
+                                updateSettings(settings.copy(speedChangesPitch = enabled))
                             },
                             skipSilence = settings.skipSilence,
                             onSkipSilence = { enabled ->

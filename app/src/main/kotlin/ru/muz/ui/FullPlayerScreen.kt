@@ -48,6 +48,8 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -308,6 +310,7 @@ internal fun FullPlayerScreen(
                                     onSeek = onSeek,
                                     onCover = onToggleView,
                                     onQueue = { showQueue = true },
+                                    accentControls = settings.accentControls,
                                 )
                             }
                         }
@@ -372,7 +375,7 @@ internal fun FullPlayerScreen(
         }
     }
     if (menuSleep) SleepTimerSheet(tools.sleepEndsAt, tools.onSleep) { menuSleep = false }
-    if (menuSpeed) SpeedSheet(state.playbackSpeed, tools.skipSilence, tools.onSpeed, tools.onSkipSilence) { menuSpeed = false }
+    if (menuSpeed) SpeedSheet(state.playbackSpeed, tools.skipSilence, tools.onSpeed, tools.onSkipSilence, tools.speedChangesPitch, tools.onSpeedChangesPitch) { menuSpeed = false }
     quoteStart?.let { start ->
         QuoteEditor(
             lines = lyrics.lines,
@@ -403,8 +406,28 @@ internal fun FullPlayerScreen(
             val queueState = androidx.compose.foundation.lazy.rememberLazyListState(
                 initialFirstVisibleItemIndex = (currentIndex - 2).coerceAtLeast(0),
             )
+            var queryText by remember { mutableStateOf("") }
+            var queueSort by remember { mutableStateOf(QueueSort.ORDER) }
+            val entries = remember(queue, queryText, queueSort) { queueView(queue, queryText, queueSort) }
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = queryText,
+                    onValueChange = { queryText = it },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    placeholder = { Text("Поиск по очереди") },
+                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                    shape = RoundedCornerShape(28.dp),
+                )
+                androidx.compose.material3.TextButton(onClick = { queueSort = queueSort.next() }) { Text(queueSort.label) }
+            }
             LazyColumn(Modifier.fillMaxWidth().height(480.dp), state = queueState) {
-                itemsIndexed(queue, key = { index, track -> "$index:${track.id}" }) { index, track ->
+                itemsIndexed(entries, key = { _, entry -> "${entry.index}:${entry.track.id}" }) { _, entry ->
+                    val index = entry.index
+                    val track = entry.track
                     Row(
                         Modifier.fillMaxWidth().clickable {
                             onQueueTrack(index)
@@ -527,9 +550,10 @@ private fun LyricsError(
 private fun LyricsEmpty(onRetry: () -> Unit, onOpenPlayer: () -> Unit, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Column(Modifier.padding(horizontal = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Текста пока нет", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            NoLyricsArt()
+            Text("Текст не найден", fontWeight = FontWeight.Bold, fontSize = 20.sp, modifier = Modifier.padding(top = 12.dp))
             Text(
-                "Попробуем обновить поиск или можно продолжить слушать трек без текста.",
+                "Ни в тегах, ни в сети текста для этого трека нет. Можно искать ещё раз или просто слушать.",
                 color = SoftText,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 8.dp),
@@ -895,7 +919,7 @@ private fun PlayerDetails(
         }
         if (showSleep) SleepTimerSheet(tools.sleepEndsAt, tools.onSleep) { showSleep = false }
         if (showSpeed) {
-            SpeedSheet(state.playbackSpeed, tools.skipSilence, tools.onSpeed, tools.onSkipSilence) { showSpeed = false }
+            SpeedSheet(state.playbackSpeed, tools.skipSilence, tools.onSpeed, tools.onSkipSilence, tools.speedChangesPitch, tools.onSpeedChangesPitch) { showSpeed = false }
         }
         Row(
             Modifier.fillMaxWidth().height(84.dp),

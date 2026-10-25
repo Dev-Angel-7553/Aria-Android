@@ -49,6 +49,7 @@ internal fun PlaybackTimeline(
             enabled = state.durationMs > 0,
             bufferedProgress = if (state.durationMs > 0) state.bufferedPositionMs.toFloat() / state.durationMs else 0f,
             onPreview = { preview = it },
+            animated = state.isPlaying,
         ) }
         Row(Modifier.fillMaxWidth()) {
             Text(formatDuration(preview?.let { (state.durationMs * it).toLong() } ?: position), color = SoftText, fontSize = 12.sp)

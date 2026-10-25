@@ -257,7 +257,9 @@ private fun FlowLine(
             val soft = with(LocalDensity.current) { 18.dp.toPx() }
             Text(
                 text,
-                modifier = Modifier.fillMaxWidth().clearAndSetSemantics { }.softReveal(shownProgress, text, layout, soft),
+                modifier = Modifier.fillMaxWidth().clearAndSetSemantics { }.let {
+                    if (settings.fillDirection == KaraokeDirection.VERTICAL) it.softRevealDown(shownProgress, soft) else it.softReveal(shownProgress, text, layout, soft)
+                },
                 color = base.copy(alpha = settings.sungAlpha.coerceAtMost(1f) * overlay),
                 fontSize = settings.fontSize,
                 lineHeight = settings.lineHeight,
@@ -267,6 +269,21 @@ private fun FlowLine(
         }
     }
 }
+
+private fun Modifier.softRevealDown(fraction: Float, soft: Float): Modifier =
+    graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent {
+        drawContent()
+        if (fraction >= 0.999f) return@drawWithContent
+        val far = size.height + size.width + 2_000f
+        val edge = -soft + (size.height + soft) * fraction.coerceIn(0f, 1f)
+        drawRect(
+            Brush.verticalGradient(listOf(Color.Transparent, Color.Black), startY = edge, endY = edge + soft),
+            Offset(-far, edge),
+            Size(far * 2f, soft),
+            blendMode = BlendMode.DstOut,
+        )
+        drawRect(Color.Black, Offset(-far, edge + soft), Size(far * 2f, far), blendMode = BlendMode.DstOut)
+    }
 
 private fun Modifier.softReveal(fraction: Float, text: String, layout: TextLayoutResult?, soft: Float): Modifier =
     graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent {

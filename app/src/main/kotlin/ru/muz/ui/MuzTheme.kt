@@ -36,6 +36,7 @@ val LocalAnimateArtwork = staticCompositionLocalOf { true }
 val LocalPlayerAccent = staticCompositionLocalOf<Color?> { null }
 val LocalOnPlayerAccent = staticCompositionLocalOf<Color?> { null }
 val LocalAnimationSpeed = staticCompositionLocalOf { 1f }
+val LocalWavySeekBar = staticCompositionLocalOf { false }
 val LocalAnimateLoading = staticCompositionLocalOf { true }
 val LocalPlayerTransitions = staticCompositionLocalOf { true }
 val LocalReduceMotion = staticCompositionLocalOf { false }
@@ -104,6 +105,7 @@ fun MuzTheme(settings: AppSettings, content: @Composable () -> Unit) {
         LocalPlayerTransitions provides (settings.animatePlayerTransitions && !settings.reduceMotion),
         LocalAnimationSpeed provides settings.animationSpeedPercent.coerceIn(50, 200) / 100f,
         LocalReduceMotion provides settings.reduceMotion,
+        LocalWavySeekBar provides settings.wavySeekBar,
         LocalPlayShape provides settings.playShape,
         LocalMiniPrevious provides settings.miniShowPrevious,
         LocalDensity provides androidx.compose.ui.unit.Density(

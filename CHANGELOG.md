@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.26
+
+- Wavy progress bar: the played part of the track runs as a wave while music plays, can be turned off
+- The play button on the lyrics screen takes its color from the cover
+- Lyrics can fill from top to bottom instead of left to right
+- Playback speed has a "Change pitch" switch
+- Search and sorting in the queue
+- New "Lyrics not found" screen
+
 ## 0.25
 
 - Fixed the whole lyrics block twitching when the active line changes

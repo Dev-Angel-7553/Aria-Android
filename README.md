@@ -23,6 +23,7 @@ An unofficial Yandex Music client for Android. It started as a way to get a prop
 - downloading tracks and covers
 - own listening statistics: week, month, year, tops with covers, comparison with the previous period, a summary image
 - a quick settings tile: play and pause
+- wavy progress bar, player controls that take their color from the cover, search and sorting in the queue
 - almost everything is configurable: theme, any accent color, font, text size, home blocks, tabs, player buttons; settings can be saved to a file
 
 ## Gestures

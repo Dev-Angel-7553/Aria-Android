@@ -107,6 +107,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
+import ru.muz.lyrics.KaraokeDirection
 import ru.muz.lyrics.KaraokeFillStyle
 import ru.muz.player.PlayerState
 import ru.muz.settings.AccentStyle
@@ -509,6 +510,8 @@ private fun LazyListScope.playerSettings(settings: AppSettings, onChange: (AppSe
     item { SettingSwitch("Не выключать экран", "Пока приложение открыто", settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) } }
     item { SettingSwitch("Двойной тап по обложке", "Ставит «Мне нравится»", settings.doubleTapLike) { onChange(settings.copy(doubleTapLike = it)) } }
     item { SettingSwitch("Вибрация", "Лёгкий отклик на «Мне нравится»", settings.haptics) { onChange(settings.copy(haptics = it)) } }
+    item { SettingSwitch("Волнистая полоска", "Пройденная часть дорожки идёт волной, пока играет трек", settings.wavySeekBar) { onChange(settings.copy(wavySeekBar = it)) } }
+    item { SettingSwitch("Цвет кнопок от обложки", "Кнопка паузы в плеере с текстом окрашивается под трек", settings.accentControls) { onChange(settings.copy(accentControls = it)) } }
     item { SettingsTitle("Цвет и обложка") }
     item { SettingSwitch("Цвет обложки в фоне", "Мягкий градиент цвета обложки сверху экрана", settings.coverColorBackground) { onChange(settings.copy(coverColorBackground = it)) } }
     item {
@@ -672,6 +675,12 @@ private fun LazyListScope.lyricsSettings(settings: AppSettings, onChange: (AppSe
                         settings.karaokeFillStyle == style,
                     ) { onChange(settings.copy(karaokeFillStyle = style)) }
                 }
+                SettingRadio("Заливка слева направо", settings.karaokeDirection == KaraokeDirection.HORIZONTAL) {
+                    onChange(settings.copy(karaokeDirection = KaraokeDirection.HORIZONTAL))
+                }
+                SettingRadio("Заливка сверху вниз", settings.karaokeDirection == KaraokeDirection.VERTICAL) {
+                    onChange(settings.copy(karaokeDirection = KaraokeDirection.VERTICAL))
+                }
             }
         }
     }
@@ -687,7 +696,7 @@ private fun LazyListScope.lyricsSettings(settings: AppSettings, onChange: (AppSe
     item { ExpandableSection("Тонкая настройка", "Размеры, контраст, свечение и прокрутка") { LyricsFineTuning(settings, onChange) } }
     item {
         SectionReset("Сбросить экран текста") { defaults ->
-            onChange(settings.copy(showLyricsByDefault = defaults.showLyricsByDefault, karaokeFill = defaults.karaokeFill, karaokeFillStyle = defaults.karaokeFillStyle, fadeLyrics = defaults.fadeLyrics, boldActiveLyrics = defaults.boldActiveLyrics, lyricsFontSize = defaults.lyricsFontSize, lyricsLineHeight = defaults.lyricsLineHeight, lyricsHorizontalPadding = defaults.lyricsHorizontalPadding, lyricsActiveScale = defaults.lyricsActiveScale, lyricsTapToSeek = defaults.lyricsTapToSeek, lyricsLineSpacing = defaults.lyricsLineSpacing, lyricsAnchorPercent = defaults.lyricsAnchorPercent, lyricsInactivePercent = defaults.lyricsInactivePercent, lyricsUnsungPercent = defaults.lyricsUnsungPercent, lyricsSungPercent = defaults.lyricsSungPercent, lyricsGlowBlur = defaults.lyricsGlowBlur, lyricsGlowAlpha = defaults.lyricsGlowAlpha, lyricsScrollSpeed = defaults.lyricsScrollSpeed, lyricsAlignment = defaults.lyricsAlignment, lyricsAutoScroll = defaults.lyricsAutoScroll, lyricsOffsetMs = defaults.lyricsOffsetMs))
+            onChange(settings.copy(showLyricsByDefault = defaults.showLyricsByDefault, karaokeFill = defaults.karaokeFill, karaokeFillStyle = defaults.karaokeFillStyle, karaokeDirection = defaults.karaokeDirection, fadeLyrics = defaults.fadeLyrics, boldActiveLyrics = defaults.boldActiveLyrics, lyricsFontSize = defaults.lyricsFontSize, lyricsLineHeight = defaults.lyricsLineHeight, lyricsHorizontalPadding = defaults.lyricsHorizontalPadding, lyricsActiveScale = defaults.lyricsActiveScale, lyricsTapToSeek = defaults.lyricsTapToSeek, lyricsLineSpacing = defaults.lyricsLineSpacing, lyricsAnchorPercent = defaults.lyricsAnchorPercent, lyricsInactivePercent = defaults.lyricsInactivePercent, lyricsUnsungPercent = defaults.lyricsUnsungPercent, lyricsSungPercent = defaults.lyricsSungPercent, lyricsGlowBlur = defaults.lyricsGlowBlur, lyricsGlowAlpha = defaults.lyricsGlowAlpha, lyricsScrollSpeed = defaults.lyricsScrollSpeed, lyricsAlignment = defaults.lyricsAlignment, lyricsAutoScroll = defaults.lyricsAutoScroll, lyricsOffsetMs = defaults.lyricsOffsetMs))
         }
     }
 }
