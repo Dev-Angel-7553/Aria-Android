@@ -94,7 +94,7 @@ fun MusicApp(
     val sleepEndsAt by playback.sleepEndsAt.collectAsState()
 
     var api by remember { mutableStateOf<YandexClient?>(null) }
-    val lyricsRepository = remember(api) { api?.let(::LyricsRepository) }
+    val lyricsRepository = remember(api) { api?.let { LyricsRepository(it, java.io.File(context.cacheDir, "lyrics")) } }
     var lyricsTrackId by remember { mutableStateOf("") }
     var lyricsGeneration by remember { mutableStateOf(0) }
     var account by remember { mutableStateOf<YandexClient.Account?>(null) }
@@ -113,6 +113,7 @@ fun MusicApp(
     var lyricsStatus by remember { mutableStateOf("") }
     var lyricsError by remember { mutableStateOf("") }
     var lyricsRequestKey by remember { mutableStateOf(0) }
+    var lyricsHandledKey by remember { mutableStateOf(0) }
     var likedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     val visibleTabs = remember(settings.tabs) {
         settings.tabs.mapNotNull { appTab -> MainTab.entries.firstOrNull { it.name == appTab.name } }.ifEmpty { listOf(MainTab.HOME) }
@@ -853,12 +854,14 @@ fun MusicApp(
         val generation = ++lyricsGeneration
         if (repository != null && track != null && showPlayer && showLyrics) {
             lyricsTrackId = track.id
+            val refresh = lyricsRequestKey != lyricsHandledKey
+            lyricsHandledKey = lyricsRequestKey
             lyrics = Lyrics.EMPTY
             lyricsLoading = true
-            lyricsStatus = "Проверяем Яндекс Музыку…"
+            lyricsStatus = "Ищем текст…"
             lyricsError = ""
             try {
-                val result = repository.load(track) {
+                val result = repository.load(track, refresh) {
                     if (generation == lyricsGeneration) lyricsStatus = it
                 }
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
@@ -870,6 +873,12 @@ fun MusicApp(
                 if (generation == lyricsGeneration) lyricsLoading = false
             }
         }
+    }
+    LaunchedEffect(player.mediaId, queue, lyricsRepository, settings.dataSaver) {
+        val repository = lyricsRepository ?: return@LaunchedEffect
+        if (queue.isEmpty()) return@LaunchedEffect
+        val current = queue.indexOfFirst { it.id == player.mediaId }.coerceAtLeast(0)
+        repository.prefetch(queue.drop(current).take(if (settings.dataSaver) 1 else 4))
     }
     LaunchedEffect(player.mediaId, settings.preloadNextTracks, queue) {
         if (settings.preloadNextTracks && api != null && queue.isNotEmpty()) {

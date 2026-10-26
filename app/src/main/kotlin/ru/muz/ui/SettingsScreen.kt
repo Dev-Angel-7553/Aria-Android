@@ -508,9 +508,32 @@ private fun LazyListScope.playerSettings(settings: AppSettings, onChange: (AppSe
     item { SettingSwitch("Прогресс мини-плеера", "Тонкая полоса под треком", settings.showMiniPlayerProgress) { onChange(settings.copy(showMiniPlayerProgress = it)) } }
     item { SettingSwitch("Жесты полного плеера", "Влево/вправо — трек, вверх — очередь, вниз — свернуть", settings.fullPlayerSwipe) { onChange(settings.copy(fullPlayerSwipe = it)) } }
     item { SettingSwitch("Не выключать экран", "Пока приложение открыто", settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) } }
-    item { SettingSwitch("Двойной тап по обложке", "Ставит «Мне нравится»", settings.doubleTapLike) { onChange(settings.copy(doubleTapLike = it)) } }
+    item { SettingSwitch("Двойной тап по обложке", "Действие можно выбрать ниже", settings.doubleTapLike) { onChange(settings.copy(doubleTapLike = it)) } }
+    item {
+        AnimatedVisibility(settings.doubleTapLike) {
+            Column {
+                ru.muz.settings.DoubleTapAction.entries.forEach { action ->
+                    SettingRadio(
+                        when (action) {
+                            ru.muz.settings.DoubleTapAction.LIKE -> "«Мне нравится»"
+                            ru.muz.settings.DoubleTapAction.PLAY_PAUSE -> "Пауза и продолжить"
+                            ru.muz.settings.DoubleTapAction.NEXT -> "Следующий трек"
+                        },
+                        settings.doubleTapAction == action,
+                    ) { onChange(settings.copy(doubleTapAction = action)) }
+                }
+            }
+        }
+    }
     item { SettingSwitch("Вибрация", "Лёгкий отклик на «Мне нравится»", settings.haptics) { onChange(settings.copy(haptics = it)) } }
     item { SettingSwitch("Волнистая полоска", "Пройденная часть дорожки идёт волной, пока играет трек", settings.wavySeekBar) { onChange(settings.copy(wavySeekBar = it)) } }
+    item { SettingSwitch("Фон в такт музыке", "Пятна цвета обложки пульсируют вместе с битом", settings.pulseBackground) { onChange(settings.copy(pulseBackground = it)) } }
+    item {
+        AnimatedVisibility(settings.pulseBackground) {
+            SettingSlider("Сила пульсации", settings.pulseStrength, 10..100, 10, { "$it%" }) { onChange(settings.copy(pulseStrength = it)) }
+        }
+    }
+    item { SettingSwitch("Искры от обложки", "Разлетаются на сильных долях, пока играет трек", settings.coverSparks) { onChange(settings.copy(coverSparks = it)) } }
     item { SettingSwitch("Цвет кнопок от обложки", "Кнопка паузы в плеере с текстом окрашивается под трек", settings.accentControls) { onChange(settings.copy(accentControls = it)) } }
     item { SettingsTitle("Цвет и обложка") }
     item { SettingSwitch("Цвет обложки в фоне", "Мягкий градиент цвета обложки сверху экрана", settings.coverColorBackground) { onChange(settings.copy(coverColorBackground = it)) } }

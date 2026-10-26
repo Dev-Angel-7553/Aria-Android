@@ -235,7 +235,11 @@ internal fun FullPlayerScreen(
     ) {
       Box(Modifier.fillMaxSize()) {
         if (settings.coverColorBackground) {
-            MovingCoverBackground(animatedTint, strength = if (showLyrics && modern) 1f else 0.62f)
+            MovingCoverBackground(
+                animatedTint,
+                strength = if (showLyrics && modern) 1f else 0.62f,
+                pulse = if (settings.pulseBackground && state.isPlaying) settings.pulseStrength / 100f else 0f,
+            )
         }
         Column(
             Modifier.fillMaxSize().then(if (settings.coverColorBackground) Modifier else backdrop).statusBarsPadding().navigationBarsPadding()
@@ -350,6 +354,8 @@ internal fun FullPlayerScreen(
                             onDismiss = onBack,
                             gesturesEnabled = settings.fullPlayerSwipe,
                             doubleTapLike = settings.doubleTapLike,
+                            doubleTapAction = settings.doubleTapAction,
+                            sparks = settings.coverSparks,
                             privateLabel = if (settings.privateSession) "Приватно" else "",
                             modifier = Modifier.weight(1f),
                         )
@@ -682,6 +688,8 @@ private fun StandardPlayer(
     onDismiss: () -> Unit,
     gesturesEnabled: Boolean,
     doubleTapLike: Boolean = true,
+    doubleTapAction: ru.muz.settings.DoubleTapAction = ru.muz.settings.DoubleTapAction.LIKE,
+    sparks: Boolean = false,
     privateLabel: String = "",
     modifier: Modifier = Modifier,
 ) {
@@ -700,7 +708,15 @@ private fun StandardPlayer(
                 settingsSwipe = gesturesEnabled,
                 state = state, artworkPercent = artworkPercent,
                 onSwipeUp = onQueue, onSwipeDown = onDismiss, modifier = Modifier.weight(1f),
-                onDoubleTap = if (doubleTapLike) ({ if (!liked) onLike() }) else null,
+                onDoubleTap = if (doubleTapLike) ({
+                    when (doubleTapAction) {
+                        ru.muz.settings.DoubleTapAction.LIKE -> if (!liked) onLike()
+                        ru.muz.settings.DoubleTapAction.PLAY_PAUSE -> onPlayPause()
+                        ru.muz.settings.DoubleTapAction.NEXT -> onNext()
+                    }
+                }) else null,
+                showHeart = doubleTapAction == ru.muz.settings.DoubleTapAction.LIKE,
+                sparks = sparks,
             )
         }
             PlayerDetails(
@@ -713,7 +729,15 @@ private fun StandardPlayer(
                 settingsSwipe = gesturesEnabled,
                 state = state, artworkPercent = artworkPercent,
                 onSwipeUp = onQueue, onSwipeDown = onDismiss, modifier = Modifier.weight(1f),
-                onDoubleTap = if (doubleTapLike) ({ if (!liked) onLike() }) else null,
+                onDoubleTap = if (doubleTapLike) ({
+                    when (doubleTapAction) {
+                        ru.muz.settings.DoubleTapAction.LIKE -> if (!liked) onLike()
+                        ru.muz.settings.DoubleTapAction.PLAY_PAUSE -> onPlayPause()
+                        ru.muz.settings.DoubleTapAction.NEXT -> onNext()
+                    }
+                }) else null,
+                showHeart = doubleTapAction == ru.muz.settings.DoubleTapAction.LIKE,
+                sparks = sparks,
             )
         }
     }
@@ -728,6 +752,8 @@ private fun PlayerArtwork(
     onSwipeDown: () -> Unit,
     modifier: Modifier = Modifier,
     onDoubleTap: (() -> Unit)? = null,
+    showHeart: Boolean = true,
+    sparks: Boolean = false,
 ) {
     val reduceMotion = LocalReduceMotion.current
     var verticalDrag by remember(state.mediaId) { mutableFloatStateOf(0f) }
@@ -742,7 +768,7 @@ private fun PlayerArtwork(
     val doubleTap = if (onDoubleTap != null) {
         Modifier.pointerInput(state.mediaId) {
             detectTapGestures(onDoubleTap = {
-                hearts++
+                if (showHeart) hearts++
                 onDoubleTap()
             })
         }
@@ -776,6 +802,14 @@ private fun PlayerArtwork(
         }.then(gesture),
         contentAlignment = Alignment.Center,
     ) {
+        if (sparks && !reduceMotion) {
+            CoverSparks(
+                playing = state.isPlaying,
+                coverFraction = (artworkPercent / 100f).coerceIn(0.7f, 1f),
+                color = PlayerAccent,
+                modifier = Modifier.matchParentSize(),
+            )
+        }
         PlayerCrossfade(state.coverUrl,
             Modifier.fillMaxWidth((artworkPercent / 100f).coerceIn(0.7f, 1f)).aspectRatio(1f).then(doubleTap),
         ) { url -> Artwork(url, Modifier.fillMaxSize(), 30.dp) }
@@ -798,7 +832,7 @@ private fun PlayerArtwork(
             exit = androidx.compose.animation.fadeOut(tween(playerTransitionDuration(180))),
         ) {
             Box(Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)), contentAlignment = Alignment.Center) {
-                MuzLoadingIndicator(Modifier.size(38.dp), PlayerAccent)
+                MorphLoading(Modifier.size(40.dp), PlayerAccent)
             }
         }
     }

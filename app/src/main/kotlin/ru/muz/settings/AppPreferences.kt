@@ -8,6 +8,7 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 enum class AccentStyle { YELLOW, ORANGE, PINK, BLUE, GREEN, CUSTOM }
 enum class PlayerAction { QUEUE, DOWNLOAD, LINK, SHARE_FILE, SAVE_COVER, OPEN_COVER, SLEEP, SPEED, QUOTE, COPY_ARTIST, TRACK_WAVE, DISLIKE, PRIVATE }
 enum class PlayShape { CIRCLE, SQUIRCLE, SQUARE }
+enum class DoubleTapAction { LIKE, PLAY_PAUSE, NEXT }
 enum class HomeSection { WAVE, RECENT, PLAYLISTS, CHART }
 enum class AppTab { HOME, LIBRARY, SEARCH, STATS }
 enum class AppFont { SYSTEM, SANS, SERIF, MONO, CONDENSED }
@@ -87,6 +88,10 @@ data class AppSettings(
     val wavySeekBar: Boolean = true,
     val accentControls: Boolean = true,
     val speedChangesPitch: Boolean = false,
+    val pulseBackground: Boolean = true,
+    val pulseStrength: Int = 60,
+    val coverSparks: Boolean = true,
+    val doubleTapAction: DoubleTapAction = DoubleTapAction.LIKE,
     val privateSession: Boolean = false,
     val normalizeVolume: Boolean = true,
     val waveMood: String = "all",
@@ -179,6 +184,10 @@ class AppPreferences(context: Context) {
             wavySeekBar = prefs.getBoolean("wavy_seek_bar", true),
             accentControls = prefs.getBoolean("accent_controls", true),
             speedChangesPitch = prefs.getBoolean("speed_changes_pitch", false),
+            pulseBackground = prefs.getBoolean("pulse_background", true),
+            pulseStrength = prefs.getInt("pulse_strength", 60).coerceIn(10, 100),
+            coverSparks = prefs.getBoolean("cover_sparks", true),
+            doubleTapAction = enumValue(prefs.getString("double_tap_action", null), DoubleTapAction.LIKE),
             privateSession = prefs.getBoolean("private_session", false),
             normalizeVolume = prefs.getBoolean("normalize_volume", true),
             waveMood = prefs.getString("wave_mood", null) ?: "all",
@@ -264,6 +273,10 @@ class AppPreferences(context: Context) {
             .putBoolean("wavy_seek_bar", value.wavySeekBar)
             .putBoolean("accent_controls", value.accentControls)
             .putBoolean("speed_changes_pitch", value.speedChangesPitch)
+            .putBoolean("pulse_background", value.pulseBackground)
+            .putInt("pulse_strength", value.pulseStrength)
+            .putBoolean("cover_sparks", value.coverSparks)
+            .putString("double_tap_action", value.doubleTapAction.name)
             .putBoolean("private_session", value.privateSession)
             .putBoolean("normalize_volume", value.normalizeVolume)
             .putString("wave_mood", value.waveMood)

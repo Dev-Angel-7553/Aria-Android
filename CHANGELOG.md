@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.27
+
+- Lyrics load much faster: Yandex and LRCLIB are searched at the same time, results are kept on disk, and lyrics for the next tracks in the queue are found in advance
+- Tracks without lyrics are remembered for a while, so the search does not hang on them every time; "Search again" still checks anew
+- The background pulses with the music, the strength is adjustable
+- Sparks fly out from under the cover on strong beats
+- New loading animation: a soft shape that slowly turns and breathes
+- Double tap on the cover can like, pause or skip to the next track
+
 ## 0.26
 
 - Wavy progress bar: the played part of the track runs as a wave while music plays, can be turned off

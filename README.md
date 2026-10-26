@@ -23,6 +23,7 @@ An unofficial Yandex Music client for Android. It started as a way to get a prop
 - downloading tracks and covers
 - own listening statistics: week, month, year, tops with covers, comparison with the previous period, a summary image
 - a quick settings tile: play and pause
+- background that pulses with the music, sparks from the cover, lyrics cached and found in advance
 - wavy progress bar, player controls that take their color from the cover, search and sorting in the queue
 - almost everything is configurable: theme, any accent color, font, text size, home blocks, tabs, player buttons; settings can be saved to a file
 
@@ -30,7 +31,7 @@ An unofficial Yandex Music client for Android. It started as a way to get a prop
 
 | Where | What to do | What happens |
 | --- | --- | --- |
-| cover in the player | double tap | the track goes to Liked |
+| cover in the player | double tap | like, pause or next track, as chosen in the settings |
 | lyrics screen | tap a line | seek to it |
 | lyrics screen | long-press a line | quote card |
 | lyrics screen | leave it alone for a few seconds | the control panel hides, a tap brings it back |

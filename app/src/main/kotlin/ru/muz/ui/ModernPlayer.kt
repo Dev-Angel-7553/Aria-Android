@@ -55,7 +55,7 @@ import ru.muz.player.PlayerState
 import ru.muz.theme.ColorMath
 
 @Composable
-internal fun MovingCoverBackground(tint: Color, strength: Float, modifier: Modifier = Modifier) {
+internal fun MovingCoverBackground(tint: Color, strength: Float, modifier: Modifier = Modifier, pulse: Float = 0f) {
     val base = AppBackground
     val dark = base.luminance() < 0.4f
     val argb = tint.toArgb()
@@ -71,7 +71,9 @@ internal fun MovingCoverBackground(tint: Color, strength: Float, modifier: Modif
         infiniteRepeatable(tween(if (reduce) 1_000_000 else 22_000, easing = LinearEasing), RepeatMode.Restart),
         label = "cover-bg-phase",
     )
+    val energy = rememberAudioEnergy(pulse > 0f && !reduce)
     Canvas(modifier.fillMaxSize()) {
+        val beat = energy.value * pulse
         drawRect(ground)
         val w = size.width
         val h = size.height
@@ -82,9 +84,9 @@ internal fun MovingCoverBackground(tint: Color, strength: Float, modifier: Modif
             Triple(third, Offset(w * (0.35f + 0.2f * sin(t * 0.7f + 2f)), h * (0.85f + 0.08f * cos(t + 2.2f))), 0.75f),
         )
         blobs.forEach { (color, center, k) ->
-            val radius = maxOf(w, h) * 0.62f
+            val radius = maxOf(w, h) * 0.62f * (1f + 0.14f * beat)
             drawCircle(
-                Brush.radialGradient(listOf(color.copy(alpha = (if (dark) 0.62f else 0.42f) * strength * k), Color.Transparent), center, radius),
+                Brush.radialGradient(listOf(color.copy(alpha = ((if (dark) 0.62f else 0.42f) * strength * k * (1f + 0.5f * beat)).coerceAtMost(1f)), Color.Transparent), center, radius),
                 radius = radius,
                 center = center,
             )

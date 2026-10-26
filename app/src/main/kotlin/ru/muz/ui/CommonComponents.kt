@@ -261,8 +261,9 @@ internal fun Artwork(url: String?, modifier: Modifier, radius: Dp) {
 
 @Composable
 private fun ArtworkPlaceholder() {
-    val alpha = 0.18f + loadingPhase() * 0.24f
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)))
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+        MorphLoading(Modifier.fillMaxSize(0.28f), MaterialTheme.colorScheme.onSurface.copy(alpha = 0.32f))
+    }
 }
 
 @Composable
