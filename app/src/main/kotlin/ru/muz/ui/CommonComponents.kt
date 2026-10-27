@@ -2,6 +2,7 @@ package ru.muz.ui
 
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -35,6 +36,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,7 +105,6 @@ internal fun NowPlayingBars(playing: Boolean, modifier: Modifier = Modifier, col
     }
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 internal fun ThinSeekBar(
     progress: Float,
@@ -114,10 +117,11 @@ internal fun ThinSeekBar(
     onPreview: (Float?) -> Unit = {},
     animated: Boolean = false,
 ) {
-    val wavy = LocalWavySeekBar.current && !LocalReduceMotion.current
+    val style = LocalSeekStyle.current
+    val reduce = LocalReduceMotion.current
     val phase = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
-    LaunchedEffect(wavy, animated) {
-        if (wavy && animated) {
+    LaunchedEffect(style, animated, reduce) {
+        if (style == ru.muz.settings.SeekStyle.WAVY && animated && !reduce) {
             var last = 0L
             while (true) {
                 androidx.compose.runtime.withFrameNanos { now ->
@@ -131,6 +135,7 @@ internal fun ThinSeekBar(
     var draft by remember(mediaId) { mutableStateOf<Float?>(null) }
     var pending by remember(mediaId) { mutableStateOf<Float?>(null) }
     val previewCallback by rememberUpdatedState(onPreview)
+    val progressCallback by rememberUpdatedState(onProgress)
     LaunchedEffect(draft, pending) { previewCallback(draft ?: pending) }
     LaunchedEffect(target, pending) {
         if (pending != null && kotlin.math.abs(target - pending!!) < 0.008f) pending = null
@@ -141,69 +146,108 @@ internal fun ThinSeekBar(
             pending = null
         }
     }
-    val interactions = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val dragged by interactions.collectIsDraggedAsState()
-    LaunchedEffect(interactions) {
-        interactions.interactions.collect { interaction ->
-            if (interaction is androidx.compose.foundation.interaction.DragInteraction.Cancel ||
-                interaction is androidx.compose.foundation.interaction.PressInteraction.Cancel && !dragged
-            ) draft = null
-        }
-    }
-    val thumbHeight by animateDpAsState(
-        if (draft != null) 28.dp else 20.dp, tween(animationDuration(120)), label = "seek-thumb",
+    val active = draft != null
+    val grow by androidx.compose.animation.core.animateFloatAsState(
+        if (active) 1f else 0f, tween(animationDuration(160)), label = "seek-grow",
+    )
+    val wave by androidx.compose.animation.core.animateFloatAsState(
+        if (style == ru.muz.settings.SeekStyle.WAVY && animated && !active) 1f else 0f,
+        tween(animationDuration(420)), label = "seek-wave",
     )
     val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
+    val fill = when {
+        !enabled -> trackColor
+        style == ru.muz.settings.SeekStyle.CAPSULE -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f)
+        else -> accent
+    }
     val shown = draft ?: pending ?: target
-    androidx.compose.material3.Slider(
-        value = shown,
-        onValueChange = { draft = it },
-        onValueChangeFinished = {
-            draft?.let { value ->
-                pending = value
-                draft = null
-                onProgress(value)
-            }
-        },
-        enabled = enabled,
-        interactionSource = interactions,
-        modifier = modifier.fillMaxWidth().height(48.dp),
-        thumb = {
-            Box(Modifier.width(6.dp).height(thumbHeight).clip(RoundedCornerShape(3.dp))
-                .background(if (enabled) accent else trackColor))
-        },
-        track = {
-            if (wavy) Canvas(Modifier.fillMaxWidth().height(16.dp)) {
-                val y = size.height / 2
-                val stroke = 4.dp.toPx()
-                val amplitude = 3.dp.toPx()
-                val length = 22.dp.toPx()
-                val end = size.width * shown.coerceIn(0f, 1f)
-                drawLine(trackColor, androidx.compose.ui.geometry.Offset(end, y), androidx.compose.ui.geometry.Offset(size.width, y), stroke, StrokeCap.Round)
-                if (end > 0f) {
-                    val path = androidx.compose.ui.graphics.Path()
-                    var x = 0f
-                    while (x <= end) {
-                        val ramp = (x / (length * 0.6f)).coerceAtMost(1f)
-                        val py = y + amplitude * ramp * kotlin.math.sin(x / length * 2f * Math.PI.toFloat() - phase.floatValue)
-                        if (x == 0f) path.moveTo(x, py) else path.lineTo(x, py)
-                        x += 2f
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val inset = with(density) { (if (style == ru.muz.settings.SeekStyle.CAPSULE) 6.dp else 10.dp).toPx() }
+    Box(
+        modifier.fillMaxWidth().height(if (style == ru.muz.settings.SeekStyle.CAPSULE) 36.dp else 44.dp)
+            .pointerInput(enabled, mediaId) {
+                if (!enabled) return@pointerInput
+                fun at(x: Float) = ((x - inset) / (size.width - inset * 2f).coerceAtLeast(1f)).coerceIn(0f, 1f)
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    draft = at(down.position.x)
+                    down.consume()
+                    var cancelled = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        if (change.isConsumed && change.positionChange() == androidx.compose.ui.geometry.Offset.Zero) continue
+                        draft = at(change.position.x)
+                        change.consume()
                     }
-                    drawPath(path, if (enabled) accent else trackColor, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                    val value = draft
+                    draft = null
+                    if (!cancelled && value != null) {
+                        pending = value
+                        progressCallback(value)
+                    }
                 }
-            } else Canvas(Modifier.fillMaxWidth().height(4.dp)) {
-                val y = size.height / 2
-                fun segment(fraction: Float, color: Color) {
-                    drawLine(color, androidx.compose.ui.geometry.Offset(0f, y),
-                        androidx.compose.ui.geometry.Offset(size.width * fraction.coerceIn(0f, 1f), y),
-                        size.height, StrokeCap.Round)
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val y = size.height / 2
+            val start = inset
+            val end = size.width - inset
+            val x = start + (end - start) * shown.coerceIn(0f, 1f)
+            val buffered = start + (end - start) * bufferedProgress.coerceIn(0f, 1f)
+            val round = StrokeCap.Round
+            when (style) {
+                ru.muz.settings.SeekStyle.CAPSULE -> {
+                    val h = (6.dp + 6.dp * grow).toPx()
+                    val corner = androidx.compose.ui.geometry.CornerRadius(h / 2f)
+                    drawRoundRect(trackColor, androidx.compose.ui.geometry.Offset(start - h / 2f, y - h / 2f), androidx.compose.ui.geometry.Size(end - start + h, h), corner)
+                    drawRoundRect(fill.copy(alpha = fill.alpha * 0.25f), androidx.compose.ui.geometry.Offset(start - h / 2f, y - h / 2f), androidx.compose.ui.geometry.Size(buffered - start + h, h), corner)
+                    drawRoundRect(fill, androidx.compose.ui.geometry.Offset(start - h / 2f, y - h / 2f), androidx.compose.ui.geometry.Size(x - start + h, h), corner)
                 }
-                segment(1f, trackColor)
-                segment(bufferedProgress, accent.copy(alpha = 0.25f))
-                if (shown > 0f) segment(shown, if (enabled) accent else trackColor)
+                ru.muz.settings.SeekStyle.HAIRLINE -> {
+                    val stroke = 2.dp.toPx()
+                    drawLine(trackColor, androidx.compose.ui.geometry.Offset(start, y), androidx.compose.ui.geometry.Offset(end, y), stroke, round)
+                    drawLine(fill, androidx.compose.ui.geometry.Offset(start, y), androidx.compose.ui.geometry.Offset(x, y), stroke, round)
+                    drawCircle(fill, (4.dp + 3.dp * grow).toPx(), androidx.compose.ui.geometry.Offset(x, y))
+                }
+                else -> {
+                    val stroke = 4.dp.toPx()
+                    val gap = 5.dp.toPx()
+                    drawLine(trackColor, androidx.compose.ui.geometry.Offset((x + gap).coerceAtMost(end), y), androidx.compose.ui.geometry.Offset(end, y), stroke, round)
+                    drawLine(fill.copy(alpha = fill.alpha * 0.25f), androidx.compose.ui.geometry.Offset((x + gap).coerceAtMost(end), y), androidx.compose.ui.geometry.Offset(buffered.coerceAtLeast(x + gap).coerceAtMost(end), y), stroke, round)
+                    val playedEnd = (x - gap).coerceAtLeast(start)
+                    if (playedEnd > start) {
+                        if (wave > 0.01f) {
+                            val amplitude = 3.dp.toPx() * wave
+                            val length = 22.dp.toPx()
+                            val path = androidx.compose.ui.graphics.Path()
+                            var px = start
+                            while (true) {
+                                val ramp = ((px - start) / (length * 0.5f)).coerceAtMost(1f) * ((playedEnd - px) / (length * 0.5f)).coerceIn(0f, 1f)
+                                val py = y + amplitude * ramp * kotlin.math.sin((px - start) / length * 2f * Math.PI.toFloat() - phase.floatValue)
+                                if (px == start) path.moveTo(px, py) else path.lineTo(px, py)
+                                if (px >= playedEnd) break
+                                px = (px + 2f).coerceAtMost(playedEnd)
+                            }
+                            drawPath(path, fill, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                        } else {
+                            drawLine(fill, androidx.compose.ui.geometry.Offset(start, y), androidx.compose.ui.geometry.Offset(playedEnd, y), stroke, round)
+                        }
+                    }
+                    val thumbW = 6.dp.toPx()
+                    val thumbH = (20.dp + 8.dp * grow).toPx()
+                    drawRoundRect(
+                        fill,
+                        androidx.compose.ui.geometry.Offset(x - thumbW / 2f, y - thumbH / 2f),
+                        androidx.compose.ui.geometry.Size(thumbW, thumbH),
+                        androidx.compose.ui.geometry.CornerRadius(thumbW / 2f),
+                    )
+                }
             }
-        },
-    )
+        }
+    }
 }
 
 @Composable
@@ -217,7 +261,7 @@ internal fun ScreenHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 29.sp, fontWeight = FontWeight.Black)
+            Text(title, fontSize = if (LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS) 34.sp else 29.sp, fontWeight = FontWeight.Black)
             if (!subtitle.isNullOrBlank()) {
                 Text(subtitle, color = SoftText, fontSize = 13.sp)
             }
@@ -275,7 +319,7 @@ internal fun CompactPlayer(
     onPrevious: () -> Unit = {},
     swipeEnabled: Boolean = true,
     showProgress: Boolean = true,
-    haze: dev.chrisbanes.haze.HazeState? = null,
+    backdrop: GlassBackdrop? = null,
 ) {
     val position by rememberPlaybackPosition(state)
     val progress = if (state.durationMs > 0) (position.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
@@ -310,14 +354,14 @@ internal fun CompactPlayer(
             )
         }
     } else Modifier
-    val glass = haze != null
+    val glass = backdrop != null
     val shape = if (glass) RoundedCornerShape(24.dp) else RoundedCornerShape(16.dp * LocalCornerRadiusScale.current)
     Column(
         Modifier.fillMaxWidth().padding(horizontal = if (glass) 14.dp else 8.dp, vertical = 6.dp).offset(x = animatedOffset).graphicsLayer {
             scaleX = swipeScale
             scaleY = swipeScale
             alpha = if (reduceMotion) 1f else 1f - (kotlin.math.abs(drag) / 800f).coerceIn(0f, 0.16f)
-        }.then(if (glass) Modifier.glass(haze, shape) else Modifier.clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHighest))
+        }.then(if (glass) Modifier.glass(backdrop, shape, corner = 24.dp) else Modifier.clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHighest))
             .then(swipeModifier).clickable(onClick = onClick),
     ) {
         Row(
@@ -367,10 +411,14 @@ internal fun CompactPlayer(
 @Composable
 internal fun MyWaveCard(trackCount: Int = 0, subtitle: String = "", onTune: (() -> Unit)? = null, onClick: () -> Unit) {
     val corners = LocalCornerRadiusScale.current
+    val glass = LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS
+    val cardShape = RoundedCornerShape(if (glass) 28.dp else 22.dp * corners)
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(22.dp * corners))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .pressScale(0.98f)
+            .clip(cardShape)
+            .background(if (glass) MaterialTheme.colorScheme.surface.copy(alpha = 0.42f) else MaterialTheme.colorScheme.surfaceVariant)
+            .then(if (glass) Modifier.border(1.dp, Color.White.copy(alpha = 0.16f), cardShape) else Modifier)
             .clickable(onClick = onClick).padding(18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -145,7 +145,7 @@ internal fun SleepTimerSheet(endsAt: Long, onSelect: (Int) -> Unit, onDismiss: (
                 Text("Своё время", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Text("${custom.roundToInt()} мин", color = SoftText)
             }
-            Slider(value = custom, onValueChange = { custom = it }, valueRange = 5f..180f, steps = 34)
+            StyledSlider(value = custom, onValueChange = { custom = it }, valueRange = 5f..180f, steps = 34)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 if (endsAt != 0L) TextButton(onClick = { onSelect(0); onDismiss() }) { Text("Выключить") }
                 TextButton(onClick = { onSelect(custom.roundToInt()); onDismiss() }) { Text("Запустить") }
@@ -174,7 +174,7 @@ internal fun SpeedSheet(
                 Text("Скорость воспроизведения", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Text(String.format(java.util.Locale.ROOT, "%.2f×", value).replace('.', ','), color = SoftText)
             }
-            Slider(
+            StyledSlider(
                 value = value,
                 onValueChange = { value = (it * 20).roundToInt() / 20f },
                 onValueChangeFinished = { onSpeed(value) },

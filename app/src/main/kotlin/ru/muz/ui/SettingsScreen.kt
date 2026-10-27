@@ -11,6 +11,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.material.icons.filled.MotionPhotosOff
 import androidx.compose.material.icons.filled.DataSaverOn
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -548,14 +552,26 @@ private fun LazyListScope.playerSettings(settings: AppSettings, onChange: (AppSe
         }
     }
     item { SettingSwitch("Вибрация", "Лёгкий отклик на «Мне нравится»", settings.haptics) { onChange(settings.copy(haptics = it)) } }
-    item { SettingSwitch("Волнистая полоска", "Пройденная часть дорожки идёт волной, пока играет трек", settings.wavySeekBar) { onChange(settings.copy(wavySeekBar = it)) } }
+    item { SettingsTitle("Полоска прогресса") }
+    ru.muz.settings.SeekStyle.entries.forEach { style ->
+        item {
+            SettingRadio(
+                when (style) {
+                    ru.muz.settings.SeekStyle.LINE -> "Линия с бегунком"
+                    ru.muz.settings.SeekStyle.WAVY -> "Волна, пока играет"
+                    ru.muz.settings.SeekStyle.CAPSULE -> "Капсула, как в iOS"
+                    ru.muz.settings.SeekStyle.HAIRLINE -> "Тонкая с точкой"
+                },
+                settings.seekStyle == style,
+            ) { onChange(settings.copy(seekStyle = style)) }
+        }
+    }
     item { SettingSwitch("Фон в такт музыке", "Пятна цвета обложки пульсируют вместе с битом", settings.pulseBackground) { onChange(settings.copy(pulseBackground = it)) } }
     item {
         AnimatedVisibility(settings.pulseBackground) {
             SettingSlider("Сила пульсации", settings.pulseStrength, 10..100, 10, { "$it%" }) { onChange(settings.copy(pulseStrength = it)) }
         }
     }
-    item { SettingSwitch("Искры от обложки", "Разлетаются на сильных долях, пока играет трек", settings.coverSparks) { onChange(settings.copy(coverSparks = it)) } }
     item { SettingSwitch("Цвет кнопок от обложки", "Кнопка паузы в плеере с текстом окрашивается под трек", settings.accentControls) { onChange(settings.copy(accentControls = it)) } }
     item { SettingsTitle("Цвет и обложка") }
     item { SettingSwitch("Цвет обложки в фоне", "Мягкий градиент цвета обложки сверху экрана", settings.coverColorBackground) { onChange(settings.copy(coverColorBackground = it)) } }
@@ -1221,11 +1237,11 @@ private fun ColorPicker(color: Int, onChange: (Int) -> Unit) {
                     ),
                 ),
         )
-        Slider(value = hue, onValueChange = { hue = it }, onValueChangeFinished = ::commit, valueRange = 0f..359f)
+        StyledSlider(value = hue, onValueChange = { hue = it }, onValueChangeFinished = ::commit, valueRange = 0f..359f)
         Text("Насыщенность", color = SoftText, fontSize = 13.sp)
-        Slider(value = saturation, onValueChange = { saturation = it }, onValueChangeFinished = ::commit, valueRange = 0f..1f)
+        StyledSlider(value = saturation, onValueChange = { saturation = it }, onValueChangeFinished = ::commit, valueRange = 0f..1f)
         Text("Яркость", color = SoftText, fontSize = 13.sp)
-        Slider(value = lightness, onValueChange = { lightness = it }, onValueChangeFinished = ::commit, valueRange = 0.2f..0.85f)
+        StyledSlider(value = lightness, onValueChange = { lightness = it }, onValueChangeFinished = ::commit, valueRange = 0.2f..0.85f)
     }
 }
 
@@ -1455,7 +1471,7 @@ private fun SettingSlider(
             Text(title, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Text(label(value), color = SoftText)
         }
-        Slider(
+        StyledSlider(
             value = value.toFloat(),
             onValueChange = { raw -> snap(raw).let { if (it != value) onChange(it) } },
             valueRange = range.first.toFloat()..range.last.toFloat(),
@@ -1507,12 +1523,12 @@ private fun StylePicker(settings: AppSettings, onChange: (AppSettings) -> Unit) 
         items(ru.muz.settings.AppStyle.entries.toList()) { style ->
             val chosen = settings.appStyle == style
             Column(
-                Modifier.width(128.dp).clip(RoundedCornerShape(22.dp))
+                Modifier.width(140.dp).pressScale().clip(RoundedCornerShape(22.dp))
                     .border(if (chosen) 2.dp else 1.dp, if (chosen) Accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f), RoundedCornerShape(22.dp))
                     .clickable { onChange(stylePreset(settings, style)) }
                     .padding(8.dp),
             ) {
-                StyleThumb(style, Modifier.fillMaxWidth().height(96.dp))
+                StyleThumb(style, Modifier.fillMaxWidth().height(150.dp))
                 Row(Modifier.padding(top = 8.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(styleName(style), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
                     if (chosen) Icon(Icons.Filled.Check, null, tint = Accent, modifier = Modifier.size(18.dp))
@@ -1525,38 +1541,100 @@ private fun StylePicker(settings: AppSettings, onChange: (AppSettings) -> Unit) 
 
 @Composable
 private fun StyleThumb(style: ru.muz.settings.AppStyle, modifier: Modifier) {
+    val base = MaterialTheme.colorScheme
+    val scheme = if (style == ru.muz.settings.AppStyle.MINIMAL) {
+        val ink = base.onSurface
+        base.copy(
+            primary = ink,
+            onPrimary = base.surface,
+            primaryContainer = ink.copy(alpha = 0.12f).compositeOver(base.surface),
+            onPrimaryContainer = ink,
+            secondaryContainer = ink.copy(alpha = 0.10f).compositeOver(base.surface),
+            onSecondaryContainer = ink,
+        )
+    } else if (style == ru.muz.settings.AppStyle.GLASS) {
+        base.copy(primary = Color(0xFF2F7BFF), primaryContainer = Color(0xFF2F7BFF).copy(alpha = 0.25f).compositeOver(base.surface))
+    } else base
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.clip(RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) {
+        val full = 300.dp
+        val scale = maxWidth / full
+        val height = full * (maxHeight / maxWidth)
+        Box(
+            Modifier.requiredSize(full, height).graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
+        ) {
+            MaterialTheme(colorScheme = scheme) {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    LocalAppStyle provides style,
+                    LocalReduceMotion provides true,
+                ) { MiniApp(style) }
+            }
+        }
+        Box(Modifier.matchParentSize())
+    }
+}
+
+@Composable
+private fun MiniApp(style: ru.muz.settings.AppStyle) {
     val scheme = MaterialTheme.colorScheme
-    val accent = Accent
-    androidx.compose.foundation.Canvas(modifier.clip(RoundedCornerShape(16.dp))) {
-        val w = size.width
-        val h = size.height
-        when (style) {
-            ru.muz.settings.AppStyle.GLASS -> {
-                drawRect(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFFFF7EB3), Color(0xFF7A5CFF), Color(0xFF2EC5FF))))
-                drawCircle(Color.White.copy(alpha = 0.35f), w * 0.22f, androidx.compose.ui.geometry.Offset(w * 0.3f, h * 0.35f))
-                drawRoundRect(Color.White.copy(alpha = 0.32f), androidx.compose.ui.geometry.Offset(w * 0.08f, h * 0.70f), androidx.compose.ui.geometry.Size(w * 0.84f, h * 0.2f), androidx.compose.ui.geometry.CornerRadius(h * 0.1f))
-                drawRoundRect(Color.White.copy(alpha = 0.55f), androidx.compose.ui.geometry.Offset(w * 0.12f, h * 0.725f), androidx.compose.ui.geometry.Size(w * 0.26f, h * 0.15f), androidx.compose.ui.geometry.CornerRadius(h * 0.075f))
-            }
-            ru.muz.settings.AppStyle.MATERIAL_YOU -> {
-                drawRect(scheme.primaryContainer)
-                drawCircle(scheme.primary, w * 0.16f, androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.36f))
-                drawRect(scheme.surfaceContainer, androidx.compose.ui.geometry.Offset(0f, h * 0.74f), androidx.compose.ui.geometry.Size(w, h * 0.26f))
-                drawRoundRect(scheme.secondaryContainer, androidx.compose.ui.geometry.Offset(w * 0.07f, h * 0.79f), androidx.compose.ui.geometry.Size(w * 0.25f, h * 0.14f), androidx.compose.ui.geometry.CornerRadius(h * 0.07f))
-            }
-            ru.muz.settings.AppStyle.MINIMAL -> {
-                drawRect(Color(0xFF0E0E0E))
-                for (row in 0 until 4) for (col in 0 until 9) {
-                    drawCircle(Color.White.copy(alpha = if ((row + col) % 3 == 0) 0.85f else 0.25f), w * 0.018f, androidx.compose.ui.geometry.Offset(w * (0.14f + col * 0.09f), h * (0.2f + row * 0.11f)))
+    val glass = style == ru.muz.settings.AppStyle.GLASS
+    val backdrop = if (glass) rememberGlassBackdrop() else null
+    val covers = listOf(
+        listOf(Color(0xFFFF6A88), Color(0xFFFFB36B)),
+        listOf(Color(0xFF6A8BFF), Color(0xFF9B6BFF)),
+        listOf(Color(0xFF2FD3A1), Color(0xFF1C8CFF)),
+        listOf(Color(0xFFFFC94A), Color(0xFFFF6A3D)),
+    )
+    Box(Modifier.fillMaxSize().background(if (style == ru.muz.settings.AppStyle.MINIMAL) Color(0xFF0B0B0B) else scheme.background)) {
+        Box(Modifier.fillMaxSize().glassSource(backdrop)) {
+            if (glass) MovingCoverBackground(scheme.primary, strength = 0.8f)
+            Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 20.dp)) {
+                Text("Главная", fontSize = if (glass) 32.sp else 28.sp, fontWeight = FontWeight.Black, color = scheme.onSurface)
+                Spacer(Modifier.height(14.dp))
+                Box(
+                    Modifier.fillMaxWidth().height(110.dp)
+                        .clip(if (style == ru.muz.settings.AppStyle.MATERIAL_YOU) RoundedCornerShape(34.dp) else RoundedCornerShape(if (style == ru.muz.settings.AppStyle.MINIMAL) 6.dp else 22.dp))
+                        .background(
+                            when (style) {
+                                ru.muz.settings.AppStyle.MINIMAL -> androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF1C1C1C), Color(0xFF1C1C1C)))
+                                ru.muz.settings.AppStyle.MATERIAL_YOU -> androidx.compose.ui.graphics.Brush.linearGradient(listOf(scheme.primaryContainer, scheme.tertiaryContainer))
+                                else -> androidx.compose.ui.graphics.Brush.linearGradient(listOf(scheme.primary, scheme.primary.copy(alpha = 0.55f)))
+                            },
+                        )
+                        .padding(16.dp),
+                ) {
+                    Text("Моя волна", fontSize = 20.sp, fontWeight = FontWeight.Black, color = if (style == ru.muz.settings.AppStyle.MATERIAL_YOU) scheme.onPrimaryContainer else Color.White)
+                    Box(
+                        Modifier.align(Alignment.BottomEnd).size(44.dp)
+                            .clip(if (style == ru.muz.settings.AppStyle.MATERIAL_YOU) CookieShape else if (style == ru.muz.settings.AppStyle.MINIMAL) RoundedCornerShape(6.dp) else CircleShape)
+                            .background(if (style == ru.muz.settings.AppStyle.MATERIAL_YOU) scheme.primary else Color.White),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Filled.PlayArrow, null, tint = if (style == ru.muz.settings.AppStyle.MATERIAL_YOU) scheme.onPrimary else Color.Black)
+                    }
                 }
-                drawLine(Color.White.copy(alpha = 0.25f), androidx.compose.ui.geometry.Offset(0f, h * 0.76f), androidx.compose.ui.geometry.Offset(w, h * 0.76f), 1.5f)
-                drawRoundRect(Color.White.copy(alpha = 0.18f), androidx.compose.ui.geometry.Offset(w * 0.08f, h * 0.81f), androidx.compose.ui.geometry.Size(w * 0.22f, h * 0.12f), androidx.compose.ui.geometry.CornerRadius(4f))
+                Spacer(Modifier.height(12.dp))
+                covers.forEachIndexed { i, colors ->
+                    Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.size(46.dp).clip(RoundedCornerShape(if (style == ru.muz.settings.AppStyle.MINIMAL) 4.dp else 10.dp))
+                                .background(
+                                    if (style == ru.muz.settings.AppStyle.MINIMAL) androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF3A3A3A), Color(0xFF222222)))
+                                    else androidx.compose.ui.graphics.Brush.linearGradient(colors),
+                                ),
+                        )
+                        Column(Modifier.padding(start = 12.dp)) {
+                            Text(listOf("Ночной город", "Огни", "До рассвета", "Домой")[i], fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+                            Text("Исполнитель", fontSize = 13.sp, color = scheme.onSurface.copy(alpha = 0.6f))
+                        }
+                    }
+                }
             }
-            ru.muz.settings.AppStyle.CLASSIC -> {
-                drawRect(scheme.surfaceContainerHighest)
-                drawRoundRect(accent, androidx.compose.ui.geometry.Offset(w * 0.1f, h * 0.14f), androidx.compose.ui.geometry.Size(w * 0.8f, h * 0.38f), androidx.compose.ui.geometry.CornerRadius(h * 0.08f))
-                drawRect(scheme.surfaceContainer, androidx.compose.ui.geometry.Offset(0f, h * 0.74f), androidx.compose.ui.geometry.Size(w, h * 0.26f))
-                drawCircle(accent, h * 0.05f, androidx.compose.ui.geometry.Offset(w * 0.2f, h * 0.87f))
-            }
+        }
+        Box(Modifier.align(Alignment.BottomCenter)) {
+            AriaTabBar(MainTab.entries.toList(), MainTab.HOME, {}, true, backdrop, false, insets = false)
         }
     }
 }
@@ -1576,7 +1654,7 @@ private fun QuickTile(icon: ImageVector, title: String, on: Boolean, modifier: M
     val background by androidx.compose.animation.animateColorAsState(if (on) Accent else scheme.surfaceContainerHigh, label = "quick-bg")
     val content by androidx.compose.animation.animateColorAsState(if (on) scheme.onPrimary else scheme.onSurface, label = "quick-fg")
     Column(
-        modifier.clip(RoundedCornerShape(20.dp)).background(background).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 12.dp),
+        modifier.pressScale().clip(RoundedCornerShape(20.dp)).background(background).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 12.dp),
     ) {
         Icon(icon, null, tint = content, modifier = Modifier.size(22.dp))
         Text(title, color = content, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.padding(top = 8.dp))

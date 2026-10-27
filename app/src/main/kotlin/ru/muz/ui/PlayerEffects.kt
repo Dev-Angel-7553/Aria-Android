@@ -47,59 +47,6 @@ internal fun rememberAudioEnergy(active: Boolean): androidx.compose.runtime.Stat
     return energy
 }
 
-private class Spark(val angle: Float, var distance: Float, val speed: Float, var life: Float, val radius: Float, val light: Boolean)
-
-@Composable
-internal fun CoverSparks(playing: Boolean, coverFraction: Float, color: Color, modifier: Modifier = Modifier) {
-    val sparks = remember { ArrayList<Spark>() }
-    val tick = remember { mutableLongStateOf(0L) }
-    val density = LocalDensity.current.density
-    LaunchedEffect(playing) {
-        val random = java.util.Random()
-        var lastBeat = AudioPulse.beats
-        var last = 0L
-        while (playing || sparks.isNotEmpty()) {
-            withFrameNanos { now ->
-                val dt = if (last == 0L) 0f else ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
-                last = now
-                val beats = AudioPulse.beats
-                if (playing && beats != lastBeat) {
-                    lastBeat = beats
-                    if (sparks.size < 90) repeat(7) {
-                        sparks += Spark(
-                            angle = (random.nextFloat() * 2f * PI).toFloat(),
-                            distance = 0f,
-                            speed = (90f + random.nextFloat() * 190f) * density,
-                            life = 1f,
-                            radius = (1.4f + random.nextFloat() * 2.6f) * density,
-                            light = random.nextBoolean(),
-                        )
-                    }
-                }
-                sparks.forEach {
-                    it.distance += it.speed * dt
-                    it.life -= dt / 1.15f
-                }
-                sparks.removeAll { it.life <= 0f }
-                tick.longValue = now
-            }
-        }
-    }
-    Canvas(modifier) {
-        tick.longValue
-        val edge = min(size.width * coverFraction, size.height) / 2f * 0.9f
-        for (spark in sparks) {
-            val r = edge + spark.distance
-            val alpha = (spark.life * 1.4f).coerceIn(0f, 1f) * 0.85f
-            drawCircle(
-                (if (spark.light) Color.White else color).copy(alpha = alpha),
-                spark.radius * (0.5f + 0.5f * spark.life),
-                Offset(center.x + cos(spark.angle) * r, center.y + sin(spark.angle) * r),
-            )
-        }
-    }
-}
-
 @Composable
 internal fun MorphLoading(modifier: Modifier = Modifier, color: Color = Accent) {
     val animated = LocalAnimateLoading.current

@@ -13,8 +13,8 @@ android {
         applicationId = "ru.muz"
         minSdk = 26
         targetSdk = 35
-        versionCode = 28
-        versionName = "0.28"
+        versionCode = 29
+        versionName = "0.29"
     }
 
     val releaseKeystore = System.getenv("ARIA_KEYSTORE")?.let(::file)?.takeIf { it.exists() }
@@ -64,7 +64,6 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.material3:material3:1.4.0-alpha18")
     implementation("androidx.graphics:graphics-shapes:1.0.1")
-    implementation("dev.chrisbanes.haze:haze:1.6.0")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.core:core-ktx:1.15.0")

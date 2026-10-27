@@ -355,7 +355,6 @@ internal fun FullPlayerScreen(
                             gesturesEnabled = settings.fullPlayerSwipe,
                             doubleTapLike = settings.doubleTapLike,
                             doubleTapAction = settings.doubleTapAction,
-                            sparks = settings.coverSparks,
                             privateLabel = if (settings.privateSession) "Приватно" else "",
                             modifier = Modifier.weight(1f),
                         )
@@ -689,7 +688,6 @@ private fun StandardPlayer(
     gesturesEnabled: Boolean,
     doubleTapLike: Boolean = true,
     doubleTapAction: ru.muz.settings.DoubleTapAction = ru.muz.settings.DoubleTapAction.LIKE,
-    sparks: Boolean = false,
     privateLabel: String = "",
     modifier: Modifier = Modifier,
 ) {
@@ -716,7 +714,6 @@ private fun StandardPlayer(
                     }
                 }) else null,
                 showHeart = doubleTapAction == ru.muz.settings.DoubleTapAction.LIKE,
-                sparks = sparks,
             )
         }
             PlayerDetails(
@@ -737,7 +734,6 @@ private fun StandardPlayer(
                     }
                 }) else null,
                 showHeart = doubleTapAction == ru.muz.settings.DoubleTapAction.LIKE,
-                sparks = sparks,
             )
         }
     }
@@ -753,7 +749,6 @@ private fun PlayerArtwork(
     modifier: Modifier = Modifier,
     onDoubleTap: (() -> Unit)? = null,
     showHeart: Boolean = true,
-    sparks: Boolean = false,
 ) {
     val reduceMotion = LocalReduceMotion.current
     var verticalDrag by remember(state.mediaId) { mutableFloatStateOf(0f) }
@@ -802,14 +797,6 @@ private fun PlayerArtwork(
         }.then(gesture),
         contentAlignment = Alignment.Center,
     ) {
-        if (sparks && !reduceMotion) {
-            CoverSparks(
-                playing = state.isPlaying,
-                coverFraction = (artworkPercent / 100f).coerceIn(0.7f, 1f),
-                color = PlayerAccent,
-                modifier = Modifier.matchParentSize(),
-            )
-        }
         PlayerCrossfade(state.coverUrl,
             Modifier.fillMaxWidth((artworkPercent / 100f).coerceIn(0.7f, 1f)).aspectRatio(1f).then(doubleTap),
         ) { url -> Artwork(url, Modifier.fillMaxSize(), 30.dp) }

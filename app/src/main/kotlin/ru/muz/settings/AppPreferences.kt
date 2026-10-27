@@ -9,6 +9,7 @@ enum class AccentStyle { YELLOW, ORANGE, PINK, BLUE, GREEN, CUSTOM }
 enum class PlayerAction { QUEUE, DOWNLOAD, LINK, SHARE_FILE, SAVE_COVER, OPEN_COVER, SLEEP, SPEED, QUOTE, COPY_ARTIST, TRACK_WAVE, DISLIKE, PRIVATE }
 enum class PlayShape { CIRCLE, SQUIRCLE, SQUARE, COOKIE }
 enum class AppStyle { CLASSIC, MATERIAL_YOU, GLASS, MINIMAL }
+enum class SeekStyle { LINE, WAVY, CAPSULE, HAIRLINE }
 enum class DoubleTapAction { LIKE, PLAY_PAUSE, NEXT }
 enum class HomeSection { WAVE, RECENT, PLAYLISTS, CHART }
 enum class AppTab { HOME, LIBRARY, SEARCH, STATS }
@@ -86,12 +87,11 @@ data class AppSettings(
     val lyricsAutoHide: Boolean = true,
     val lyricsModernAnchor: Int = 20,
     val karaokeDirection: KaraokeDirection = KaraokeDirection.HORIZONTAL,
-    val wavySeekBar: Boolean = true,
+    val seekStyle: SeekStyle = SeekStyle.WAVY,
     val accentControls: Boolean = true,
     val speedChangesPitch: Boolean = false,
     val pulseBackground: Boolean = true,
     val pulseStrength: Int = 60,
-    val coverSparks: Boolean = true,
     val doubleTapAction: DoubleTapAction = DoubleTapAction.LIKE,
     val appStyle: AppStyle = AppStyle.CLASSIC,
     val glassStrength: Int = 60,
@@ -184,12 +184,11 @@ class AppPreferences(context: Context) {
             lyricsAutoHide = prefs.getBoolean("lyrics_auto_hide", true),
             lyricsModernAnchor = prefs.getInt("lyrics_modern_anchor", 20).coerceIn(10, 45),
             karaokeDirection = enumValue(prefs.getString("karaoke_direction", null), KaraokeDirection.HORIZONTAL),
-            wavySeekBar = prefs.getBoolean("wavy_seek_bar", true),
+            seekStyle = enumValue(prefs.getString("seek_style", null), if (prefs.getBoolean("wavy_seek_bar", true)) SeekStyle.WAVY else SeekStyle.LINE),
             accentControls = prefs.getBoolean("accent_controls", true),
             speedChangesPitch = prefs.getBoolean("speed_changes_pitch", false),
             pulseBackground = prefs.getBoolean("pulse_background", true),
             pulseStrength = prefs.getInt("pulse_strength", 60).coerceIn(10, 100),
-            coverSparks = prefs.getBoolean("cover_sparks", true),
             doubleTapAction = enumValue(prefs.getString("double_tap_action", null), DoubleTapAction.LIKE),
             appStyle = enumValue(prefs.getString("app_style", null), AppStyle.CLASSIC),
             glassStrength = prefs.getInt("glass_strength", 60).coerceIn(10, 100),
@@ -275,12 +274,11 @@ class AppPreferences(context: Context) {
             .putBoolean("lyrics_auto_hide", value.lyricsAutoHide)
             .putInt("lyrics_modern_anchor", value.lyricsModernAnchor)
             .putString("karaoke_direction", value.karaokeDirection.name)
-            .putBoolean("wavy_seek_bar", value.wavySeekBar)
+            .putString("seek_style", value.seekStyle.name)
             .putBoolean("accent_controls", value.accentControls)
             .putBoolean("speed_changes_pitch", value.speedChangesPitch)
             .putBoolean("pulse_background", value.pulseBackground)
             .putInt("pulse_strength", value.pulseStrength)
-            .putBoolean("cover_sparks", value.coverSparks)
             .putString("double_tap_action", value.doubleTapAction.name)
             .putString("app_style", value.appStyle.name)
             .putInt("glass_strength", value.glassStrength)

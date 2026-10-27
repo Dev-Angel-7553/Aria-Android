@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.29
+
+- Glass is now real liquid glass on Android 13 and newer: the edges of the panels bend and slightly split the colors of what is under them, the rim catches light and the highlight follows the tilt of the phone. Android 12 gets frosted blur, older versions a solid panel
+- Glass has its own look: thin custom tab icons, capsule progress bar, iOS style sliders with a round thumb, larger titles, a soft colored backdrop
+- Drag across the tab bar to switch tabs: the bubble follows the finger and the tab under it opens on release
+- The tab highlight flows between tabs: the front edge runs ahead and the back edge catches up
+- The progress bar is drawn from scratch, so the thumb and the filled part always match. Four styles: line, wave, capsule, thin with a dot
+- Sliders in the settings follow the chosen style
+- Style cards in the settings show a small live version of the interface
+- Tabs change with a soft fade, cards and tiles react to touch
+- Sparks around the cover are gone
+
 ## 0.28
 
 - Interface styles: Classic, Material You, Glass and Minimal. Picking a style sets up colors, shapes and effects in one tap, everything can still be tuned by hand

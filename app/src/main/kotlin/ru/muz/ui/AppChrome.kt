@@ -31,6 +31,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import kotlinx.coroutines.launch
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -59,9 +72,6 @@ import androidx.graphics.shapes.CornerRounding
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.star
 import androidx.graphics.shapes.toPath
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
 import kotlin.math.abs
 import ru.muz.settings.AppStyle
 
@@ -87,167 +97,185 @@ internal object CookieShape : Shape {
 }
 
 @Composable
-internal fun Modifier.glass(haze: HazeState?, shape: Shape, strength: Float = LocalGlassStrength.current): Modifier {
-    val surface = MaterialTheme.colorScheme.surface
-    val dark = surface.luminance() < 0.4f
-    val tint = if (dark) Color(0xFF1C1C20) else Color.White
-    val edge = if (dark) Color.White else Color.Black
-    val blurred = haze != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    return this
-        .shadow(18.dp, shape, ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.25f))
-        .clip(shape)
-        .then(
-            if (blurred) {
-                Modifier.hazeEffect(haze) {
-                    backgroundColor = surface
-                    blurRadius = (14f + 22f * strength).dp
-                    tints = listOf(HazeTint(tint.copy(alpha = (if (dark) 0.50f else 0.58f) - 0.25f * strength)))
-                    noiseFactor = 0.04f
-                }
-            } else {
-                Modifier.background(tint.copy(alpha = 0.92f))
-            },
-        )
-        .drawWithContent {
-            drawContent()
-            drawRect(
-                Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = if (dark) 0.10f else 0.35f), Color.Transparent),
-                    endY = size.height * 0.55f,
-                ),
-            )
-        }
-        .border(
-            1.dp,
-            Brush.verticalGradient(listOf(edge.copy(alpha = if (dark) 0.28f else 0.16f), edge.copy(alpha = if (dark) 0.06f else 0.05f))),
-            shape,
-        )
-}
-
-@Composable
 internal fun AriaTabBar(
     tabs: List<MainTab>,
     selected: MainTab,
     onTab: (MainTab) -> Unit,
     showLabels: Boolean,
-    haze: HazeState?,
+    backdrop: GlassBackdrop?,
     haptics: Boolean,
+    insets: Boolean = true,
 ) {
     val style = LocalAppStyle.current
     val glass = style == AppStyle.GLASS
     val reduce = LocalReduceMotion.current
     val index = tabs.indexOf(selected).coerceAtLeast(0)
-    val position = remember { Animatable(index.toFloat()) }
-    LaunchedEffect(index) {
-        if (reduce) position.snapTo(index.toFloat())
-        else position.animateTo(index.toFloat(), spring(dampingRatio = 0.68f, stiffness = 380f))
+    val lead = remember { Animatable(index.toFloat()) }
+    val trail = remember { Animatable(index.toFloat()) }
+    var drag by remember { mutableStateOf<Float?>(null) }
+    val press by animateFloatAsState(if (drag != null) 1f else 0f, spring(dampingRatio = 0.6f, stiffness = 500f), label = "tab-press")
+    LaunchedEffect(index, drag) {
+        val target = drag ?: index.toFloat()
+        if (drag != null || reduce) {
+            lead.snapTo(target)
+            trail.snapTo(target)
+            return@LaunchedEffect
+        }
+        val forward = target >= lead.value
+        val front = if (forward) lead else trail
+        val back = if (forward) trail else lead
+        launch { front.animateTo(target, spring(dampingRatio = 0.82f, stiffness = 520f)) }
+        launch { back.animateTo(target, spring(dampingRatio = 0.86f, stiffness = 170f)) }
     }
     val haptic = LocalHapticFeedback.current
+    val currentSelected by androidx.compose.runtime.rememberUpdatedState(selected)
+    val select by androidx.compose.runtime.rememberUpdatedState(onTab)
     val scheme = MaterialTheme.colorScheme
-    val barHeight = if (glass) 62.dp else if (showLabels) 72.dp else 60.dp
+    val barHeight = if (glass) 64.dp else if (showLabels) 72.dp else 60.dp
+    val glassShape = RoundedCornerShape(50)
     val outer = if (glass) {
-        Modifier.navigationBarsPadding().padding(start = 20.dp, end = 20.dp, bottom = 10.dp, top = 4.dp)
-            .fillMaxWidth().height(barHeight).glass(haze, RoundedCornerShape(50))
+        Modifier.then(if (insets) Modifier.navigationBarsPadding() else Modifier)
+            .padding(start = 18.dp, end = 18.dp, bottom = 10.dp, top = 4.dp)
+            .fillMaxWidth().height(barHeight)
+            .graphicsLayer {
+                val k = 1f + 0.025f * press
+                scaleX = k
+                scaleY = k
+            }
+            .glass(backdrop, glassShape, pressed = press)
     } else {
         Modifier.fillMaxWidth()
-            .background(
-                when (style) {
-                    AppStyle.MINIMAL -> scheme.background
-                    AppStyle.MATERIAL_YOU -> scheme.surfaceContainer
-                    else -> scheme.surfaceContainer
-                },
-            )
+            .background(if (style == AppStyle.MINIMAL) scheme.background else scheme.surfaceContainer)
             .then(
                 if (style == AppStyle.MINIMAL) Modifier.drawWithContent {
                     drawContent()
                     drawLine(scheme.onSurface.copy(alpha = 0.12f), Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx())
                 } else Modifier,
             )
-            .navigationBarsPadding().height(barHeight)
+            .then(if (insets) Modifier.navigationBarsPadding() else Modifier)
+            .height(barHeight)
     }
     BoxWithConstraints(outer) {
         val count = tabs.size.coerceAtLeast(1)
         val tabWidth = maxWidth / count
-        val stretch = if (reduce) 1f else 1f + (abs(position.velocity) / 10f).coerceAtMost(0.45f)
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val tabPx = with(density) { tabWidth.toPx() }
+        val from = minOf(lead.value, trail.value)
+        val to = maxOf(lead.value, trail.value)
         val indicatorColor = when (style) {
-            AppStyle.GLASS -> scheme.onSurface.copy(alpha = 0.10f)
+            AppStyle.GLASS -> scheme.onSurface.copy(alpha = 0.09f + 0.05f * press)
             AppStyle.MINIMAL -> scheme.onSurface.copy(alpha = 0.08f)
             AppStyle.MATERIAL_YOU -> scheme.primaryContainer
             AppStyle.CLASSIC -> scheme.secondaryContainer
         }
         if (glass) {
             val inset = 5.dp
-            val width = tabWidth - inset * 2
             Box(
                 Modifier
-                    .offset(x = tabWidth * position.value + inset)
+                    .offset(x = tabWidth * from + inset)
                     .padding(vertical = inset)
-                    .width(width)
+                    .width(tabWidth * (to - from + 1f) - inset * 2)
                     .fillMaxHeight()
                     .graphicsLayer {
-                        scaleX = stretch
-                        scaleY = 1f - (stretch - 1f) * 0.25f
+                        val k = 1f + 0.08f * press
+                        scaleX = k
+                        scaleY = k
                     }
                     .clip(RoundedCornerShape(50))
                     .background(indicatorColor)
-                    .border(1.dp, scheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(50)),
+                    .border(
+                        1.dp,
+                        Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.35f + 0.25f * press), Color.White.copy(alpha = 0.05f))),
+                        RoundedCornerShape(50),
+                    ),
             )
         } else {
             val pillWidth = if (style == AppStyle.MATERIAL_YOU) 64.dp else 56.dp
             val pillHeight = 32.dp
             Box(
                 Modifier
-                    .offset(x = tabWidth * position.value + (tabWidth - pillWidth) / 2, y = if (showLabels) 10.dp else (barHeight - pillHeight) / 2)
-                    .size(pillWidth, pillHeight)
-                    .graphicsLayer { scaleX = stretch }
+                    .offset(x = tabWidth * from + (tabWidth - pillWidth) / 2, y = if (showLabels) 10.dp else (barHeight - pillHeight) / 2)
+                    .size(tabWidth * (to - from) + pillWidth, pillHeight)
                     .clip(if (style == AppStyle.MINIMAL) RoundedCornerShape(8.dp) else RoundedCornerShape(50))
                     .background(indicatorColor),
             )
         }
-        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            tabs.forEach { item ->
-                val active = item == selected
-                TabItem(item, active, showLabels, glass, Modifier.weight(1f).fillMaxHeight()) {
-                    if (item != selected && haptics) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onTab(item)
+        Row(
+            Modifier.fillMaxSize().pointerInput(tabs, tabPx) {
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    val startX = down.position.x
+                    var moved = false
+                    var last = startX
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        last = change.position.x
+                        if (!moved && abs(last - startX) > viewConfiguration.touchSlop) moved = true
+                        if (moved) {
+                            val position = (last / tabPx - 0.5f).coerceIn(0f, (count - 1).toFloat())
+                            val before = drag?.let { kotlin.math.round(it).toInt() }
+                            drag = position
+                            val now = kotlin.math.round(position).toInt()
+                            if (haptics && before != null && before != now) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            change.consume()
+                        }
+                    }
+                    val target = (last / tabPx).toInt().coerceIn(0, count - 1)
+                    drag = null
+                    val tab = tabs[target]
+                    if (tab != currentSelected && haptics) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    select(tab)
                 }
+            },
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            tabs.forEachIndexed { i, item ->
+                val focus = drag?.let { (1f - abs(it - i)).coerceIn(0f, 1f) }
+                val active = if (focus != null) focus > 0.5f else item == selected
+                val chosen = item == selected
+                TabItem(item, active, showLabels, glass, Modifier.weight(1f).fillMaxHeight().semantics {
+                    role = Role.Tab
+                    this.selected = chosen
+                    contentDescription = item.title
+                    onClick(label = item.title) { onTab(item); true }
+                })
             }
         }
     }
 }
 
 @Composable
-private fun TabItem(item: MainTab, active: Boolean, label: Boolean, glass: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun TabItem(item: MainTab, active: Boolean, label: Boolean, glass: Boolean, modifier: Modifier) {
     val style = LocalAppStyle.current
     val scheme = MaterialTheme.colorScheme
     val reduce = LocalReduceMotion.current
     val pop = remember { Animatable(1f) }
     LaunchedEffect(active) {
         if (active && !reduce) {
-            pop.snapTo(0.78f)
+            pop.snapTo(0.8f)
             pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow))
         }
     }
     val tint by animateColorAsState(
         when {
+            active && glass -> Accent
             active && style == AppStyle.MATERIAL_YOU -> scheme.onPrimaryContainer
             active && style == AppStyle.CLASSIC -> scheme.onSecondaryContainer
             active -> scheme.onSurface
-            else -> scheme.onSurface.copy(alpha = 0.62f)
+            else -> scheme.onSurface.copy(alpha = if (glass) 0.78f else 0.62f)
         },
-        tween(animationDuration(220)),
+        tween(animationDuration(200)),
         label = "tab-tint",
     )
-    Column(
-        modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(
-            if (active) item.active else item.inactive,
-            item.title,
+            if (glass) GlassIcons.forTab(item, active) else if (active) item.active else item.inactive,
+            null,
             tint = tint,
-            modifier = Modifier.size(24.dp).graphicsLayer {
+            modifier = Modifier.size(if (glass) 25.dp else 24.dp).graphicsLayer {
                 scaleX = pop.value
                 scaleY = pop.value
             },
@@ -259,7 +287,7 @@ private fun TabItem(item: MainTab, active: Boolean, label: Boolean, glass: Boole
                 fontSize = if (glass) 10.sp else 12.sp,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,
-                modifier = Modifier.padding(top = if (glass) 1.dp else 6.dp),
+                modifier = Modifier.padding(top = if (glass) 2.dp else 6.dp),
             )
         }
     }
@@ -271,12 +299,15 @@ internal fun stylePreset(settings: ru.muz.settings.AppSettings, style: AppStyle)
         appStyle = style,
         useDynamicColors = true,
         playShape = ru.muz.settings.PlayShape.COOKIE,
-        wavySeekBar = true,
+        seekStyle = ru.muz.settings.SeekStyle.WAVY,
         accentControls = true,
     )
     AppStyle.GLASS -> settings.copy(
         appStyle = style,
+        useDynamicColors = false,
+        accentStyle = ru.muz.settings.AccentStyle.BLUE,
         playShape = ru.muz.settings.PlayShape.CIRCLE,
+        seekStyle = ru.muz.settings.SeekStyle.CAPSULE,
         coverAccent = true,
         pulseBackground = true,
     )
@@ -286,8 +317,7 @@ internal fun stylePreset(settings: ru.muz.settings.AppSettings, style: AppStyle)
         coverAccent = false,
         accentControls = false,
         playShape = ru.muz.settings.PlayShape.SQUARE,
-        wavySeekBar = false,
-        coverSparks = false,
+        seekStyle = ru.muz.settings.SeekStyle.HAIRLINE,
     )
 }
 
@@ -304,3 +334,27 @@ internal fun styleHint(style: AppStyle): String = when (style) {
     AppStyle.GLASS -> "Размытые панели поверх контента"
     AppStyle.MINIMAL -> "Чёрно-белый, без лишнего"
 }
+
+@Composable
+internal fun Modifier.pressScale(amount: Float = 0.96f): Modifier {
+    var pressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        if (pressed && !LocalReduceMotion.current) amount else 1f,
+        spring(dampingRatio = 0.55f, stiffness = 700f),
+        label = "press-scale",
+    )
+    return this
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        .pointerInput(Unit) {
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false)
+                pressed = true
+                androidx.compose.foundation.gestures.waitForUpOrCancellation()
+                pressed = false
+            }
+        }
+}
+

@@ -46,7 +46,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import dev.chrisbanes.haze.hazeSource
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -57,6 +56,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -128,7 +129,7 @@ internal fun MainShell(
     onArtist: (YandexClient.Artist) -> Unit,
     haptics: Boolean = true,
 ) {
-    val haze = remember { dev.chrisbanes.haze.HazeState() }
+    val backdrop = rememberGlassBackdrop()
     val glass = LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -139,15 +140,25 @@ internal fun MainShell(
                     CompactPlayer(
                         player, onMiniClick, onPlayPause, onNext, onPrevious,
                         swipeMiniPlayer, showMiniPlayerProgress,
-                        haze = if (glass) haze else null,
+                        backdrop = if (glass) backdrop else null,
                     )
                 }
-                AriaTabBar(tabs, tab, onTab, showNavigationLabels, if (glass) haze else null, haptics)
+                AriaTabBar(tabs, tab, onTab, showNavigationLabels, if (glass) backdrop else null, haptics)
             }
         },
     ) { padding ->
-        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().then(if (glass) Modifier.hazeSource(haze) else Modifier)) {
-        when (tab) {
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().glassSource(if (glass) backdrop else null)) {
+        if (glass) MovingCoverBackground(Accent, strength = 0.55f)
+        androidx.compose.animation.AnimatedContent(
+            targetState = tab,
+            transitionSpec = {
+                (androidx.compose.animation.fadeIn(tween(animationDuration(240))) +
+                    androidx.compose.animation.scaleIn(tween(animationDuration(240)), initialScale = 0.985f)) togetherWith
+                    androidx.compose.animation.fadeOut(tween(animationDuration(150)))
+            },
+            label = "tab-content",
+        ) { current ->
+        when (current) {
             MainTab.HOME -> HomeScreen(
                 account, liked, wave, chart, busy, message, padding,
                 stats, onSettings, onRefresh, onPlaylist, onPlayLiked, onPlayWave, onPlayChart,
@@ -173,6 +184,7 @@ internal fun MainShell(
                 onArtist,
             )
             MainTab.STATS -> StatisticsScreen(stats = stats, padding = padding, source = statsSource, onPlayTracks = onPlayStatTracks)
+        }
         }
         }
     }
