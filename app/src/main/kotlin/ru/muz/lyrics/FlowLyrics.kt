@@ -225,8 +225,12 @@ private fun FlowLine(
         label = "flow-overlay",
     )
     val shownProgress = if (active) progress else 1f
-    val blurTarget = if (!canBlur || !synced || active) 0f else (abs(distance).coerceAtMost(5) * 1.1f).coerceAtMost(5f)
-    val blur by animateFloatAsState(blurTarget, tween(fade, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "flow-blur")
+    val blurTarget = if (!canBlur || !synced || active) 0f else (kotlin.math.sqrt(abs(distance).coerceAtMost(6).toFloat()) * 1.85f).coerceAtMost(4.6f)
+    val blur by animateFloatAsState(
+        blurTarget,
+        tween(ru.muz.ui.animationDuration(820), easing = androidx.compose.animation.core.CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)),
+        label = "flow-blur",
+    )
     val scale by animateFloatAsState(if (active || !synced) 1f else 0.985f, tween(fade, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "flow-scale")
     var layout by remember(line.text, settings.fontSize) { mutableStateOf<TextLayoutResult?>(null) }
     val base = MaterialTheme.colorScheme.onSurface

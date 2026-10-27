@@ -218,6 +218,7 @@ internal fun FullPlayerScreen(
     var lyricsMenu by remember { mutableStateOf(false) }
     var menuSleep by remember { mutableStateOf(false) }
     var menuSpeed by remember { mutableStateOf(false) }
+    var menuSound by remember { mutableStateOf(false) }
     val sleepLabel = rememberSleepLabel(tools.sleepEndsAt)
     val glassStyle = LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS
     val playerGlass = rememberGlassBackdrop()
@@ -400,6 +401,12 @@ internal fun FullPlayerScreen(
             PlayerSheetAction(Icons.Filled.FormatQuote, "Карточка с цитатой") { lyricsMenu = false; onQuote() }
             PlayerSheetAction(Icons.Filled.Bedtime, if (sleepLabel != null) "Таймер сна: $sleepLabel" else "Таймер сна") { lyricsMenu = false; menuSleep = true }
             PlayerSheetAction(Icons.Filled.Speed, "Скорость") { lyricsMenu = false; menuSpeed = true }
+            PlayerSheetAction(PlayerAction.SOUND.icon(), "Звук и эквалайзер") { lyricsMenu = false; menuSound = true }
+            PlayerSheetAction(PlayerAction.DOWNLOAD.icon(), "Скачать трек") { lyricsMenu = false; onDownload() }
+            PlayerSheetAction(PlayerAction.SAVE_COVER.icon(), "Сохранить обложку") { lyricsMenu = false; onDownloadCover() }
+            PlayerSheetAction(PlayerAction.OPEN_COVER.icon(), "Открыть обложку") { lyricsMenu = false; onOpenCover() }
+            PlayerSheetAction(PlayerAction.SHARE_FILE.icon(), "Отправить аудиофайл") { lyricsMenu = false; onShareFile() }
+            PlayerSheetAction(PlayerAction.COPY_ARTIST.icon(), "Скопировать имя артиста") { lyricsMenu = false; onCopyArtist() }
             PlayerSheetAction(Icons.Filled.InsertLink, "Поделиться ссылкой") { lyricsMenu = false; onShareLink() }
             PlayerSheetAction(PlayerAction.TRACK_WAVE.icon(), "Волна по треку") { lyricsMenu = false; tools.onTrackWave() }
             PlayerSheetAction(PlayerAction.DISLIKE.icon(), "Не рекомендовать") { lyricsMenu = false; tools.onDislike() }
@@ -409,6 +416,7 @@ internal fun FullPlayerScreen(
         }
     }
     if (menuSleep) SleepTimerSheet(tools.sleepEndsAt, tools.onSleep) { menuSleep = false }
+    if (menuSound && tools.sound != null) SoundSheet(tools.sound, tools.onSound) { menuSound = false }
     if (menuSpeed) SpeedSheet(state.playbackSpeed, tools.skipSilence, tools.onSpeed, tools.onSkipSilence, tools.speedChangesPitch, tools.onSpeedChangesPitch) { menuSpeed = false }
     quoteStart?.let { start ->
         QuoteEditor(

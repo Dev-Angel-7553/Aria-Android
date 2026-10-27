@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.35
+
+- More liked tracks load: tracks that Yandex returns under a new id are matched, and the ones it did not return are asked for again in small batches. If some still do not come, the app says how many loaded out of how many
+- The menu on the lyrics screen has everything again: download, save and open the cover, send the audio file, copy the artist, sound and equalizer, next to speed, sleep timer and the wave by track
+- Bottom sheets in Glass look like glass even where the system turns off blur: more translucent, with a light top and a rim
+- Distant lyrics lines blur more softly: the nearest lines are almost sharp, the blur grows gradually and changes more smoothly
+
 ## 0.34
 
 - Sound: a five band equalizer with presets (Bass, Vocal, Acoustic, Electronic, Rock, Headphones, Quiet night) in Settings → Sound and offline and in the player menu

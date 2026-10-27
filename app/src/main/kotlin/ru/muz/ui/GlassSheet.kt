@@ -47,8 +47,8 @@ internal fun AriaSheet(onDismissRequest: () -> Unit, content: @Composable Column
     val strength = LocalGlassStrength.current
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
-        containerColor = base.copy(alpha = if (blur) 0.62f + 0.18f * (1f - strength) else 0.95f),
-        scrimColor = Color.Black.copy(alpha = if (dark) 0.22f else 0.10f),
+        containerColor = base.copy(alpha = if (blur) 0.58f + 0.18f * (1f - strength) else 0.80f + 0.08f * (1f - strength)),
+        scrimColor = Color.Black.copy(alpha = if (blur) (if (dark) 0.22f else 0.10f) else (if (dark) 0.45f else 0.28f)),
         tonalElevation = 0.dp,
         shape = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp),
         dragHandle = {
@@ -58,6 +58,12 @@ internal fun AriaSheet(onDismissRequest: () -> Unit, content: @Composable Column
             )
         },
         modifier = Modifier.drawWithContent {
+            drawRect(
+                Brush.verticalGradient(
+                    listOf(Color.White.copy(alpha = if (dark) 0.06f else 0.30f), Color.Transparent),
+                    endY = 140.dp.toPx(),
+                ),
+            )
             drawContent()
             drawLine(
                 Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0f), Color.White.copy(alpha = if (dark) 0.35f else 0.8f), Color.White.copy(alpha = 0f))),

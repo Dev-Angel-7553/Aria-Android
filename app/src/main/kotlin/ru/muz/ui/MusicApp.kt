@@ -264,7 +264,12 @@ fun MusicApp(
         val jobs = listOf(
             launch {
                 client.likedTracks().fold(
-                    onSuccess = { value -> liked = value; likedIds = value.mapTo(mutableSetOf()) { it.id } },
+                    onSuccess = { value ->
+                        liked = value
+                        likedIds = value.mapTo(mutableSetOf()) { it.id }
+                        val lost = client.lastLikedRequested - client.lastLikedLoaded
+                        if (lost > 0) toast("Загружено ${client.lastLikedLoaded} из ${client.lastLikedRequested} лайков: остальные Яндекс не отдал, обычно это удалённые или недоступные в регионе треки")
+                    },
                     onFailure = { likedError = it },
                 )
             },

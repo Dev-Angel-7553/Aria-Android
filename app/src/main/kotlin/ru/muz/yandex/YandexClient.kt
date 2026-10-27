@@ -44,7 +44,7 @@ class YandexClient(
         private set
 
     fun seedTracks(tracks: Iterable<Track>) {
-        cacheTracks(tracks.toList())
+        cacheTracks(tracks.associateBy { it.id.substringBefore(':') })
     }
 
     suspend fun accountInfo(): Result<Account> = runCatching {
@@ -86,8 +86,16 @@ class YandexClient(
             return@runCatching embedded.distinctBy { it.id }
         }
         val fetched = fetchTracks(ids)
-        (embedded + fetched).distinctBy { it.id }
+        val result = (embedded + fetched).distinctBy { it.id }
+        lastLikedRequested = ids.distinct().size
+        lastLikedLoaded = result.size
+        result
     }
+
+    @Volatile var lastLikedRequested: Int = 0
+        private set
+    @Volatile var lastLikedLoaded: Int = 0
+        private set
 
     suspend fun playlists(): Result<List<Playlist>> = runCatching {
         val uid = requireAccount().uid
@@ -442,20 +450,28 @@ class YandexClient(
                 pause(TRACK_RETRY_INTERVAL_MS)
                 cacheTracks(fetchTrackChunk(chunk))
             }
+            val stubborn = missing.filter { id ->
+                trackCache[id] == null && trackCache[id.substringBefore(':')] == null
+            }
+            for (chunk in stubborn.chunked(5)) {
+                pause(TRACK_RETRY_INTERVAL_MS)
+                cacheTracks(fetchTrackChunk(chunk))
+            }
         }
         return requested.mapNotNull { trackCache[it] ?: trackCache[it.substringBefore(':')] }
     }
 
-    private fun cacheTracks(tracks: List<Track>) {
-        tracks.forEach { track ->
+    private fun cacheTracks(tracks: Map<String, Track>) {
+        tracks.forEach { (key, track) ->
             val id = track.id.substringBefore(':')
             trackCache[id] = track
+            trackCache[key] = track
             if (track.albumId.isNotBlank()) trackCache["$id:${track.albumId}"] = track
         }
     }
 
-    private suspend fun fetchTrackChunk(chunk: List<String>): List<Track> {
-        if (chunk.isEmpty()) return emptyList()
+    private suspend fun fetchTrackChunk(chunk: List<String>): Map<String, Track> {
+        if (chunk.isEmpty()) return emptyMap()
         suspend fun tryRequest(block: suspend () -> JsonArray): JsonArray =
             runCatching { requestWithRetry(block = block) }.getOrDefault(JsonArray(emptyList()))
 
@@ -463,8 +479,13 @@ class YandexClient(
         fun collect(values: JsonArray) {
             values.mapNotNull { item ->
                 val obj = item.asObject() ?: return@mapNotNull null
-                (obj.obj("track") ?: obj).asTrack()
-            }.forEach { found[it.id.substringBefore(':')] = it }
+                val source = obj.obj("track") ?: obj
+                val track = source.asTrack() ?: return@mapNotNull null
+                listOfNotNull(source.string("realId"), source.string("id"), track.id)
+                    .map { it.substringBefore(':') }
+                    .distinct()
+                    .map { it to track }
+            }.flatten().forEach { (key, track) -> found[key] = track }
         }
         fun unresolved(): List<String> = chunk.filter { it.substringBefore(':') !in found }
 
@@ -503,7 +524,7 @@ class YandexClient(
                 ).trackElements()
             })
         }
-        return found.values.toList()
+        return found
     }
 
     private suspend fun <T> requestWithRetry(
