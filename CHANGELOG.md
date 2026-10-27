@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.29.1
+
+- Glass panels (tab bar, mini player) no longer show a piece from the top of the screen instead of what is actually under them. The position of a panel over the content is now measured on every frame instead of once
+
 ## 0.29
 
 - Glass is now real liquid glass on Android 13 and newer: the edges of the panels bend and slightly split the colors of what is under them, the rim catches light and the highlight follows the tilt of the phone. Android 12 gets frosted blur, older versions a solid panel

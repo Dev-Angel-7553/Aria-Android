@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
@@ -65,6 +66,13 @@ internal fun Modifier.glassSource(backdrop: GlassBackdrop?): Modifier {
             drawLayer(backdrop.layer)
             Snapshot.withoutReadObservation { backdrop.version += 1 }
         }
+}
+
+@Stable
+internal class GlassAnchor {
+    var coordinates: androidx.compose.ui.layout.LayoutCoordinates? = null
+    var last: Offset = Offset.Unspecified
+    var tick by mutableIntStateOf(0)
 }
 
 val LocalGlassLight = staticCompositionLocalOf<State<Offset>> { mutableStateOf(Offset.Zero) }
@@ -159,14 +167,18 @@ internal fun Modifier.glass(
     val dark = surface.luminance() < 0.4f
     val tint = if (dark) Color(0xFF16161A) else Color.White
     val light by LocalGlassLight.current
-    var relative by remember { mutableStateOf(Offset.Zero) }
+    val anchor = remember { GlassAnchor() }
     val sdk = Build.VERSION.SDK_INT
     val live = backdrop != null && sdk >= Build.VERSION_CODES.S
     return this
         .shadow(if (dark) 22.dp else 16.dp, shape, ambientColor = Color.Black.copy(alpha = 0.22f), spotColor = Color.Black.copy(alpha = 0.28f))
         .onGloballyPositioned { coords ->
-            val source = backdrop?.coordinates
-            relative = if (source != null && source.isAttached && coords.isAttached) source.localPositionOf(coords, Offset.Zero) else Offset.Zero
+            anchor.coordinates = coords
+            val position = coords.positionInRoot()
+            if (position != anchor.last) {
+                anchor.last = position
+                anchor.tick += 1
+            }
         }
         .drawWithCache {
             val outline = shape.createOutline(size, layoutDirection, this)
@@ -196,12 +208,16 @@ internal fun Modifier.glass(
                 }
             }
             onDrawWithContent {
+                anchor.tick
+                val source = backdrop?.coordinates
+                val self = anchor.coordinates
+                val origin = if (source != null && self != null && source.isAttached && self.isAttached) source.localPositionOf(self, Offset.Zero) else null
                 clipPath(path) {
-                    if (layer != null && backdrop != null) {
+                    if (layer != null && backdrop != null && origin != null) {
                         backdrop.version
                         drawRect(base)
-                        val dx = -relative.x
-                        val dy = -relative.y
+                        val dx = -origin.x
+                        val dy = -origin.y
                         layer.record { translate(dx, dy) { drawLayer(backdrop.layer) } }
                         drawLayer(layer)
                         drawRect(tint.copy(alpha = (if (dark) 0.12f else 0.18f) + 0.16f * strength + 0.06f * pressed))
