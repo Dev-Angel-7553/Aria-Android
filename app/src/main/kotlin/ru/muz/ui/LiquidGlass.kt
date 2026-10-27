@@ -131,6 +131,7 @@ uniform float radius;
 uniform float band;
 uniform float bend;
 uniform float chroma;
+uniform float zoom;
 
 float sdf(float2 p) {
     float2 c = size * 0.5;
@@ -145,7 +146,8 @@ half4 main(float2 p) {
     float gl = length(g);
     float2 n = gl > 0.0001 ? g / gl : float2(0.0);
     float amount = bend * k * k * k;
-    float2 base = p - n * amount;
+    float2 c = size * 0.5;
+    float2 base = c + (p - n * amount - c) * zoom;
     float split = chroma * k * k;
     half4 mid = content.eval(base);
     half r = content.eval(base - n * split).r;
@@ -186,8 +188,8 @@ internal fun Modifier.glass(
             val radius = (corner?.toPx() ?: (minOf(size.width, size.height) / 2f)).coerceAtMost(minOf(size.width, size.height) / 2f)
             val layer = if (live) obtainGraphicsLayer() else null
             if (layer != null) {
-                val blur = (1.5f + 5f * strength).dp.toPx()
-                val saturate = ColorMatrix().apply { setSaturation(1.45f) }
+                val blur = (0.6f + 2.2f * strength).dp.toPx()
+                val saturate = ColorMatrix().apply { setSaturation(1.35f) }
                 val blurred = RenderEffect.createColorFilterEffect(
                     ColorMatrixColorFilter(saturate),
                     RenderEffect.createBlurEffect(blur, blur, Shader.TileMode.CLAMP),
@@ -196,9 +198,10 @@ internal fun Modifier.glass(
                     val shader = RuntimeShader(LENS)
                     shader.setFloatUniform("size", size.width, size.height)
                     shader.setFloatUniform("radius", radius)
-                    shader.setFloatUniform("band", (14f + 12f * strength).dp.toPx().coerceAtMost(size.height / 2f))
-                    shader.setFloatUniform("bend", (9f + 15f * strength).dp.toPx())
-                    shader.setFloatUniform("chroma", (0.6f + 1.4f * strength).dp.toPx())
+                    shader.setFloatUniform("band", (18f + 14f * strength).dp.toPx().coerceAtMost(minOf(size.width, size.height) / 2f))
+                    shader.setFloatUniform("bend", (12f + 18f * strength).dp.toPx())
+                    shader.setFloatUniform("chroma", (0.8f + 1.6f * strength).dp.toPx())
+                    shader.setFloatUniform("zoom", 0.965f - 0.02f * strength)
                     RenderEffect.createChainEffect(RenderEffect.createRuntimeShaderEffect(shader, "content"), blurred).asComposeRenderEffect()
                 } else {
                     RenderEffect.createChainEffect(
@@ -220,15 +223,23 @@ internal fun Modifier.glass(
                         val dy = -origin.y
                         layer.record { translate(dx, dy) { drawLayer(backdrop.layer) } }
                         drawLayer(layer)
-                        drawRect(tint.copy(alpha = (if (dark) 0.12f else 0.18f) + 0.16f * strength + 0.06f * pressed))
+                        drawRect(tint.copy(alpha = (if (dark) 0.05f else 0.09f) + 0.10f * strength + 0.06f * pressed))
                     } else {
                         drawRect(tint.copy(alpha = 0.93f))
                     }
                     drawRect(
                         Brush.verticalGradient(
-                            listOf(Color.White.copy(alpha = if (dark) 0.07f else 0.22f), Color.Transparent),
-                            endY = size.height * 0.5f,
+                            listOf(Color.White.copy(alpha = if (dark) 0.05f else 0.12f), Color.Transparent),
+                            endY = size.height * 0.35f,
                         ),
+                    )
+                    drawPath(
+                        path,
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, Color.Black.copy(alpha = if (dark) 0.22f else 0.10f)),
+                            startY = size.height * 0.55f,
+                        ),
+                        style = Stroke(5.dp.toPx()),
                     )
                 }
                 val start = Offset(size.width * (0.18f - 0.35f * light.x), size.height * (0f - 0.4f * light.y))

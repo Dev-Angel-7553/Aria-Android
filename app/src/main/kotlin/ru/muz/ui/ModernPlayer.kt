@@ -157,8 +157,16 @@ internal fun ModernLyricsDock(
     onCover: () -> Unit,
     onQueue: () -> Unit,
     accentControls: Boolean = false,
+    backdrop: GlassBackdrop? = null,
 ) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 6.dp)) {
+    val panel = if (backdrop != null) {
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 10.dp)
+            .glass(backdrop, RoundedCornerShape(32.dp), corner = 32.dp)
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+    } else {
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 6.dp)
+    }
+    Column(panel) {
         PlaybackTimeline(state, onSeek, remaining = true, label = label)
         Row(
             Modifier.fillMaxWidth().height(76.dp),
@@ -198,7 +206,7 @@ private fun DockIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, titl
 }
 
 @Composable
-internal fun DockOverlay(visible: Boolean, modifier: Modifier, onShow: () -> Unit, content: @Composable () -> Unit) {
+internal fun DockOverlay(visible: Boolean, modifier: Modifier, onShow: () -> Unit, scrim: Boolean = true, content: @Composable () -> Unit) {
     val duration = playerTransitionDuration(460)
     Box(modifier.fillMaxWidth()) {
         androidx.compose.animation.AnimatedVisibility(
@@ -209,8 +217,10 @@ internal fun DockOverlay(visible: Boolean, modifier: Modifier, onShow: () -> Uni
                 androidx.compose.animation.fadeOut(tween(duration)),
         ) {
             Box(
-                Modifier.fillMaxWidth().background(
-                    Brush.verticalGradient(listOf(Color.Transparent, AppBackground.copy(alpha = 0.55f), AppBackground.copy(alpha = 0.78f))),
+                Modifier.fillMaxWidth().then(
+                    if (scrim) Modifier.background(
+                        Brush.verticalGradient(listOf(Color.Transparent, AppBackground.copy(alpha = 0.55f), AppBackground.copy(alpha = 0.78f))),
+                    ) else Modifier,
                 ).padding(top = 28.dp),
             ) { content() }
         }

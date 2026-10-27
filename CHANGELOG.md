@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.32
+
+- Glass is clearer: much less blur and milky tint, stronger bending at the edges, a slight lens zoom in the middle and a soft shade along the bottom edge, so it reads as a piece of glass instead of frosted plastic
+- The lyrics screen in Glass has a floating glass control panel over the lyrics and the moving cover background
+- Release notes are shown in full on the update card and in the settings, with a "more" button for long lists
+
 ## 0.31
 
 - Glass style now covers the whole app: playlists, albums, artists and settings have the same moving background and the glass mini player, not only the main tabs

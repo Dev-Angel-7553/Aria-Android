@@ -871,9 +871,12 @@ private fun LazyListScope.aboutSettings(
             SettingsActionRow(
                 Icons.Filled.SystemUpdate,
                 if (updateProgress != null) "Скачиваем… ${(updateProgress * 100).toInt()}%" else "Установить Aria ${availableUpdate.version}",
-                availableUpdate.notes.lineSequence().firstOrNull { it.isNotBlank() }?.trim(),
+                "Что нового в этой версии",
                 updateProgress == null,
             ) { onInstallUpdate(availableUpdate) }
+        }
+        item {
+            ReleaseNotes(availableUpdate.notes, MaterialTheme.colorScheme.onSurface, Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp), collapsed = 6)
         }
     }
     item {

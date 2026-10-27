@@ -229,12 +229,17 @@ internal fun FullPlayerScreen(
     var menuSleep by remember { mutableStateOf(false) }
     var menuSpeed by remember { mutableStateOf(false) }
     val sleepLabel = rememberSleepLabel(tools.sleepEndsAt)
+    val glassStyle = LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS
+    val playerGlass = rememberGlassBackdrop()
+    val glassDock = if (glassStyle && modern) playerGlass else null
+    val coverBackground = settings.coverColorBackground || glassStyle
     androidx.compose.runtime.CompositionLocalProvider(
         LocalPlayerAccent provides if (settings.coverAccent) animatedAccent else null,
         LocalOnPlayerAccent provides if (settings.coverAccent) Color(ColorMath.contentColorFor(animatedAccent.toArgb())) else null,
     ) {
       Box(Modifier.fillMaxSize()) {
-        if (settings.coverColorBackground) {
+      Box(Modifier.fillMaxSize().glassSource(glassDock)) {
+        if (coverBackground) {
             MovingCoverBackground(
                 animatedTint,
                 strength = if (showLyrics && modern) 1f else 0.62f,
@@ -242,7 +247,7 @@ internal fun FullPlayerScreen(
             )
         }
         Column(
-            Modifier.fillMaxSize().then(if (settings.coverColorBackground) Modifier else backdrop).statusBarsPadding().navigationBarsPadding()
+            Modifier.fillMaxSize().then(if (coverBackground) Modifier else backdrop).statusBarsPadding().navigationBarsPadding()
             .offset(x = playerOffset).graphicsLayer {
                 alpha = if (reduceMotion) 1f else 1f - (abs(playerDrag) / 900f).coerceIn(0f, 0.14f)
             }.then(playerSwipeModifier)
@@ -303,7 +308,7 @@ internal fun FullPlayerScreen(
                                 }
                             }
                         }
-                        if (modern) {
+                        if (modern && glassDock == null) {
                             DockOverlay(dockVisible, Modifier.align(Alignment.BottomCenter), onShow = { touches++ }) {
                                 ModernLyricsDock(
                                     state = state,
@@ -360,6 +365,40 @@ internal fun FullPlayerScreen(
                         )
                     }
                 }
+            }
+        }
+      }
+        androidx.compose.animation.AnimatedVisibility(
+            glassDock != null && showLyrics,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = androidx.compose.animation.fadeIn(tween(playerTransitionDuration(320))),
+            exit = androidx.compose.animation.fadeOut(tween(playerTransitionDuration(200))),
+        ) {
+            DockOverlay(
+                dockVisible,
+                Modifier.navigationBarsPadding().pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                            if (event.type == androidx.compose.ui.input.pointer.PointerEventType.Press) touches++
+                        }
+                    }
+                },
+                onShow = { touches++ },
+                scrim = false,
+            ) {
+                ModernLyricsDock(
+                    state = state,
+                    label = if (settings.privateSession) "Приватно" else "",
+                    onPlayPause = onPlayPause,
+                    onPrevious = onPrevious,
+                    onNext = onNext,
+                    onSeek = onSeek,
+                    onCover = onToggleView,
+                    onQueue = { showQueue = true },
+                    accentControls = settings.accentControls,
+                    backdrop = playerGlass,
+                )
             }
         }
       }

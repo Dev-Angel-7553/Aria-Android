@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
 import ru.muz.update.AppRelease
 import ru.muz.settings.HomeSection
 import androidx.compose.material.icons.filled.Share
@@ -57,6 +58,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -852,18 +854,9 @@ private fun UpdateBanner(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.SystemUpdate, null, tint = scheme.onPrimaryContainer)
-            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text("Доступна Aria ${release.version}", fontWeight = FontWeight.Bold, color = scheme.onPrimaryContainer)
-                Text(
-                    release.notes.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.trimStart('-', '*', ' ')
-                        ?: "Новая версия на GitHub",
-                    color = scheme.onPrimaryContainer.copy(alpha = 0.8f),
-                    fontSize = 13.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            Text("Доступна Aria ${release.version}", fontWeight = FontWeight.Bold, color = scheme.onPrimaryContainer, modifier = Modifier.weight(1f).padding(start = 12.dp))
         }
+        ReleaseNotes(release.notes, scheme.onPrimaryContainer, Modifier.padding(top = 8.dp))
         if (progress != null) {
             LinearProgressIndicator(
                 progress = { progress },
@@ -874,6 +867,42 @@ private fun UpdateBanner(
                 TextButton(onClick = onDismiss) { Text("Позже", color = scheme.onPrimaryContainer) }
                 Button(onClick = onUpdate) { Text("Обновить") }
             }
+        }
+    }
+}
+
+internal fun releaseNoteLines(notes: String): List<String> =
+    notes.lineSequence()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !it.startsWith("#") }
+        .map { it.trimStart('-', '*', ' ').trim() }
+        .filter { it.isNotEmpty() }
+        .toList()
+
+@Composable
+internal fun ReleaseNotes(notes: String, color: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier, collapsed: Int = 3) {
+    val lines = remember(notes) { releaseNoteLines(notes) }
+    var expanded by remember(notes) { mutableStateOf(false) }
+    if (lines.isEmpty()) {
+        Text("Новая версия на GitHub", color = color.copy(alpha = 0.8f), fontSize = 13.sp, modifier = modifier)
+        return
+    }
+    val shown = if (expanded) lines else lines.take(collapsed)
+    Column(modifier.animateContentSize(tween(animationDuration(260)))) {
+        shown.forEach { line ->
+            Row(Modifier.padding(vertical = 2.dp)) {
+                Text("•", color = color.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(end = 8.dp))
+                Text(line, color = color.copy(alpha = 0.85f), fontSize = 13.sp, lineHeight = 18.sp)
+            }
+        }
+        if (lines.size > collapsed) {
+            Text(
+                if (expanded) "Свернуть" else "Ещё ${lines.size - collapsed}",
+                color = color,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(8.dp)).clickable { expanded = !expanded }.padding(vertical = 4.dp, horizontal = 2.dp),
+            )
         }
     }
 }
