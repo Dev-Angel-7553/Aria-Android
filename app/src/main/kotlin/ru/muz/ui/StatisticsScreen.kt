@@ -117,8 +117,8 @@ internal fun StatisticsScreen(
     var confirmReset by remember { mutableStateOf(false) }
     var share by remember { mutableStateOf(false) }
     LazyColumn(
-        Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(top = 20.dp, bottom = 32.dp),
+        Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
+        contentPadding = PaddingValues(top = 20.dp, bottom = 32.dp + padding.calculateBottomPadding()),
     ) {
         item {
             Text("Статистика", fontSize = 26.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 20.dp))

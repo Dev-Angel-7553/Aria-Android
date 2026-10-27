@@ -16,6 +16,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
@@ -85,6 +86,20 @@ fun MuzTheme(settings: AppSettings, content: @Composable () -> Unit) {
         )
     }
 
+    if (settings.appStyle == ru.muz.settings.AppStyle.MINIMAL) {
+        val ink = scheme.onSurface
+        scheme = scheme.copy(
+            primary = ink,
+            onPrimary = scheme.surface,
+            primaryContainer = ink.copy(alpha = 0.12f).compositeOver(scheme.surface),
+            onPrimaryContainer = ink,
+            secondary = ink.copy(alpha = 0.75f),
+            secondaryContainer = ink.copy(alpha = 0.10f).compositeOver(scheme.surface),
+            onSecondaryContainer = ink,
+            tertiary = ink.copy(alpha = 0.6f),
+        )
+    }
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -105,6 +120,8 @@ fun MuzTheme(settings: AppSettings, content: @Composable () -> Unit) {
         LocalPlayerTransitions provides (settings.animatePlayerTransitions && !settings.reduceMotion),
         LocalAnimationSpeed provides settings.animationSpeedPercent.coerceIn(50, 200) / 100f,
         LocalReduceMotion provides settings.reduceMotion,
+        LocalAppStyle provides settings.appStyle,
+        LocalGlassStrength provides settings.glassStrength / 100f,
         LocalWavySeekBar provides settings.wavySeekBar,
         LocalPlayShape provides settings.playShape,
         LocalMiniPrevious provides settings.miniShowPrevious,
@@ -142,6 +159,7 @@ internal fun playShape(shape: PlayShape): androidx.compose.ui.graphics.Shape = w
     PlayShape.CIRCLE -> androidx.compose.foundation.shape.CircleShape
     PlayShape.SQUIRCLE -> RoundedCornerShape(30)
     PlayShape.SQUARE -> RoundedCornerShape(14)
+    PlayShape.COOKIE -> CookieShape
 }
 
 internal fun fontFamily(font: AppFont): androidx.compose.ui.text.font.FontFamily? = when (font) {

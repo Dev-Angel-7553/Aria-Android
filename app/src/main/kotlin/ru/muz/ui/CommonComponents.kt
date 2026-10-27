@@ -275,6 +275,7 @@ internal fun CompactPlayer(
     onPrevious: () -> Unit = {},
     swipeEnabled: Boolean = true,
     showProgress: Boolean = true,
+    haze: dev.chrisbanes.haze.HazeState? = null,
 ) {
     val position by rememberPlaybackPosition(state)
     val progress = if (state.durationMs > 0) (position.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
@@ -309,13 +310,14 @@ internal fun CompactPlayer(
             )
         }
     } else Modifier
-    val shape = RoundedCornerShape(16.dp * LocalCornerRadiusScale.current)
+    val glass = haze != null
+    val shape = if (glass) RoundedCornerShape(24.dp) else RoundedCornerShape(16.dp * LocalCornerRadiusScale.current)
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp).offset(x = animatedOffset).graphicsLayer {
+        Modifier.fillMaxWidth().padding(horizontal = if (glass) 14.dp else 8.dp, vertical = 6.dp).offset(x = animatedOffset).graphicsLayer {
             scaleX = swipeScale
             scaleY = swipeScale
             alpha = if (reduceMotion) 1f else 1f - (kotlin.math.abs(drag) / 800f).coerceIn(0f, 0.16f)
-        }.clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHighest)
+        }.then(if (glass) Modifier.glass(haze, shape) else Modifier.clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHighest))
             .then(swipeModifier).clickable(onClick = onClick),
     ) {
         Row(

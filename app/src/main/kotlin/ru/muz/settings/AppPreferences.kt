@@ -7,7 +7,8 @@ import ru.muz.lyrics.KaraokeFillStyle
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 enum class AccentStyle { YELLOW, ORANGE, PINK, BLUE, GREEN, CUSTOM }
 enum class PlayerAction { QUEUE, DOWNLOAD, LINK, SHARE_FILE, SAVE_COVER, OPEN_COVER, SLEEP, SPEED, QUOTE, COPY_ARTIST, TRACK_WAVE, DISLIKE, PRIVATE }
-enum class PlayShape { CIRCLE, SQUIRCLE, SQUARE }
+enum class PlayShape { CIRCLE, SQUIRCLE, SQUARE, COOKIE }
+enum class AppStyle { CLASSIC, MATERIAL_YOU, GLASS, MINIMAL }
 enum class DoubleTapAction { LIKE, PLAY_PAUSE, NEXT }
 enum class HomeSection { WAVE, RECENT, PLAYLISTS, CHART }
 enum class AppTab { HOME, LIBRARY, SEARCH, STATS }
@@ -92,6 +93,8 @@ data class AppSettings(
     val pulseStrength: Int = 60,
     val coverSparks: Boolean = true,
     val doubleTapAction: DoubleTapAction = DoubleTapAction.LIKE,
+    val appStyle: AppStyle = AppStyle.CLASSIC,
+    val glassStrength: Int = 60,
     val privateSession: Boolean = false,
     val normalizeVolume: Boolean = true,
     val waveMood: String = "all",
@@ -188,6 +191,8 @@ class AppPreferences(context: Context) {
             pulseStrength = prefs.getInt("pulse_strength", 60).coerceIn(10, 100),
             coverSparks = prefs.getBoolean("cover_sparks", true),
             doubleTapAction = enumValue(prefs.getString("double_tap_action", null), DoubleTapAction.LIKE),
+            appStyle = enumValue(prefs.getString("app_style", null), AppStyle.CLASSIC),
+            glassStrength = prefs.getInt("glass_strength", 60).coerceIn(10, 100),
             privateSession = prefs.getBoolean("private_session", false),
             normalizeVolume = prefs.getBoolean("normalize_volume", true),
             waveMood = prefs.getString("wave_mood", null) ?: "all",
@@ -277,6 +282,8 @@ class AppPreferences(context: Context) {
             .putInt("pulse_strength", value.pulseStrength)
             .putBoolean("cover_sparks", value.coverSparks)
             .putString("double_tap_action", value.doubleTapAction.name)
+            .putString("app_style", value.appStyle.name)
+            .putInt("glass_strength", value.glassStrength)
             .putBoolean("private_session", value.privateSession)
             .putBoolean("normalize_volume", value.normalizeVolume)
             .putString("wave_mood", value.waveMood)

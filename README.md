@@ -25,6 +25,7 @@ An unofficial Yandex Music client for Android. It started as a way to get a prop
 - a quick settings tile: play and pause
 - background that pulses with the music, sparks from the cover, lyrics cached and found in advance
 - wavy progress bar, player controls that take their color from the cover, search and sorting in the queue
+- interface styles: Classic, Material You, Glass with blurred floating panels, Minimal
 - almost everything is configurable: theme, any accent color, font, text size, home blocks, tabs, player buttons; settings can be saved to a file
 
 ## Gestures

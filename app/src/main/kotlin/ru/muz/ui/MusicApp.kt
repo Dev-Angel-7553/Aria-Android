@@ -24,6 +24,11 @@ import ru.muz.update.AppUpdate
 import ru.muz.update.UpdateInstaller
 import ru.muz.yandex.PlaySource
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.ManageSearch
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
@@ -73,10 +78,10 @@ internal enum class MainTab(
     val active: ImageVector,
     val inactive: ImageVector,
 ) {
-    HOME("Главная", Icons.Filled.Home, Icons.Outlined.Home),
-    LIBRARY("Коллекция", Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic),
-    SEARCH("Поиск", Icons.Filled.Search, Icons.Outlined.Search),
-    STATS("Статистика", Icons.Filled.Equalizer, Icons.Outlined.Equalizer),
+    HOME("Главная", Icons.Rounded.Home, Icons.Outlined.Home),
+    LIBRARY("Коллекция", Icons.Rounded.LibraryMusic, Icons.Outlined.LibraryMusic),
+    SEARCH("Поиск", Icons.Rounded.ManageSearch, Icons.Outlined.Search),
+    STATS("Статистика", Icons.Rounded.Insights, Icons.Outlined.Insights),
 }
 
 @Composable
@@ -1131,6 +1136,7 @@ fun MusicApp(
                     )
 
                     else -> MainShell(
+                        haptics = settings.haptics,
                         tab = tab,
                         onTab = { tab = it },
                         player = player,

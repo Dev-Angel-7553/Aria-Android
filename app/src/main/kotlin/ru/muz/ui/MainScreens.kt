@@ -46,8 +46,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import dev.chrisbanes.haze.hazeSource
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -127,7 +126,10 @@ internal fun MainShell(
     onPlaylistMore: (YandexClient.Playlist) -> Unit,
     onAlbum: (YandexClient.Album) -> Unit,
     onArtist: (YandexClient.Artist) -> Unit,
+    haptics: Boolean = true,
 ) {
+    val haze = remember { dev.chrisbanes.haze.HazeState() }
+    val glass = LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
         bottomBar = {
@@ -137,27 +139,14 @@ internal fun MainShell(
                     CompactPlayer(
                         player, onMiniClick, onPlayPause, onNext, onPrevious,
                         swipeMiniPlayer, showMiniPlayerProgress,
+                        haze = if (glass) haze else null,
                     )
                 }
-                NavigationBar(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer) {
-                    tabs.forEach { item ->
-                        NavigationBarItem(
-                            selected = item == tab,
-                            onClick = { onTab(item) },
-                            icon = {
-                                Icon(if (item == tab) item.active else item.inactive, null)
-                            },
-                            label = if (showNavigationLabels) {
-                                { Text(item.title) }
-                            } else {
-                                null
-                            },
-                        )
-                    }
-                }
+                AriaTabBar(tabs, tab, onTab, showNavigationLabels, if (glass) haze else null, haptics)
             }
         },
     ) { padding ->
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().then(if (glass) Modifier.hazeSource(haze) else Modifier)) {
         when (tab) {
             MainTab.HOME -> HomeScreen(
                 account, liked, wave, chart, busy, message, padding,
@@ -184,6 +173,7 @@ internal fun MainShell(
                 onArtist,
             )
             MainTab.STATS -> StatisticsScreen(stats = stats, padding = padding, source = statsSource, onPlayTracks = onPlayStatTracks)
+        }
         }
     }
 }
@@ -216,8 +206,8 @@ private fun HomeScreen(
     onWaveSettings: () -> Unit = {},
 ) {
     LazyColumn(
-        Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp),
+        Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
+        contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp + padding.calculateBottomPadding()),
     ) {
         if (update != null) {
             item { UpdateBanner(update, updateProgress, onUpdate, onDismissUpdate) }
@@ -329,8 +319,8 @@ private fun LibraryScreen(
     }
     val visible = remember(shown, visibleCount) { shown.take(visibleCount) }
     LazyColumn(
-        Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp),
+        Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
+        contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp + padding.calculateBottomPadding()),
     ) {
         item {
             ScreenHeader("Коллекция", "Ваши треки и плейлисты") {
@@ -495,8 +485,8 @@ private fun SearchScreen(
         focusManager.clearFocus()
     }
     LazyColumn(
-        Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp),
+        Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
+        contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp + padding.calculateBottomPadding()),
     ) {
         item {
             ScreenHeader("Поиск", "Треки и плейлисты Яндекс Музыки") {

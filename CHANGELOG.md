@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.28
+
+- Interface styles: Classic, Material You, Glass and Minimal. Picking a style sets up colors, shapes and effects in one tap, everything can still be tuned by hand
+- Glass: the tab bar and the mini player float over the content and blur what is under them, the strength is adjustable. Real blur needs Android 12 or newer
+- New tab bar: the selection slides between tabs and stretches a little on the way, icons pop on tap, light vibration
+- New rounded tab icons
+- "Cookie" shape for the play button
+- Settings: style cards at the top, quick toggles for private mode, data saver and animations, colored section icons
+
 ## 0.27
 
 - Lyrics load much faster: Yandex and LRCLIB are searched at the same time, results are kept on disk, and lyrics for the next tracks in the queue are found in advance
