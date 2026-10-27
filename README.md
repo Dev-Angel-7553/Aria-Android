@@ -19,7 +19,7 @@ An unofficial Yandex Music client for Android. It started as a way to get a prop
 - loudness normalization between tracks based on Yandex data
 - export a playlist or the whole collection to CSV, import CSV from Spotify, TuneMyMusic, Exportify
 - offline cache, sleep timer, playback speed, silence skipping
-- equalizer with presets, "No vocals" and "Vocals" modes on the fly, smooth transitions between tracks
+- equalizer with presets, smooth transitions between tracks
 - home screen widgets, a like button in the notification, Android Auto
 - downloading tracks and covers
 - own listening statistics: week, month, year, tops with covers, comparison with the previous period, a summary image

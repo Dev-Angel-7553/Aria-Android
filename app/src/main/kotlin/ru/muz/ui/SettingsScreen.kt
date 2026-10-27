@@ -1324,7 +1324,6 @@ private val SETTINGS_INDEX = listOf(
     SettingsEntry("Скругление обложек", SettingsPage.APPEARANCE, "углы форма"),
     SettingsEntry("Подписи под значками", SettingsPage.APPEARANCE, "навигация нижняя панель"),
     SettingsEntry("Эквалайзер", SettingsPage.PLAYBACK, "звук бас пресет частоты"),
-    SettingsEntry("Без голоса", SettingsPage.PLAYBACK, "караоке минус голос вокал"),
     SettingsEntry("Плавный переход", SettingsPage.PLAYBACK, "кроссфейд crossfade затухание"),
     SettingsEntry("Скорость анимаций", SettingsPage.ANIMATION),
     SettingsEntry("Уменьшить движение", SettingsPage.ANIMATION, "анимации выключить"),

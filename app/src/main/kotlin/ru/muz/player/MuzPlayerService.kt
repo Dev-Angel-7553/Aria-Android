@@ -77,7 +77,7 @@ class MuzPlayerService : MediaLibraryService() {
             .build()
         player = exo
         val prefs = ru.muz.settings.AppPreferences(this).load()
-        AudioEffects.apply(prefs.vocalMode, prefs.eqBands, prefs.crossfadeSeconds)
+        AudioEffects.apply(prefs.eqBands, prefs.crossfadeSeconds)
         exo.skipSilenceEnabled = prefs.skipSilence
         val startSpeed = prefs.playbackSpeedPercent / 100f
         exo.playbackParameters = androidx.media3.common.PlaybackParameters(startSpeed, if (prefs.speedChangesPitch) startSpeed else 1f)

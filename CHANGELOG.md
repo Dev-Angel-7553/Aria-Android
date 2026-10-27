@@ -6,6 +6,7 @@
 - The menu on the lyrics screen has everything again: download, save and open the cover, send the audio file, copy the artist, sound and equalizer, next to speed, sleep timer and the wave by track
 - Bottom sheets in Glass look like glass even where the system turns off blur: more translucent, with a light top and a rim
 - Distant lyrics lines blur more softly: the nearest lines are almost sharp, the blur grows gradually and changes more smoothly
+- "No vocals" and "Vocals" modes are removed for now: without a neural network they did not separate the voice well enough
 
 ## 0.34
 

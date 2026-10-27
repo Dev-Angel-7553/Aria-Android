@@ -13,14 +13,11 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.tanh
-import ru.muz.settings.VocalMode
 
 object AudioEffects {
     val FREQUENCIES = floatArrayOf(60f, 230f, 910f, 3600f, 14000f)
     const val MAX_GAIN_DB = 12
 
-    @Volatile var mode: VocalMode = VocalMode.NORMAL
-        private set
     @Volatile var bands: IntArray = IntArray(FREQUENCIES.size)
         private set
     @Volatile var crossfadeMs: Long = 0L
@@ -28,11 +25,10 @@ object AudioEffects {
     @Volatile var version: Int = 0
         private set
 
-    fun apply(mode: VocalMode, bands: List<Int>, crossfadeSeconds: Int) {
+    fun apply(bands: List<Int>, crossfadeSeconds: Int) {
         val next = IntArray(FREQUENCIES.size) { bands.getOrElse(it) { 0 }.coerceIn(-MAX_GAIN_DB, MAX_GAIN_DB) }
         crossfadeMs = crossfadeSeconds.coerceIn(0, 12) * 1000L
-        if (mode == this.mode && next.contentEquals(this.bands)) return
-        this.mode = mode
+        if (next.contentEquals(this.bands)) return
         this.bands = next
         version++
     }
@@ -110,10 +106,6 @@ internal class EffectsProcessor : BaseAudioProcessor() {
     private var seen = -1
     private var eq: Array<Array<Biquad>> = emptyArray()
     private var eqOn = false
-    private var mode = VocalMode.NORMAL
-    private val bassKeep = Biquad()
-    private val voiceLow = Biquad()
-    private val voiceHigh = Biquad()
     private val frame = DoubleArray(8)
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
@@ -133,7 +125,6 @@ internal class EffectsProcessor : BaseAudioProcessor() {
         if (version == seen && eq.size == channels) return
         seen = version
         val gains = AudioEffects.bands
-        mode = if (channels == 2) AudioEffects.mode else VocalMode.NORMAL
         eqOn = gains.any { it != 0 }
         val last = AudioEffects.FREQUENCIES.lastIndex
         eq = Array(channels) {
@@ -148,12 +139,6 @@ internal class EffectsProcessor : BaseAudioProcessor() {
                 }
             }
         }
-        bassKeep.lowPass(rate, 140.0)
-        voiceLow.highPass(rate, 170.0)
-        voiceHigh.lowPass(rate, 7000.0)
-        bassKeep.reset()
-        voiceLow.reset()
-        voiceHigh.reset()
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -161,7 +146,7 @@ internal class EffectsProcessor : BaseAudioProcessor() {
         if (size == 0) return
         refresh()
         val output = replaceOutputBuffer(size)
-        if (!eqOn && mode == VocalMode.NORMAL) {
+        if (!eqOn) {
             output.put(inputBuffer)
             output.flip()
             return
@@ -175,23 +160,6 @@ internal class EffectsProcessor : BaseAudioProcessor() {
         repeat(frames) {
             for (ch in 0 until channels) {
                 frame[ch] = if (float) inputBuffer.float.toDouble() else inputBuffer.short / 32768.0
-            }
-            when (mode) {
-                VocalMode.NO_VOCALS -> {
-                    val mid = (frame[0] + frame[1]) * 0.5
-                    val side = (frame[0] - frame[1]) * 0.5 * 1.6
-                    val bass = bassKeep.process(mid)
-                    frame[0] = bass + side
-                    frame[1] = bass - side
-                }
-                VocalMode.VOCALS -> {
-                    val mid = (frame[0] + frame[1]) * 0.5
-                    val side = (frame[0] - frame[1]) * 0.5
-                    val voice = voiceHigh.process(voiceLow.process(mid - side * 0.35)) * 1.3
-                    frame[0] = voice
-                    frame[1] = voice
-                }
-                VocalMode.NORMAL -> Unit
             }
             for (ch in 0 until channels) {
                 var v = frame[ch]

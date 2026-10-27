@@ -956,7 +956,7 @@ private fun PlayerDetails(
                 val active = (action == PlayerAction.SLEEP && tools.sleepEndsAt != 0L) ||
                     (action == PlayerAction.PRIVATE && tools.privateSession) ||
                     (action == PlayerAction.SPEED && kotlin.math.abs(state.playbackSpeed - 1f) > 0.01f) ||
-                    (action == PlayerAction.SOUND && tools.sound != null && (tools.sound.vocalMode != ru.muz.settings.VocalMode.NORMAL || tools.sound.eqBands.any { it != 0 }))
+                    (action == PlayerAction.SOUND && tools.sound != null && tools.sound.eqBands.any { it != 0 })
                 IconButton(onClick = { run(action) }, enabled = enabled(action)) {
                     Icon(action.icon(), action.title(), tint = if (active) PlayerAccent else LocalContentColor.current)
                 }

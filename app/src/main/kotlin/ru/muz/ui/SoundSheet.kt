@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.muz.player.AudioEffects
 import ru.muz.settings.AppSettings
-import ru.muz.settings.VocalMode
 
 internal data class EqPreset(val name: String, val bands: List<Int>)
 
@@ -45,46 +44,11 @@ internal val EQ_PRESETS = listOf(
     EqPreset("Тихо ночью", listOf(-3, 0, 2, 1, -3)),
 )
 
-internal fun vocalModeName(mode: VocalMode): String = when (mode) {
-    VocalMode.NORMAL -> "Как есть"
-    VocalMode.NO_VOCALS -> "Без голоса"
-    VocalMode.VOCALS -> "Голос"
-}
-
-private fun vocalModeHint(mode: VocalMode): String = when (mode) {
-    VocalMode.NORMAL -> "Трек звучит без изменений"
-    VocalMode.NO_VOCALS -> "Убирает то, что звучит по центру, обычно это голос. Бас остаётся. Лучше всего работает на студийных записях, на живых и моно-треках голос может остаться"
-    VocalMode.VOCALS -> "Выводит вперёд центр и полосу голоса, остальное приглушается. Это не полное отделение, инструменты по центру тоже слышны"
-}
-
 private fun bandLabel(hz: Float): String = if (hz >= 1000f) "${(hz / 1000f).let { if (it % 1f == 0f) it.toInt().toString() else String.format(java.util.Locale.ROOT, "%.1f", it) }} кГц" else "${hz.toInt()} Гц"
 
 @Composable
 internal fun SoundControls(settings: AppSettings, onChange: (AppSettings) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth()) {
-        Text("Голос", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp))
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f))
-                .padding(3.dp),
-        ) {
-            VocalMode.entries.forEach { mode ->
-                val active = settings.vocalMode == mode
-                Box(
-                    Modifier.weight(1f).clip(RoundedCornerShape(11.dp))
-                        .background(if (active) MaterialTheme.colorScheme.surface else androidx.compose.ui.graphics.Color.Transparent)
-                        .clickable { onChange(settings.copy(vocalMode = mode)) }
-                        .padding(vertical = 9.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(vocalModeName(mode), fontWeight = if (active) FontWeight.Bold else FontWeight.Medium, fontSize = 14.sp, textAlign = TextAlign.Center)
-                }
-            }
-        }
-        Text(vocalModeHint(settings.vocalMode), color = SoftText, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp))
-
-        Spacer(Modifier.height(18.dp))
         Text("Эквалайзер", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(EQ_PRESETS) { preset ->

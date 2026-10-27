@@ -96,8 +96,8 @@ fun MusicApp(
     val librarySnapshotStore = remember { ru.muz.yandex.LibrarySnapshotStore(context) }
     val listeningStats = remember { ListeningStats.shared(context) }
     val player by playback.state.collectAsState()
-    LaunchedEffect(settings.vocalMode, settings.eqBands, settings.crossfadeSeconds) {
-        ru.muz.player.AudioEffects.apply(settings.vocalMode, settings.eqBands, settings.crossfadeSeconds)
+    LaunchedEffect(settings.eqBands, settings.crossfadeSeconds) {
+        ru.muz.player.AudioEffects.apply(settings.eqBands, settings.crossfadeSeconds)
     }
     LaunchedEffect(player.coverUrl, settings.trackColors) {
         if (!settings.trackColors) {
