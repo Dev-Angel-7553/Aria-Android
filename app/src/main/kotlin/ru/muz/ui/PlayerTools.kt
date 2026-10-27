@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -62,6 +63,8 @@ internal data class PlayerTools(
     val onDislike: () -> Unit = {},
     val privateSession: Boolean = false,
     val onPrivate: (Boolean) -> Unit = {},
+    val sound: ru.muz.settings.AppSettings? = null,
+    val onSound: (ru.muz.settings.AppSettings) -> Unit = {},
 )
 
 internal fun PlayerAction.title(): String = when (this) {
@@ -73,6 +76,7 @@ internal fun PlayerAction.title(): String = when (this) {
     PlayerAction.OPEN_COVER -> "Открыть обложку"
     PlayerAction.SLEEP -> "Таймер сна"
     PlayerAction.SPEED -> "Скорость"
+    PlayerAction.SOUND -> "Звук и эквалайзер"
     PlayerAction.QUOTE -> "Карточка с цитатой"
     PlayerAction.COPY_ARTIST -> "Скопировать имя артиста"
     PlayerAction.TRACK_WAVE -> "Волна по треку"
@@ -89,6 +93,7 @@ internal fun PlayerAction.icon(): ImageVector = when (this) {
     PlayerAction.OPEN_COVER -> Icons.Filled.OpenInNew
     PlayerAction.SLEEP -> Icons.Filled.Bedtime
     PlayerAction.SPEED -> Icons.Filled.Speed
+    PlayerAction.SOUND -> Icons.Filled.Equalizer
     PlayerAction.QUOTE -> Icons.Filled.FormatQuote
     PlayerAction.COPY_ARTIST -> Icons.Filled.ContentCopy
     PlayerAction.TRACK_WAVE -> Icons.Filled.GraphicEq
@@ -120,7 +125,7 @@ internal fun rememberSleepLabel(endsAt: Long): String? {
 internal fun SleepTimerSheet(endsAt: Long, onSelect: (Int) -> Unit, onDismiss: () -> Unit) {
     val label = rememberSleepLabel(endsAt)
     var custom by remember { mutableStateOf(45f) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    AriaSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             Text("Таймер сна", fontSize = 22.sp, fontWeight = FontWeight.Black)
             Text(label ?: "Музыка плавно затихнет и встанет на паузу", color = SoftText, fontSize = 13.sp)
@@ -165,7 +170,7 @@ internal fun SpeedSheet(
     onDismiss: () -> Unit,
 ) {
     var value by remember { mutableStateOf(speed) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    AriaSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             Text("Скорость", fontSize = 22.sp, fontWeight = FontWeight.Black)
             Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {

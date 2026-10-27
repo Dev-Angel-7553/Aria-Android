@@ -138,7 +138,7 @@ internal fun MainShell(
         bottomBar = {
             Column {
                 PlaybackErrorBanner(player.error)
-                AnimatedVisibility(player.title.isNotBlank()) {
+                AnimatedVisibility(player.title.isNotBlank() && MiniPlayerState.hiddenId != player.mediaId) {
                     CompactPlayer(
                         player, onMiniClick, onPlayPause, onNext, onPrevious,
                         swipeMiniPlayer, showMiniPlayerProgress,
@@ -684,7 +684,7 @@ internal fun PlaylistScreen(
         bottomBar = {
             Column {
                 PlaybackErrorBanner(player.error)
-                AnimatedVisibility(player.title.isNotBlank()) {
+                AnimatedVisibility(player.title.isNotBlank() && MiniPlayerState.hiddenId != player.mediaId) {
                     CompactPlayer(
                         player, onMiniClick, onPlayPause, onNext, onPrevious,
                         swipeMiniPlayer, showMiniPlayerProgress,

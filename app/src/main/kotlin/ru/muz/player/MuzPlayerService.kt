@@ -67,7 +67,7 @@ class MuzPlayerService : MediaLibraryService() {
                 androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessors(arrayOf<androidx.media3.common.audio.AudioProcessor>(PulseProcessor()))
+                    .setAudioProcessors(arrayOf<androidx.media3.common.audio.AudioProcessor>(EffectsProcessor(), PulseProcessor()))
                     .build()
         }
         val exo = ExoPlayer.Builder(this, renderers)
@@ -77,6 +77,7 @@ class MuzPlayerService : MediaLibraryService() {
             .build()
         player = exo
         val prefs = ru.muz.settings.AppPreferences(this).load()
+        AudioEffects.apply(prefs.vocalMode, prefs.eqBands, prefs.crossfadeSeconds)
         exo.skipSilenceEnabled = prefs.skipSilence
         val startSpeed = prefs.playbackSpeedPercent / 100f
         exo.playbackParameters = androidx.media3.common.PlaybackParameters(startSpeed, if (prefs.speedChangesPitch) startSpeed else 1f)
@@ -96,6 +97,7 @@ class MuzPlayerService : MediaLibraryService() {
         )
         exo.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                fadeIn = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && AudioEffects.crossfadeMs > 0
                 applyLoudness(mediaItem)
                 updateLikeButton()
                 saveQueue()
@@ -133,6 +135,29 @@ class MuzPlayerService : MediaLibraryService() {
         })
         tracker = ListenTracker(this, exo).also { it.start() }
         updateLikeButton()
+        scope.launch {
+            while (true) {
+                delay(50)
+                val fade = AudioEffects.crossfadeMs
+                val next = if (fade <= 0L || !exo.isPlaying) {
+                    fadeIn = false
+                    1f
+                } else {
+                    val position = exo.currentPosition
+                    val duration = exo.duration
+                    val tail = if (duration != C.TIME_UNSET && duration > fade * 2 && exo.hasNextMediaItem() && !exo.pauseAtEndOfMediaItems) {
+                        ((duration - position).toFloat() / fade).coerceIn(0f, 1f)
+                    } else 1f
+                    val head = if (fadeIn) (position.toFloat() / (fade * 0.6f)).coerceIn(0f, 1f) else 1f
+                    if (head >= 1f) fadeIn = false
+                    kotlin.math.sqrt(minOf(tail, head))
+                }
+                if (kotlin.math.abs(next - transitionGain) > 0.002f) {
+                    transitionGain = next
+                    applyVolume()
+                }
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
@@ -184,9 +209,11 @@ class MuzPlayerService : MediaLibraryService() {
 
     private var loudnessGain = 1f
     private var fadeGain = 1f
+    private var transitionGain = 1f
+    private var fadeIn = false
 
     private fun applyVolume() {
-        player?.volume = (loudnessGain * fadeGain).coerceIn(0f, 1f)
+        player?.volume = (loudnessGain * fadeGain * transitionGain).coerceIn(0f, 1f)
     }
 
     private fun applyLoudness(item: MediaItem?) {

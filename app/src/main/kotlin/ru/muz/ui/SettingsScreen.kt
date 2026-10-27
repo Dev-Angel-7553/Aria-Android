@@ -197,7 +197,7 @@ internal fun SettingsScreen(
         bottomBar = {
             Column {
                 PlaybackErrorBanner(player.error)
-                AnimatedVisibility(player.title.isNotBlank()) {
+                AnimatedVisibility(player.title.isNotBlank() && MiniPlayerState.hiddenId != player.mediaId) {
                     CompactPlayer(
                         player, onMiniClick, onPlayPause, onNext, onPrevious,
                         swipeMiniPlayer, showMiniPlayerProgress,
@@ -545,8 +545,9 @@ private fun LazyListScope.listSettings(settings: AppSettings, onChange: (AppSett
 private fun LazyListScope.playerSettings(settings: AppSettings, onChange: (AppSettings) -> Unit) {
     item { SettingsTitle("Поведение") }
     item { SettingSwitch("Открывать плеер при выборе", "Показывает полный экран нового трека", settings.openPlayerOnTrack) { onChange(settings.copy(openPlayerOnTrack = it)) } }
-    item { SettingSwitch("Свайпы мини-плеера", "Влево — следующий, вправо — предыдущий", settings.swipeMiniPlayer) { onChange(settings.copy(swipeMiniPlayer = it)) } }
+    item { SettingSwitch("Свайпы мини-плеера", "Влево — следующий, вправо — предыдущий, вверх — открыть плеер, вниз — спрятать до следующего трека", settings.swipeMiniPlayer) { onChange(settings.copy(swipeMiniPlayer = it)) } }
     item { SettingSwitch("Прогресс мини-плеера", "Тонкая полоса под треком", settings.showMiniPlayerProgress) { onChange(settings.copy(showMiniPlayerProgress = it)) } }
+    item { SettingSwitch("Цвет обложки в мини-плеере", "Мини-плеер слегка окрашивается под трек", settings.miniCoverTint) { onChange(settings.copy(miniCoverTint = it)) } }
     item { SettingSwitch("Жесты полного плеера", "Влево/вправо — трек, вверх — очередь, вниз — свернуть", settings.fullPlayerSwipe) { onChange(settings.copy(fullPlayerSwipe = it)) } }
     item { SettingSwitch("Не выключать экран", "Пока приложение открыто", settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) } }
     item { SettingSwitch("Двойной тап по обложке", "Действие можно выбрать ниже", settings.doubleTapLike) { onChange(settings.copy(doubleTapLike = it)) } }
@@ -822,6 +823,8 @@ private fun LazyListScope.playbackSettings(
     item { SettingSwitch("Экономия трафика", "Запрашивает поток с меньшим битрейтом", settings.dataSaver) { onChange(settings.copy(dataSaver = it)) } }
     item { SettingSwitch("Предзагрузка следующего трека", "Следующий трек начинается без паузы", settings.preloadNextTracks) { onChange(settings.copy(preloadNextTracks = it)) } }
     item { SettingSwitch("Выравнивать громкость", "Тихие и громкие треки звучат одинаково, по данным Яндекса", settings.normalizeVolume) { onChange(settings.copy(normalizeVolume = it)) } }
+    item { SettingsTitle("Звук") }
+    item { SoundControls(settings, onChange, Modifier.padding(vertical = 6.dp)) }
     item { SettingsTitle("Рекомендации") }
     item { SettingSwitch("Приватный режим", "Прослушивания не уходят в Яндекс и не влияют на «Мою волну». Локальная статистика считается", settings.privateSession) { onChange(settings.copy(privateSession = it)) } }
     item { SettingSwitch("Без откровенных треков", "Пропускать треки с пометкой E в волне и при запуске списков", settings.hideExplicit) { onChange(settings.copy(hideExplicit = it)) } }
@@ -1320,6 +1323,9 @@ private val SETTINGS_INDEX = listOf(
     SettingsEntry("Скругление интерфейса", SettingsPage.APPEARANCE, "углы форма"),
     SettingsEntry("Скругление обложек", SettingsPage.APPEARANCE, "углы форма"),
     SettingsEntry("Подписи под значками", SettingsPage.APPEARANCE, "навигация нижняя панель"),
+    SettingsEntry("Эквалайзер", SettingsPage.PLAYBACK, "звук бас пресет частоты"),
+    SettingsEntry("Без голоса", SettingsPage.PLAYBACK, "караоке минус голос вокал"),
+    SettingsEntry("Плавный переход", SettingsPage.PLAYBACK, "кроссфейд crossfade затухание"),
     SettingsEntry("Скорость анимаций", SettingsPage.ANIMATION),
     SettingsEntry("Уменьшить движение", SettingsPage.ANIMATION, "анимации выключить"),
     SettingsEntry("Переходы в плеере", SettingsPage.ANIMATION),

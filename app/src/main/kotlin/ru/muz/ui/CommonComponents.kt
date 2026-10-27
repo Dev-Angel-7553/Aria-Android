@@ -54,6 +54,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -335,22 +336,33 @@ internal fun CompactPlayer(
         animationSpec = tween(animationDuration(180)),
         label = "mini-player-scale",
     )
+    var lift by remember(state.mediaId) { mutableFloatStateOf(0f) }
+    val tint = rememberMiniTint(state.coverUrl)
     val swipeModifier = if (swipeEnabled) {
         Modifier.pointerInput(state.mediaId) {
-            detectHorizontalDragGestures(
-                onDragStart = { drag = 0f },
-                onHorizontalDrag = { change, amount ->
+            androidx.compose.foundation.gestures.detectDragGestures(
+                onDragStart = { drag = 0f; lift = 0f },
+                onDrag = { change, amount ->
                     change.consume()
-                    drag += amount
+                    drag += amount.x
+                    lift += amount.y
                 },
                 onDragEnd = {
-                    when {
-                        drag < -72f -> onNext()
-                        drag > 72f -> onPrevious()
+                    if (kotlin.math.abs(drag) >= kotlin.math.abs(lift)) {
+                        when {
+                            drag < -72f -> onNext()
+                            drag > 72f -> onPrevious()
+                        }
+                    } else {
+                        when {
+                            lift < -60f -> onClick()
+                            lift > 60f -> MiniPlayerState.hiddenId = state.mediaId
+                        }
                     }
                     drag = 0f
+                    lift = 0f
                 },
-                onDragCancel = { drag = 0f },
+                onDragCancel = { drag = 0f; lift = 0f },
             )
         }
     } else Modifier
@@ -361,7 +373,12 @@ internal fun CompactPlayer(
             scaleX = swipeScale
             scaleY = swipeScale
             alpha = if (reduceMotion) 1f else 1f - (kotlin.math.abs(drag) / 800f).coerceIn(0f, 0.16f)
-        }.then(if (glass) Modifier.glass(backdrop, shape, corner = 24.dp) else Modifier.clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHighest))
+        }.then(
+            if (glass) Modifier.glass(backdrop, shape, corner = 24.dp).then(if (tint != null) Modifier.background(tint.copy(alpha = 0.16f), shape) else Modifier)
+            else Modifier.clip(shape).background(
+                tint?.copy(alpha = 0.22f)?.compositeOver(MaterialTheme.colorScheme.surfaceContainerHighest) ?: MaterialTheme.colorScheme.surfaceContainerHighest,
+            ),
+        )
             .then(swipeModifier).clickable(onClick = onClick),
     ) {
         Row(
@@ -716,4 +733,20 @@ internal fun SectionTitle(value: String) {
 @Composable
 internal fun EmptyHint(value: String) {
     Text(value, color = SoftText, modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp))
+}
+
+internal object MiniPlayerState {
+    var hiddenId by mutableStateOf<String?>(null)
+}
+
+@Composable
+private fun rememberMiniTint(url: String?): androidx.compose.ui.graphics.Color? {
+    if (!LocalMiniCoverTint.current) return null
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var tint by remember(url) { mutableStateOf<androidx.compose.ui.graphics.Color?>(null) }
+    androidx.compose.runtime.LaunchedEffect(url) {
+        if (url != null) tint = coverTintOf(context, url)
+    }
+    val shown by androidx.compose.animation.animateColorAsState(tint ?: androidx.compose.ui.graphics.Color.Transparent, tween(600), label = "mini-tint")
+    return if (tint == null) null else shown
 }

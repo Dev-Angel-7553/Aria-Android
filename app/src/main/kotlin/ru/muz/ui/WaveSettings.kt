@@ -49,7 +49,7 @@ internal fun WaveSettingsSheet(
     var mood by remember { mutableStateOf(settings.waveMood) }
     var diversity by remember { mutableStateOf(settings.waveDiversity) }
     var language by remember { mutableStateOf(settings.waveLanguage) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    AriaSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth()) {
             Text("Настроить «Мою волну»", fontSize = 22.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 20.dp))
             Text("Настройки сохраняются в аккаунте и работают и в официальном приложении", color = SoftText, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))

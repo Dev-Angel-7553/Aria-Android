@@ -6,7 +6,8 @@ import ru.muz.lyrics.KaraokeFillStyle
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 enum class AccentStyle { YELLOW, ORANGE, PINK, BLUE, GREEN, CUSTOM }
-enum class PlayerAction { QUEUE, DOWNLOAD, LINK, SHARE_FILE, SAVE_COVER, OPEN_COVER, SLEEP, SPEED, QUOTE, COPY_ARTIST, TRACK_WAVE, DISLIKE, PRIVATE }
+enum class PlayerAction { QUEUE, DOWNLOAD, LINK, SHARE_FILE, SAVE_COVER, OPEN_COVER, SLEEP, SPEED, SOUND, QUOTE, COPY_ARTIST, TRACK_WAVE, DISLIKE, PRIVATE }
+enum class VocalMode { NORMAL, NO_VOCALS, VOCALS }
 enum class PlayShape { CIRCLE, SQUIRCLE, SQUARE, COOKIE }
 enum class AppStyle { CLASSIC, MATERIAL_YOU, GLASS, MINIMAL }
 enum class SeekStyle { LINE, WAVY, CAPSULE, HAIRLINE }
@@ -75,6 +76,10 @@ data class AppSettings(
     val skipSilence: Boolean = false,
     val customAccent: Int = 0xFFB388FF.toInt(),
     val trackColors: Boolean = false,
+    val vocalMode: VocalMode = VocalMode.NORMAL,
+    val eqBands: List<Int> = listOf(0, 0, 0, 0, 0),
+    val crossfadeSeconds: Int = 0,
+    val miniCoverTint: Boolean = true,
     val appFont: AppFont = AppFont.SYSTEM,
     val textScalePercent: Int = 100,
     val playerActions: List<PlayerAction> = listOf(PlayerAction.QUEUE, PlayerAction.DOWNLOAD, PlayerAction.SLEEP, PlayerAction.QUOTE),
@@ -174,6 +179,10 @@ class AppPreferences(context: Context) {
             skipSilence = prefs.getBoolean("skip_silence", false),
             customAccent = prefs.getInt("custom_accent", 0xFFB388FF.toInt()),
             trackColors = prefs.getBoolean("track_colors", false),
+            vocalMode = enumValue(prefs.getString("vocal_mode", null), VocalMode.NORMAL),
+            eqBands = prefs.getString("eq_bands", null)?.split(',')?.mapNotNull { it.trim().toIntOrNull()?.coerceIn(-12, 12) }?.takeIf { it.size == 5 } ?: listOf(0, 0, 0, 0, 0),
+            crossfadeSeconds = prefs.getInt("crossfade_seconds", 0).coerceIn(0, 12),
+            miniCoverTint = prefs.getBoolean("mini_cover_tint", true),
             appFont = enumValue(prefs.getString("app_font", null), AppFont.SYSTEM),
             textScalePercent = prefs.getInt("text_scale", 100).coerceIn(80, 130),
             playerActions = enumList(prefs.getString("player_actions", null), AppSettings().playerActions),
@@ -266,6 +275,10 @@ class AppPreferences(context: Context) {
             .putBoolean("skip_silence", value.skipSilence)
             .putInt("custom_accent", value.customAccent)
             .putBoolean("track_colors", value.trackColors)
+            .putString("vocal_mode", value.vocalMode.name)
+            .putString("eq_bands", value.eqBands.joinToString(","))
+            .putInt("crossfade_seconds", value.crossfadeSeconds)
+            .putBoolean("mini_cover_tint", value.miniCoverTint)
             .putString("app_font", value.appFont.name)
             .putInt("text_scale", value.textScalePercent)
             .putString("player_actions", value.playerActions.joinToString(",") { it.name })

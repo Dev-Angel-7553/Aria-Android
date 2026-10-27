@@ -394,7 +394,7 @@ internal fun FullPlayerScreen(
       }
     }
     if (lyricsMenu) {
-        ModalBottomSheet(onDismissRequest = { lyricsMenu = false }) {
+        AriaSheet(onDismissRequest = { lyricsMenu = false }) {
             PlayerSheetAction(Icons.Filled.Image, "Обложка и управление") { lyricsMenu = false; onToggleView() }
             PlayerSheetAction(Icons.Filled.QueueMusic, "Очередь") { lyricsMenu = false; showQueue = true }
             PlayerSheetAction(Icons.Filled.FormatQuote, "Карточка с цитатой") { lyricsMenu = false; onQuote() }
@@ -429,7 +429,7 @@ internal fun FullPlayerScreen(
         )
     }
     if (showQueue) {
-        ModalBottomSheet(onDismissRequest = { showQueue = false }) {
+        AriaSheet(onDismissRequest = { showQueue = false }) {
             Text(
                 "Очередь · ${queue.size}",
                 fontSize = 24.sp,
@@ -916,6 +916,7 @@ private fun PlayerDetails(
         var moreActions by remember { mutableStateOf(false) }
         var showSleep by remember { mutableStateOf(false) }
         var showSpeed by remember { mutableStateOf(false) }
+        var showSound by remember { mutableStateOf(false) }
         fun enabled(action: PlayerAction) = when (action) {
             PlayerAction.DOWNLOAD, PlayerAction.SHARE_FILE, PlayerAction.SAVE_COVER -> !transferBusy
             else -> true
@@ -930,6 +931,7 @@ private fun PlayerDetails(
                 PlayerAction.OPEN_COVER -> onOpenCover()
                 PlayerAction.SLEEP -> showSleep = true
                 PlayerAction.SPEED -> showSpeed = true
+                PlayerAction.SOUND -> showSound = true
                 PlayerAction.QUOTE -> onQuote()
                 PlayerAction.COPY_ARTIST -> onCopyArtist()
                 PlayerAction.TRACK_WAVE -> tools.onTrackWave()
@@ -945,7 +947,8 @@ private fun PlayerDetails(
             inRow.forEach { action ->
                 val active = (action == PlayerAction.SLEEP && tools.sleepEndsAt != 0L) ||
                     (action == PlayerAction.PRIVATE && tools.privateSession) ||
-                    (action == PlayerAction.SPEED && kotlin.math.abs(state.playbackSpeed - 1f) > 0.01f)
+                    (action == PlayerAction.SPEED && kotlin.math.abs(state.playbackSpeed - 1f) > 0.01f) ||
+                    (action == PlayerAction.SOUND && tools.sound != null && (tools.sound.vocalMode != ru.muz.settings.VocalMode.NORMAL || tools.sound.eqBands.any { it != 0 }))
                 IconButton(onClick = { run(action) }, enabled = enabled(action)) {
                     Icon(action.icon(), action.title(), tint = if (active) PlayerAccent else LocalContentColor.current)
                 }
@@ -953,7 +956,7 @@ private fun PlayerDetails(
             IconButton(onClick = { moreActions = true }) { Icon(Icons.Filled.MoreHoriz, "Ещё") }
         }
         if (moreActions) {
-            ModalBottomSheet(onDismissRequest = { moreActions = false }) {
+            AriaSheet(onDismissRequest = { moreActions = false }) {
                 PlayerAction.entries.filter { it !in inRow }.forEach { action ->
                     PlayerSheetAction(action.icon(), action.title(), enabled(action)) { moreActions = false; run(action) }
                 }
@@ -961,6 +964,9 @@ private fun PlayerDetails(
             }
         }
         if (showSleep) SleepTimerSheet(tools.sleepEndsAt, tools.onSleep) { showSleep = false }
+        if (showSound && tools.sound != null) {
+            SoundSheet(tools.sound, tools.onSound) { showSound = false }
+        }
         if (showSpeed) {
             SpeedSheet(state.playbackSpeed, tools.skipSilence, tools.onSpeed, tools.onSkipSilence, tools.speedChangesPitch, tools.onSpeedChangesPitch) { showSpeed = false }
         }

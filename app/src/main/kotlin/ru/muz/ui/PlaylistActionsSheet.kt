@@ -45,7 +45,7 @@ internal fun PlaylistActionsSheet(
     offlineBusy: Boolean = false,
     onSaveOffline: () -> Unit = {},
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    AriaSheet(onDismissRequest = onDismiss) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
             Artwork(playlist.coverUrl, Modifier.size(64.dp), 14.dp)
             Column(Modifier.padding(start = 12.dp)) {

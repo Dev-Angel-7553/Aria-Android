@@ -52,7 +52,7 @@ internal fun TrackActionsSheet(
     onArtistWave: (() -> Unit)? = null,
     onDislike: (() -> Unit)? = null,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    AriaSheet(onDismissRequest = onDismiss) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
             Artwork(track.coverUrl, Modifier.size(58.dp), 12.dp)
             Column(Modifier.padding(start = 12.dp)) {

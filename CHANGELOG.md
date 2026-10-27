@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.34
+
+- Sound: a five band equalizer with presets (Bass, Vocal, Acoustic, Electronic, Rock, Headphones, Quiet night) in Settings → Sound and offline and in the player menu
+- Voice modes while listening: "No vocals" removes what sits in the center of the mix, usually the voice, and keeps the bass; "Vocals" brings the voice forward and turns the rest down. It works on the fly, nothing is downloaded. It is not a full separation, on live and mono recordings the voice can stay
+- Smooth transition between tracks, up to 12 seconds: the end of a track fades out and the next one fades in
+- Bottom sheets in Glass are translucent with the screen behind them blurred (Android 12+ with blur enabled in the system)
+- Mini player: swipe up opens the player, swipe down hides it until the next track; it is tinted with the cover color, can be turned off
+- The APK is much smaller: unused code and resources are stripped from release builds
+
 ## 0.33
 
 - Fixed a crash when opening the "Player" page of the settings in Glass

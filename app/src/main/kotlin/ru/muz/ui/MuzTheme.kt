@@ -131,6 +131,7 @@ fun MuzTheme(settings: AppSettings, content: @Composable () -> Unit) {
         LocalSeekStyle provides settings.seekStyle,
         LocalPlayShape provides settings.playShape,
         LocalMiniPrevious provides settings.miniShowPrevious,
+        LocalMiniCoverTint provides settings.miniCoverTint,
         LocalDensity provides androidx.compose.ui.unit.Density(
             LocalDensity.current.density,
             LocalDensity.current.fontScale * settings.textScalePercent.coerceIn(80, 130) / 100f,
@@ -249,3 +250,5 @@ private fun staticScheme(accent: Int, dark: Boolean): ColorScheme {
         )
     }
 }
+
+val LocalMiniCoverTint = staticCompositionLocalOf { true }

@@ -96,6 +96,9 @@ fun MusicApp(
     val librarySnapshotStore = remember { ru.muz.yandex.LibrarySnapshotStore(context) }
     val listeningStats = remember { ListeningStats.shared(context) }
     val player by playback.state.collectAsState()
+    LaunchedEffect(settings.vocalMode, settings.eqBands, settings.crossfadeSeconds) {
+        ru.muz.player.AudioEffects.apply(settings.vocalMode, settings.eqBands, settings.crossfadeSeconds)
+    }
     LaunchedEffect(player.coverUrl, settings.trackColors) {
         if (!settings.trackColors) {
             TrackColors.cover = null
@@ -1058,6 +1061,8 @@ fun MusicApp(
                                 updateSettings(settings.copy(privateSession = value))
                                 toast(if (value) "Приватный режим: прослушивания не уходят в Яндекс" else "Приватный режим выключен")
                             },
+                            sound = settings,
+                            onSound = { updateSettings(it) },
                         ),
                         lyrics = if (lyricsTrackId == player.mediaId) lyrics else Lyrics.EMPTY,
                         lyricsLoading = lyricsLoading || (showLyrics && lyricsTrackId != player.mediaId),
