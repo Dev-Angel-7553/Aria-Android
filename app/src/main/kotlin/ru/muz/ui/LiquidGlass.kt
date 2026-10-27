@@ -72,8 +72,9 @@ val LocalGlassLight = staticCompositionLocalOf<State<Offset>> { mutableStateOf(O
 @Composable
 internal fun rememberGlassLight(enabled: Boolean): State<Offset> {
     val context = LocalContext.current
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val light = remember { mutableStateOf(Offset.Zero) }
-    DisposableEffect(enabled) {
+    DisposableEffect(enabled, owner) {
         val manager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
         val sensor = manager?.getDefaultSensor(Sensor.TYPE_GRAVITY)
         if (!enabled || manager == null || sensor == null) {
@@ -90,8 +91,27 @@ internal fun rememberGlassLight(enabled: Boolean): State<Offset> {
 
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
         }
-        manager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
-        onDispose { manager.unregisterListener(listener) }
+        var registered = false
+        fun start() {
+            if (!registered) registered = manager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+        }
+        fun stop() {
+            if (registered) manager.unregisterListener(listener)
+            registered = false
+        }
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> start()
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> stop()
+                else -> Unit
+            }
+        }
+        owner.lifecycle.addObserver(observer)
+        if (owner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) start()
+        onDispose {
+            owner.lifecycle.removeObserver(observer)
+            stop()
+        }
     }
     return light
 }
