@@ -15,14 +15,19 @@ internal val LocalGlassBackdrop = compositionLocalOf<GlassBackdrop?> { null }
 
 @Composable
 internal fun GlassScaffold(
+    topBar: @Composable () -> Unit = {},
     bottomBar: @Composable () -> Unit,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val glass = LocalAppStyle.current == AppStyle.GLASS
     val backdrop = rememberGlassBackdrop()
     val active = if (glass) backdrop else null
-    CompositionLocalProvider(LocalGlassBackdrop provides active) {
-        Scaffold(containerColor = Color.Transparent, bottomBar = bottomBar) { padding ->
+    Scaffold(
+        containerColor = Color.Transparent,
+        topBar = { CompositionLocalProvider(LocalGlassBackdrop provides active) { topBar() } },
+        bottomBar = { CompositionLocalProvider(LocalGlassBackdrop provides active) { bottomBar() } },
+    ) { padding ->
+        CompositionLocalProvider(LocalGlassBackdrop provides null) {
             Box(Modifier.fillMaxSize().glassSource(active)) {
                 if (glass) MovingCoverBackground(Accent, strength = 0.55f)
                 content(padding)

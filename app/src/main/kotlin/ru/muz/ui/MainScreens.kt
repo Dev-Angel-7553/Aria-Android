@@ -693,9 +693,12 @@ internal fun PlaylistScreen(
             }
         },
     ) { scaffoldPadding ->
+        val glassList = LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS
         LazyColumn(
-            Modifier.fillMaxSize().padding(scaffoldPadding),
-            contentPadding = PaddingValues(top = 20.dp, bottom = 32.dp),
+            if (glassList) Modifier.fillMaxSize() else Modifier.fillMaxSize().padding(scaffoldPadding),
+            contentPadding = if (glassList) {
+                PaddingValues(top = scaffoldPadding.calculateTopPadding() + 20.dp, bottom = scaffoldPadding.calculateBottomPadding() + 32.dp)
+            } else PaddingValues(top = 20.dp, bottom = 32.dp),
         ) {
         item {
             Row(

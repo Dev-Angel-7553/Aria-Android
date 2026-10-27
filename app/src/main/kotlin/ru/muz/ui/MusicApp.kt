@@ -96,6 +96,14 @@ fun MusicApp(
     val librarySnapshotStore = remember { ru.muz.yandex.LibrarySnapshotStore(context) }
     val listeningStats = remember { ListeningStats.shared(context) }
     val player by playback.state.collectAsState()
+    LaunchedEffect(player.coverUrl, settings.trackColors) {
+        if (!settings.trackColors) {
+            TrackColors.cover = null
+            return@LaunchedEffect
+        }
+        val url = player.coverUrl ?: return@LaunchedEffect
+        TrackColors.cover = coverTintOf(context, url)
+    }
     val sleepEndsAt by playback.sleepEndsAt.collectAsState()
 
     var api by remember { mutableStateOf<YandexClient?>(null) }

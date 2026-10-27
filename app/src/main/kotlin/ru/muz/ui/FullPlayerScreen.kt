@@ -180,17 +180,7 @@ internal fun FullPlayerScreen(
     var coverTint by remember(state.coverUrl) { mutableStateOf(fallbackCoverTint(state.coverUrl)) }
     LaunchedEffect(state.coverUrl) {
         val url = state.coverUrl ?: return@LaunchedEffect
-        coverTint = withContext(Dispatchers.IO) {
-            val request = ImageRequest.Builder(context).data(url).allowHardware(false).size(96).build()
-            val result = context.imageLoader.execute(request) as? SuccessResult
-            val bitmap = (result?.drawable as? BitmapDrawable)?.bitmap
-                ?: return@withContext fallbackCoverTint(url)
-            val small = android.graphics.Bitmap.createScaledBitmap(bitmap, 32, 32, true)
-            val pixels = IntArray(32 * 32)
-            small.getPixels(pixels, 0, 32, 0, 0, 32, 32)
-            if (small !== bitmap) small.recycle()
-            ColorMath.dominantVibrant(pixels)?.let { Color(it) } ?: fallbackCoverTint(url)
-        }
+        coverTint = coverTintOf(context, url)
     }
     val screenBackground = AppBackground
     val coverAccentColor = remember(coverTint, screenBackground) {
@@ -547,13 +537,6 @@ private fun PlayerHeader(
     }
 }
 
-private fun fallbackCoverTint(url: String?): Color {
-    val hash = url.orEmpty().hashCode()
-    val red = 0.34f + ((hash ushr 16) and 0x7f) / 255f
-    val green = 0.34f + ((hash ushr 8) and 0x7f) / 255f
-    val blue = 0.34f + (hash and 0x7f) / 255f
-    return Color(red.coerceAtMost(0.82f), green.coerceAtMost(0.82f), blue.coerceAtMost(0.82f))
-}
 
 @Composable
 private fun LyricsLoading(status: String, modifier: Modifier = Modifier) {

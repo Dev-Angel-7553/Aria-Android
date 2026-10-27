@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33
+
+- Fixed a crash when opening the "Player" page of the settings in Glass
+- In Glass the settings header is a floating glass panel instead of a black bar, and lists in settings, playlists, albums and artists scroll under the glass header and the mini player
+- "Colors from the song" in Appearance: the accent and tints of the whole app are taken from the cover of what is playing and change smoothly with the track
+
 ## 0.32
 
 - Glass is clearer: much less blur and milky tint, stronger bending at the edges, a slight lens zoom in the middle and a soft shade along the bottom edge, so it reads as a piece of glass instead of frosted plastic

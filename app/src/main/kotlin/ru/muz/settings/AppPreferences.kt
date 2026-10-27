@@ -74,6 +74,7 @@ data class AppSettings(
     val playbackSpeedPercent: Int = 100,
     val skipSilence: Boolean = false,
     val customAccent: Int = 0xFFB388FF.toInt(),
+    val trackColors: Boolean = false,
     val appFont: AppFont = AppFont.SYSTEM,
     val textScalePercent: Int = 100,
     val playerActions: List<PlayerAction> = listOf(PlayerAction.QUEUE, PlayerAction.DOWNLOAD, PlayerAction.SLEEP, PlayerAction.QUOTE),
@@ -172,6 +173,7 @@ class AppPreferences(context: Context) {
             playbackSpeedPercent = prefs.getInt("playback_speed", 100).coerceIn(50, 200),
             skipSilence = prefs.getBoolean("skip_silence", false),
             customAccent = prefs.getInt("custom_accent", 0xFFB388FF.toInt()),
+            trackColors = prefs.getBoolean("track_colors", false),
             appFont = enumValue(prefs.getString("app_font", null), AppFont.SYSTEM),
             textScalePercent = prefs.getInt("text_scale", 100).coerceIn(80, 130),
             playerActions = enumList(prefs.getString("player_actions", null), AppSettings().playerActions),
@@ -263,6 +265,7 @@ class AppPreferences(context: Context) {
             .putInt("playback_speed", value.playbackSpeedPercent)
             .putBoolean("skip_silence", value.skipSilence)
             .putInt("custom_accent", value.customAccent)
+            .putBoolean("track_colors", value.trackColors)
             .putString("app_font", value.appFont.name)
             .putInt("text_scale", value.textScalePercent)
             .putString("player_actions", value.playerActions.joinToString(",") { it.name })

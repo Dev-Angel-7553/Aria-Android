@@ -174,7 +174,26 @@ internal fun SettingsScreen(
     BackHandler(enabled = page != SettingsPage.ROOT || query.isNotBlank()) {
         if (page != SettingsPage.ROOT) page = SettingsPage.ROOT else query = ""
     }
+    val glassStyle = LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS
+    val header: @Composable () -> Unit = {
+        SettingsHeader(page.title) { if (page == SettingsPage.ROOT) onBack() else page = SettingsPage.ROOT }
+        when (page) {
+            SettingsPage.APPEARANCE -> AppearancePreview()
+            SettingsPage.LISTS -> ListPreview(settings)
+            SettingsPage.PLAYER -> MiniPlayerPreview(settings)
+            SettingsPage.LYRICS -> LyricsPreview(settings)
+            else -> Unit
+        }
+    }
     GlassScaffold(
+        topBar = {
+            if (glassStyle) {
+                Column(
+                    Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 10.dp, vertical = 6.dp)
+                        .glass(LocalGlassBackdrop.current, RoundedCornerShape(28.dp), corner = 28.dp),
+                ) { header() }
+            }
+        },
         bottomBar = {
             Column {
                 PlaybackErrorBanner(player.error)
@@ -188,19 +207,14 @@ internal fun SettingsScreen(
         },
     ) { scaffoldPadding ->
         LazyColumn(
-            Modifier.fillMaxSize().statusBarsPadding().padding(scaffoldPadding),
-            contentPadding = PaddingValues(bottom = 32.dp),
+            if (glassStyle) Modifier.fillMaxSize() else Modifier.fillMaxSize().statusBarsPadding().padding(scaffoldPadding),
+            contentPadding = if (glassStyle) {
+                PaddingValues(top = scaffoldPadding.calculateTopPadding() + 8.dp, bottom = scaffoldPadding.calculateBottomPadding() + 32.dp)
+            } else PaddingValues(bottom = 32.dp),
         ) {
-            stickyHeader {
-                Column(Modifier.fillMaxWidth().background(AppBackground)) {
-                    SettingsHeader(page.title) { if (page == SettingsPage.ROOT) onBack() else page = SettingsPage.ROOT }
-                    when (page) {
-                        SettingsPage.APPEARANCE -> AppearancePreview()
-                        SettingsPage.LISTS -> ListPreview(settings)
-                        SettingsPage.PLAYER -> MiniPlayerPreview(settings)
-                        SettingsPage.LYRICS -> LyricsPreview(settings)
-                        else -> Unit
-                    }
+            if (!glassStyle) {
+                stickyHeader {
+                    Column(Modifier.fillMaxWidth().background(AppBackground)) { header() }
                 }
             }
             when (page) {
@@ -403,6 +417,11 @@ private fun LazyListScope.appearanceSettings(settings: AppSettings, onChange: (A
     item {
         SettingSwitch("Monet / динамические цвета", "Цвета обоев на Android 12 и новее", settings.useDynamicColors) {
             onChange(settings.copy(useDynamicColors = it))
+        }
+    }
+    item {
+        SettingSwitch("Цвета под песню", "Акцент и оттенки всего приложения берутся из обложки того, что играет, и плавно меняются вместе с треком", settings.trackColors) {
+            onChange(settings.copy(trackColors = it))
         }
     }
     item {
@@ -1296,6 +1315,7 @@ private class SettingsEntry(val title: String, val page: SettingsPage, val keywo
 private val SETTINGS_INDEX = listOf(
     SettingsEntry("Тема", SettingsPage.APPEARANCE, "тёмная светлая amoled чёрная системная"),
     SettingsEntry("Monet / динамические цвета", SettingsPage.APPEARANCE, "обои цвет"),
+    SettingsEntry("Цвета под песню", SettingsPage.APPEARANCE, "обложка трек оттенок акцент"),
     SettingsEntry("Цвет акцента", SettingsPage.APPEARANCE, "жёлтый синий розовый зелёный оранжевый"),
     SettingsEntry("Скругление интерфейса", SettingsPage.APPEARANCE, "углы форма"),
     SettingsEntry("Скругление обложек", SettingsPage.APPEARANCE, "углы форма"),

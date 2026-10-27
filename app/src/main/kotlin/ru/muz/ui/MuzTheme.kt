@@ -17,6 +17,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
@@ -65,11 +67,14 @@ fun MuzTheme(settings: AppSettings, content: @Composable () -> Unit) {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK, ThemeMode.AMOLED -> true
     }
-    val dynamic = settings.useDynamicColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val track = if (settings.trackColors) TrackColors.cover else null
+    val dynamic = track == null && settings.useDynamicColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val fixedSeed = Color(accentColor(settings.accentStyle, settings.customAccent))
+    val seed by androidx.compose.animation.animateColorAsState(track ?: fixedSeed, androidx.compose.animation.core.tween(900), label = "track-seed")
     var scheme = when {
         dynamic && dark -> dynamicDarkColorScheme(context)
         dynamic -> dynamicLightColorScheme(context)
-        else -> staticScheme(accentColor(settings.accentStyle, settings.customAccent), dark)
+        else -> staticScheme(seed.toArgb(), dark)
     }
     if (settings.themeMode == ThemeMode.AMOLED) {
         scheme = scheme.copy(
