@@ -93,15 +93,11 @@ internal fun StyledSlider(
             val h = 4.dp.toPx()
             drawRoundRect(scheme.onSurface.copy(alpha = 0.16f), Offset(start, y - h / 2f), Size(end - start, h), CornerRadius(h / 2f))
             drawRoundRect(accent, Offset(start, y - h / 2f), Size(x - start, h), CornerRadius(h / 2f))
-            val r = (13.dp + 3.dp * grow).toPx()
-            drawCircle(Color.Black.copy(alpha = 0.18f), r + 1.5f, Offset(x, y + 2.dp.toPx()))
-            if (grow > 0.01f) {
-                drawCircle(Color.White.copy(alpha = 1f - 0.65f * grow), r, Offset(x, y))
-                drawCircle(Color.White.copy(alpha = 0.9f), r, Offset(x, y), style = Stroke(1.2.dp.toPx()))
-                drawCircle(accent.copy(alpha = 0.25f * grow), r * 0.55f, Offset(x, y))
-            } else {
-                drawCircle(Color.White, r, Offset(x, y))
-            }
+            val r = (14.dp + 1.5.dp * grow).toPx()
+            drawCircle(Color.Black.copy(alpha = 0.10f), r + 2.dp.toPx(), Offset(x, y + 3.dp.toPx()))
+            drawCircle(Color.Black.copy(alpha = 0.16f), r + 0.5.dp.toPx(), Offset(x, y + 1.5.dp.toPx()))
+            drawCircle(Color.White, r, Offset(x, y))
+            drawCircle(Color.Black.copy(alpha = 0.06f), r, Offset(x, y), style = Stroke(0.5.dp.toPx()))
         } else {
             val stroke = 2.dp.toPx()
             drawLine(scheme.onSurface.copy(alpha = 0.18f), Offset(start, y), Offset(end, y), stroke, StrokeCap.Round)

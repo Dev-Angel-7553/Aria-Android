@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.31
+
+- Glass style now covers the whole app: playlists, albums, artists and settings have the same moving background and the glass mini player, not only the main tabs
+- Switches in Glass look like iOS: green track, white thumb that stretches while pressed
+- The slider thumb in Glass is the plain white iOS one, the quote card size slider follows the style too
+
 ## 0.30
 
 - Lyrics stay sharp while you scroll them, so you can see where you are, and blur returns a few seconds after you let go. The switch is in the lyrics settings

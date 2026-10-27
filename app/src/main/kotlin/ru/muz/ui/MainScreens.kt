@@ -678,8 +678,7 @@ internal fun PlaylistScreen(
         playlist.id.startsWith("artist:") -> "Исполнитель"
         else -> "Плейлист"
     }
-    Scaffold(
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+    GlassScaffold(
         bottomBar = {
             Column {
                 PlaybackErrorBanner(player.error)

@@ -59,7 +59,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -517,7 +516,7 @@ private fun TextOptions(look: CardLook, onChange: (CardLook) -> Unit) {
     Column(Modifier.fillMaxSize().padding(top = 6.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Размер", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Slider(
+            StyledSlider(
                 value = look.textScale,
                 onValueChange = { onChange(look.copy(textScale = it)) },
                 valueRange = 0.6f..1.5f,

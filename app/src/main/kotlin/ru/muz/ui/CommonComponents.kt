@@ -319,7 +319,7 @@ internal fun CompactPlayer(
     onPrevious: () -> Unit = {},
     swipeEnabled: Boolean = true,
     showProgress: Boolean = true,
-    backdrop: GlassBackdrop? = null,
+    backdrop: GlassBackdrop? = LocalGlassBackdrop.current,
 ) {
     val position by rememberPlaybackPosition(state)
     val progress = if (state.durationMs > 0) (position.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f

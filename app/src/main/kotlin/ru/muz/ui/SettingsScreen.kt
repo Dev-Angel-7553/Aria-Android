@@ -87,9 +87,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -177,8 +174,7 @@ internal fun SettingsScreen(
     BackHandler(enabled = page != SettingsPage.ROOT || query.isNotBlank()) {
         if (page != SettingsPage.ROOT) page = SettingsPage.ROOT else query = ""
     }
-    Scaffold(
-        containerColor = Color.Transparent,
+    GlassScaffold(
         bottomBar = {
             Column {
                 PlaybackErrorBanner(player.error)
@@ -1186,7 +1182,7 @@ private fun <T> ReorderList(
                     onClick = { onChange(enabled.toMutableList().apply { add(index + 1, removeAt(index)) }) },
                     enabled = index < enabled.lastIndex,
                 ) { Icon(Icons.Filled.KeyboardArrowDown, "Ниже") }
-                Switch(
+                AriaSwitch(
                     checked = true,
                     enabled = enabled.size > minEnabled,
                     onCheckedChange = { onChange(enabled - value) },
@@ -1201,7 +1197,7 @@ private fun <T> ReorderList(
             ) {
                 Icon(icon(value), null, tint = SoftText)
                 Text(label(value), color = SoftText, modifier = Modifier.weight(1f).padding(start = 14.dp))
-                Switch(checked = false, enabled = canAdd, onCheckedChange = { onChange(enabled + value) })
+                AriaSwitch(checked = false, enabled = canAdd, onCheckedChange = { onChange(enabled + value) })
             }
         }
     }
@@ -1442,7 +1438,7 @@ private fun SettingSwitch(title: String, subtitle: String?, checked: Boolean, on
             Text(title, fontWeight = FontWeight.SemiBold)
             if (!subtitle.isNullOrBlank()) Text(subtitle, color = SoftText, fontSize = 13.sp)
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        AriaSwitch(checked = checked, onCheckedChange = onChange)
     }
 }
 

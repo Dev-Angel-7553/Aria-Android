@@ -27,8 +27,6 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -195,14 +193,14 @@ internal fun SpeedSheet(
                     Text("Менять тон", fontWeight = FontWeight.SemiBold)
                     Text("Выше скорость — выше голос, как у пластинки", color = SoftText, fontSize = 13.sp)
                 }
-                Switch(checked = changesPitch, onCheckedChange = onChangesPitch)
+                AriaSwitch(checked = changesPitch, onCheckedChange = onChangesPitch)
             }
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Пропускать тишину", fontWeight = FontWeight.SemiBold)
                     Text("Убирает паузы в начале, конце и внутри треков", color = SoftText, fontSize = 13.sp)
                 }
-                Switch(checked = skipSilence, onCheckedChange = onSkipSilence)
+                AriaSwitch(checked = skipSilence, onCheckedChange = onSkipSilence)
             }
             Spacer(Modifier.height(24.dp))
         }
