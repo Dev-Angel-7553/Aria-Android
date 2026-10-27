@@ -12,6 +12,7 @@ import ru.muz.settings.LyricsAlignment
 internal fun lyricsSettingsFor(settings: AppSettings, scale: Float = 1f): LyricsSettings = LyricsSettings.MEASURED.copy(
     modern = settings.lyricsModern,
     blurDistant = settings.lyricsBlur,
+    sharpOnScroll = settings.lyricsSharpOnScroll,
     fillDirection = settings.karaokeDirection,
     fontSize = (settings.lyricsFontSize * scale).sp,
     lineHeight = (settings.lyricsLineHeight * scale).sp,

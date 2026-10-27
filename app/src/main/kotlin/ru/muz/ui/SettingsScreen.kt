@@ -693,6 +693,9 @@ private fun LazyListScope.lyricsSettings(settings: AppSettings, onChange: (AppSe
         AnimatedVisibility(settings.lyricsModern) {
             Column {
                 SettingSwitch("Размывать дальние строки", "На Android 12 и новее", settings.lyricsBlur) { onChange(settings.copy(lyricsBlur = it)) }
+                AnimatedVisibility(settings.lyricsBlur) {
+                    SettingSwitch("Резкий текст при листании", "Пока вы листаете, строки не размыты, потом размытие возвращается", settings.lyricsSharpOnScroll) { onChange(settings.copy(lyricsSharpOnScroll = it)) }
+                }
                 SettingSwitch("Прятать кнопки", "Через 3 секунды без касаний, нажатие возвращает", settings.lyricsAutoHide) { onChange(settings.copy(lyricsAutoHide = it)) }
             }
         }

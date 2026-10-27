@@ -79,7 +79,7 @@ internal fun FlowLyricsScreen(
     }
     LaunchedEffect(discontinuity) { following = true }
     val reduceMotion = ru.muz.ui.LocalReduceMotion.current
-    val canBlur = settings.blurDistant && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val canBlur = settings.blurDistant && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && (following || !settings.sharpOnScroll)
     var shift by remember { mutableFloatStateOf(0f) }
     var elapsed by remember { mutableFloatStateOf(10_000f) }
     var waveFrom by remember { mutableIntStateOf(0) }

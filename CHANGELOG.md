@@ -1,7 +1,8 @@
 # Changelog
 
-## 0.29.1
+## 0.30
 
+- Lyrics stay sharp while you scroll them, so you can see where you are, and blur returns a few seconds after you let go. The switch is in the lyrics settings
 - Glass panels (tab bar, mini player) no longer show a piece from the top of the screen instead of what is actually under them. The position of a panel over the content is now measured on every frame instead of once
 
 ## 0.29

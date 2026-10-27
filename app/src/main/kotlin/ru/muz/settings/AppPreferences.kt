@@ -84,6 +84,7 @@ data class AppSettings(
     val startTab: AppTab = AppTab.HOME,
     val lyricsModern: Boolean = true,
     val lyricsBlur: Boolean = true,
+    val lyricsSharpOnScroll: Boolean = true,
     val lyricsAutoHide: Boolean = true,
     val lyricsModernAnchor: Int = 20,
     val karaokeDirection: KaraokeDirection = KaraokeDirection.HORIZONTAL,
@@ -181,6 +182,7 @@ class AppPreferences(context: Context) {
             startTab = enumValue(prefs.getString("start_tab", null), AppTab.HOME),
             lyricsModern = prefs.getBoolean("lyrics_modern", true),
             lyricsBlur = prefs.getBoolean("lyrics_blur", true),
+            lyricsSharpOnScroll = prefs.getBoolean("lyrics_sharp_on_scroll", true),
             lyricsAutoHide = prefs.getBoolean("lyrics_auto_hide", true),
             lyricsModernAnchor = prefs.getInt("lyrics_modern_anchor", 20).coerceIn(10, 45),
             karaokeDirection = enumValue(prefs.getString("karaoke_direction", null), KaraokeDirection.HORIZONTAL),
@@ -271,6 +273,7 @@ class AppPreferences(context: Context) {
             .putString("start_tab", value.startTab.name)
             .putBoolean("lyrics_modern", value.lyricsModern)
             .putBoolean("lyrics_blur", value.lyricsBlur)
+            .putBoolean("lyrics_sharp_on_scroll", value.lyricsSharpOnScroll)
             .putBoolean("lyrics_auto_hide", value.lyricsAutoHide)
             .putInt("lyrics_modern_anchor", value.lyricsModernAnchor)
             .putString("karaoke_direction", value.karaokeDirection.name)

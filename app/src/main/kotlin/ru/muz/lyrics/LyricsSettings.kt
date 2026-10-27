@@ -39,6 +39,7 @@ data class LyricsSettings(
     val blurredCoverBackground: Boolean = false,
     val modern: Boolean = true,
     val blurDistant: Boolean = true,
+    val sharpOnScroll: Boolean = true,
     val fillDirection: KaraokeDirection = KaraokeDirection.HORIZONTAL,
 ) {
     companion object {
