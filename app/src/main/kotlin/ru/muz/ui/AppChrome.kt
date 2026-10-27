@@ -42,6 +42,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.remember
@@ -352,7 +353,7 @@ internal fun Modifier.pressScale(amount: Float = 0.96f): Modifier {
             awaitEachGesture {
                 awaitFirstDown(requireUnconsumed = false)
                 pressed = true
-                androidx.compose.foundation.gestures.waitForUpOrCancellation()
+                waitForUpOrCancellation()
                 pressed = false
             }
         }

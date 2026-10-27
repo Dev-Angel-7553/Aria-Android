@@ -149,12 +149,14 @@ internal fun MainShell(
     ) { padding ->
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().glassSource(if (glass) backdrop else null)) {
         if (glass) MovingCoverBackground(Accent, strength = 0.55f)
+        val enterMs = animationDuration(240)
+        val exitMs = animationDuration(150)
         androidx.compose.animation.AnimatedContent(
             targetState = tab,
             transitionSpec = {
-                (androidx.compose.animation.fadeIn(tween(animationDuration(240))) +
-                    androidx.compose.animation.scaleIn(tween(animationDuration(240)), initialScale = 0.985f)) togetherWith
-                    androidx.compose.animation.fadeOut(tween(animationDuration(150)))
+                (androidx.compose.animation.fadeIn(tween(enterMs)) +
+                    androidx.compose.animation.scaleIn(tween(enterMs), initialScale = 0.985f)) togetherWith
+                    androidx.compose.animation.fadeOut(tween(exitMs))
             },
             label = "tab-content",
         ) { current ->
