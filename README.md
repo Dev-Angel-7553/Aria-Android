@@ -2,7 +2,7 @@
   <img src="docs/icon.png" width="112" alt="Aria">
 </p>
 
-**English** · [Русский](README.ru.md) · [Download page](https://dev-angel-7553.github.io/Aria-Android/)
+**English** · [Русский](README.ru.md) · [Website](https://aria.dev-angel-7553.dev/) · [Desktop version](https://github.com/Dev-Angel-7553/Aria-Desktop)
 
 # Aria
 
@@ -23,10 +23,11 @@ An unofficial Yandex Music client for Android. It started as a way to get a prop
 - downloading tracks and covers
 - own listening statistics: week, month, year, tops with covers, comparison with the previous period, a summary image
 - a quick settings tile: play and pause
-- background that pulses with the music, sparks from the cover, lyrics cached and found in advance
-- wavy progress bar, player controls that take their color from the cover, search and sorting in the queue
-- interface styles: Classic, Material You, Glass with blurred floating panels, Minimal
-- almost everything is configurable: theme, any accent color, font, text size, home blocks, tabs, player buttons; settings can be saved to a file
+- background that pulses with the music, lyrics cached and found in advance
+- four progress bar styles (line, wave, capsule, thin with a dot), player controls that take their color from the cover, search and sorting in the queue
+- interface styles: Classic, Material You, Glass, Minimal. Glass is liquid glass: panel edges bend what is under them, the rim catches light and follows the tilt of the phone (Android 13+, blur on 12, a solid panel on older versions)
+- tab bar that can be dragged across: the bubble follows the finger, the highlight flows between tabs
+- almost everything is configurable: theme, any accent color, font, text size, home blocks, tabs, player buttons, play button shape, double tap action, playback speed with or without pitch change; settings can be saved to a file
 
 ## Gestures
 
@@ -38,6 +39,7 @@ An unofficial Yandex Music client for Android. It started as a way to get a prop
 | lyrics screen | leave it alone for a few seconds | the control panel hides, a tap brings it back |
 | cover in the player | swipe down | collapse the player |
 | cover in the player | swipe up | queue |
+| tab bar | drag across the tabs | the tab under the finger opens on release |
 
 Tap to seek, double tap and vibration can be turned off in the settings.
 
