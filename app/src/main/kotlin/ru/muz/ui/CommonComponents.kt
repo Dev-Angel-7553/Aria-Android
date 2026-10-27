@@ -54,6 +54,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -340,7 +341,7 @@ internal fun CompactPlayer(
     val tint = rememberMiniTint(state.coverUrl)
     val swipeModifier = if (swipeEnabled) {
         Modifier.pointerInput(state.mediaId) {
-            androidx.compose.foundation.gestures.detectDragGestures(
+            detectDragGestures(
                 onDragStart = { drag = 0f; lift = 0f },
                 onDrag = { change, amount ->
                     change.consume()
