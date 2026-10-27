@@ -245,7 +245,7 @@ private fun FlowLine(
                     0.5f,
                 )
             }
-            .then(if (blur > 0.05f) Modifier.blur(blur.dp) else Modifier),
+            .then(if (blur > 0.05f) Modifier.blur(blur.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded) else Modifier),
     ) {
         Text(
             text,
@@ -341,7 +341,7 @@ private fun PauseDots(
     val blur = if (canBlur && !active) (abs(distance).coerceAtMost(4) * 1.1f) else 0f
     Row(
         modifier.height(40.dp).padding(horizontal = 10.dp)
-            .then(if (blur > 0f) Modifier.blur(blur.dp) else Modifier)
+            .then(if (blur > 0f) Modifier.blur(blur.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded) else Modifier)
             .graphicsLayer {
                 val k = if (active) breath else 1f
                 scaleX = k
