@@ -72,8 +72,6 @@ internal fun LoginScreen(
     language: String = ru.muz.i18n.I18n.SYSTEM,
     onLanguage: (String) -> Unit = {},
 ) {
-    var webLogin by remember { mutableStateOf(false) }
-    var manual by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var raw by remember { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
@@ -108,32 +106,13 @@ internal fun LoginScreen(
         Feature(Icons.Filled.GraphicEq, "Моя волна, чарт и офлайн", "Сохранённое играет и без сети")
         Feature(Icons.Filled.Palette, "Всё под себя", "Стили, цвета, жесты, эквалайзер")
         Spacer(Modifier.height(28.dp))
-        Button(
-            onClick = { webLogin = true },
-            enabled = !busy,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(18.dp * LocalCornerRadiusScale.current),
-        ) {
-            if (busy) {
-                MuzLoadingIndicator(modifier = Modifier.size(28.dp), color = MaterialTheme.colorScheme.onPrimary)
-            } else {
-                Text("Войти через Яндекс", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
-        }
+        Text("Вход по токену", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Откроется обычная страница входа Яндекса прямо в приложении, токен подставится сам",
+            "Токен это ключ к вашему аккаунту Яндекс Музыки. Получить его можно за минуту, шаги ниже.",
             color = SoftText,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(top = 8.dp, start = 4.dp, end = 4.dp),
+            modifier = Modifier.padding(top = 6.dp, bottom = 6.dp),
         )
-        if (message.isNotBlank() && !manual) {
-            Text(message, color = SoftText, modifier = Modifier.padding(top = 12.dp))
-        }
-        TextButton(onClick = { manual = !manual }, modifier = Modifier.padding(top = 10.dp)) {
-            Text(if (manual) "Скрыть ручной вход" else "У меня уже есть токен")
-            Icon(if (manual) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, modifier = Modifier.padding(start = 4.dp).size(18.dp))
-        }
-        androidx.compose.animation.AnimatedVisibility(manual) {
+        run {
         Column {
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
@@ -229,7 +208,6 @@ internal fun LoginScreen(
             )
         }
     }
-    if (webLogin) YandexWebLogin(onToken = { webLogin = false; onConnect(it) }, onDismiss = { webLogin = false })
 }
 
 @Composable
@@ -264,78 +242,6 @@ private fun LanguageChips(selected: String, onSelect: (String) -> Unit) {
             ) {
                 androidx.compose.material3.Text(label, fontWeight = if (active) FontWeight.Bold else FontWeight.Medium, fontSize = 13.sp)
             }
-        }
-    }
-}
-
-@Composable
-private fun YandexWebLogin(onToken: (String) -> Unit, onDismiss: () -> Unit) {
-    var loading by remember { mutableStateOf(true) }
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-    ) {
-        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding().imePadding()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, "Закрыть") }
-                Column(Modifier.weight(1f)) {
-                    Text("Вход в Яндекс", fontWeight = FontWeight.Bold)
-                    Text("oauth.yandex.ru", color = SoftText, fontSize = 12.sp)
-                }
-                if (loading) MuzLoadingIndicator(modifier = Modifier.padding(end = 12.dp).size(22.dp))
-            }
-            Text(
-                "Если Яндекс не принимает код или пароль, закройте это окно и войдите по токену",
-                color = SoftText,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
-            )
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { context ->
-                    android.webkit.WebView(context).apply web@{
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        settings.databaseEnabled = true
-                        settings.javaScriptCanOpenWindowsAutomatically = true
-                        settings.userAgentString = settings.userAgentString
-                            .replace("; wv)", ")")
-                            .replace(Regex("Version/\\d+(\\.\\d+)* "), "")
-                        android.webkit.CookieManager.getInstance().apply {
-                            setAcceptCookie(true)
-                            setAcceptThirdPartyCookies(this@web, true)
-                        }
-                        var done = false
-                        fun check(url: String?): Boolean {
-                            if (done || url == null || !url.contains("access_token=")) return false
-                            val token = TokenInput.extract(url)
-                            if (!TokenInput.looksValid(token)) return false
-                            done = true
-                            post { onToken(token) }
-                            return true
-                        }
-                        webViewClient = object : android.webkit.WebViewClient() {
-                            override fun shouldOverrideUrlLoading(view: android.webkit.WebView, request: android.webkit.WebResourceRequest): Boolean =
-                                check(request.url.toString())
-
-                            override fun onPageStarted(view: android.webkit.WebView, url: String?, favicon: android.graphics.Bitmap?) {
-                                loading = true
-                                check(url)
-                            }
-
-                            override fun onPageFinished(view: android.webkit.WebView, url: String?) {
-                                loading = false
-                                check(url)
-                            }
-
-                            override fun doUpdateVisitedHistory(view: android.webkit.WebView, url: String?, isReload: Boolean) {
-                                check(url)
-                            }
-                        }
-                        loadUrl(TokenInput.OAUTH_URL)
-                    }
-                },
-            )
         }
     }
 }

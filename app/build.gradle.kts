@@ -13,8 +13,8 @@ android {
         applicationId = "ru.muz"
         minSdk = 26
         targetSdk = 35
-        versionCode = 38
-        versionName = "0.38"
+        versionCode = 39
+        versionName = "0.39"
         resourceConfigurations += listOf("ru", "en")
     }
 

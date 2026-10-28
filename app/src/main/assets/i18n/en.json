@@ -1,5 +1,5 @@
 {
- "version": 2,
+ "version": 3,
  "code": "en",
  "name": "English",
  "strings": {
@@ -838,6 +838,8 @@
   "Не удалось воспроизвести трек": "Could not play the track",
   "В очереди нет ID трека": "No track ID in the queue",
   "Токен Яндекс Музыки удалён": "The Yandex Music token is removed",
-  "Если Яндекс не принимает код или пароль, закройте это окно и войдите по токену": "If Yandex does not accept the code or the password, close this window and sign in with a token"
+  "Если Яндекс не принимает код или пароль, закройте это окно и войдите по токену": "If Yandex does not accept the code or the password, close this window and sign in with a token",
+  "Вход по токену": "Sign in with a token",
+  "Токен это ключ к вашему аккаунту Яндекс Музыки. Получить его можно за минуту, шаги ниже.": "A token is the key to your Yandex Music account. Getting it takes a minute, see the steps below."
  }
 }

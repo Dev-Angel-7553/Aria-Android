@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.39
+
+- The in-app "Sign in with Yandex" is removed: Yandex does not accept confirmation codes in an embedded page. Sign in with a token is back on the first screen, with the steps right under the field
+
 ## 0.38
 
 - Menus in Glass, including the three dots menu in the player, are translucent like the other sheets: their rows no longer have a solid background
