@@ -205,8 +205,11 @@ internal fun SettingsScreen(
             }
         },
     ) { scaffoldPadding ->
+        val rootList = androidx.compose.foundation.lazy.rememberLazyListState()
+        val pageList = remember(page) { androidx.compose.foundation.lazy.LazyListState() }
         LazyColumn(
             if (glassStyle) Modifier.fillMaxSize() else Modifier.fillMaxSize().statusBarsPadding().padding(scaffoldPadding),
+            state = if (page == SettingsPage.ROOT) rootList else pageList,
             contentPadding = if (glassStyle) {
                 PaddingValues(top = scaffoldPadding.calculateTopPadding() + 8.dp, bottom = scaffoldPadding.calculateBottomPadding() + 32.dp)
             } else PaddingValues(bottom = 32.dp),

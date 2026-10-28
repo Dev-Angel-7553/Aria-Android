@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.38
+
+- Settings: every section opens at the top, and going back returns to the place in the main list where you were
+
 ## 0.37
 
 - Sign in with Yandex inside the app accepts confirmation codes: the sign in page now keeps Yandex cookies between its own domains and presents itself as a normal browser
