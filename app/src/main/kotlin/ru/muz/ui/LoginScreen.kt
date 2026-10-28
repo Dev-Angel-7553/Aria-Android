@@ -284,12 +284,27 @@ private fun YandexWebLogin(onToken: (String) -> Unit, onDismiss: () -> Unit) {
                 }
                 if (loading) MuzLoadingIndicator(modifier = Modifier.padding(end = 12.dp).size(22.dp))
             }
+            Text(
+                "Если Яндекс не принимает код или пароль, закройте это окно и войдите по токену",
+                color = SoftText,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
+            )
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { context ->
-                    android.webkit.WebView(context).apply {
+                    android.webkit.WebView(context).apply web@{
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
+                        settings.databaseEnabled = true
+                        settings.javaScriptCanOpenWindowsAutomatically = true
+                        settings.userAgentString = settings.userAgentString
+                            .replace("; wv)", ")")
+                            .replace(Regex("Version/\\d+(\\.\\d+)* "), "")
+                        android.webkit.CookieManager.getInstance().apply {
+                            setAcceptCookie(true)
+                            setAcceptThirdPartyCookies(this@web, true)
+                        }
                         var done = false
                         fun check(url: String?): Boolean {
                             if (done || url == null || !url.contains("access_token=")) return false

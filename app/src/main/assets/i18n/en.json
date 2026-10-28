@@ -1,5 +1,5 @@
 {
- "version": 1,
+ "version": 2,
  "code": "en",
  "name": "English",
  "strings": {
@@ -837,6 +837,7 @@
   "Яндекс отклонил аудиопоток. Попробуйте запустить трек ещё раз": "Yandex rejected the audio stream. Try starting the track again",
   "Не удалось воспроизвести трек": "Could not play the track",
   "В очереди нет ID трека": "No track ID in the queue",
-  "Токен Яндекс Музыки удалён": "The Yandex Music token is removed"
+  "Токен Яндекс Музыки удалён": "The Yandex Music token is removed",
+  "Если Яндекс не принимает код или пароль, закройте это окно и войдите по токену": "If Yandex does not accept the code or the password, close this window and sign in with a token"
  }
 }

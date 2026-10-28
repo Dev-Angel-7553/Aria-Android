@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.37
+
+- Sign in with Yandex inside the app accepts confirmation codes: the sign in page now keeps Yandex cookies between its own domains and presents itself as a normal browser
+- A hint in the sign in window points to the token sign in if Yandex still refuses
+
 ## 0.36
 
 - English. Language packs live in the repository and are downloaded from GitHub, so new languages appear without updating the app. The language is chosen in Appearance and on the sign in screen
