@@ -58,7 +58,13 @@ class YandexClient(
                 ?: data.string("login")
                 ?: "Яндекс Музыка",
             serviceAvailable = data.primitive("serviceAvailable")?.booleanOrNull ?: true,
+            hasPlus = result.obj("plus")?.primitive("hasPlus")?.booleanOrNull
+                ?: (data.primitive("serviceAvailable")?.booleanOrNull ?: true),
         ).also { account = it }
+    }
+
+    fun seedAccount(value: Account) {
+        if (account == null) account = value
     }
 
     suspend fun accountLogin(): Result<String> = accountInfo().map { it.login }
@@ -723,7 +729,7 @@ class YandexClient(
         }
     }
 
-    data class Account(val uid: String, val login: String, val displayName: String, val serviceAvailable: Boolean)
+    data class Account(val uid: String, val login: String, val displayName: String, val serviceAvailable: Boolean, val hasPlus: Boolean = true)
     data class Track(
         val id: String, val albumId: String, val title: String, val artist: String, val album: String,
         val durationMs: Long, val coverUrl: String?, val explicit: Boolean, val lyricsAvailable: Boolean,

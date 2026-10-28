@@ -1,0 +1,14 @@
+{
+ "languages": [
+  {
+   "code": "ru",
+   "name": "Русский",
+   "version": 0
+  },
+  {
+   "code": "en",
+   "name": "English",
+   "version": 1
+  }
+ ]
+}

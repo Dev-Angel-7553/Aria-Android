@@ -31,7 +31,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         playback = PlaybackController(this)
-        LibrarySyncScheduler.schedule(this, AppPreferences(this).load().syncIntervalMinutes)
+        val startPrefs = AppPreferences(this).load()
+        ru.muz.i18n.I18n.loadSync(this, startPrefs.language)
+        LibrarySyncScheduler.schedule(this, startPrefs.syncIntervalMinutes)
         if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
 
         setContent {
@@ -45,6 +47,10 @@ class MainActivity : ComponentActivity() {
                     scheduledSync = settings.syncIntervalMinutes
                     LibrarySyncScheduler.schedule(this@MainActivity, settings.syncIntervalMinutes)
                 }
+            }
+            LaunchedEffect(settings.language) {
+                ru.muz.i18n.I18n.select(this@MainActivity, settings.language)
+                ru.muz.i18n.I18n.refresh(this@MainActivity, settings.language)
             }
             val latest by rememberUpdatedState(settings)
             DisposableEffect(Unit) { onDispose { preferences.save(latest) } }

@@ -95,6 +95,12 @@ fun MusicApp(
     val tokenStore = remember { TokenStore(context) }
     val librarySnapshotStore = remember { ru.muz.yandex.LibrarySnapshotStore(context) }
     val listeningStats = remember { ListeningStats.shared(context) }
+    val accountCache = remember { ru.muz.yandex.AccountCache(context) }
+    val online by ru.muz.net.NetworkMonitor.online(context).collectAsState()
+    var offlineStart by remember { mutableStateOf(false) }
+    var plusNotice by remember { mutableStateOf(false) }
+    var plusNoticeShown by remember { mutableStateOf(false) }
+    var cachedIds by remember { mutableStateOf<Set<String>?>(null) }
     val player by playback.state.collectAsState()
     LaunchedEffect(settings.eqBands, settings.crossfadeSeconds) {
         ru.muz.player.AudioEffects.apply(settings.eqBands, settings.crossfadeSeconds)
@@ -201,7 +207,7 @@ fun MusicApp(
     fun toast(text: String) {
         scope.launch {
             snackbar.currentSnackbarData?.dismiss()
-            snackbar.showSnackbar(text)
+            snackbar.showSnackbar(tr(text))
         }
     }
 
@@ -338,13 +344,34 @@ fun MusicApp(
         message = "Подключаем Яндекс Музыку…"
         scope.launch {
             val client = YandexClient(clean)
-            val info = client.accountInfo().getOrElse {
-                message = it.message ?: "Не удалось войти"
+            val info = client.accountInfo().getOrElse { error ->
+                val saved = accountCache.read()
+                val network = !online || error is java.io.IOException || error.cause is java.io.IOException
+                if (network && saved != null && tokenStore.token == clean) {
+                    client.seedAccount(saved)
+                    api = client
+                    account = saved
+                    offlineStart = true
+                    librarySnapshotStore.read(saved.uid)?.let { snapshot ->
+                        applyLibrarySnapshot(snapshot)
+                        client.seedTracks(snapshot.liked)
+                    }
+                    message = ""
+                    busy = false
+                    return@launch
+                }
+                message = error.message ?: "Не удалось войти"
                 busy = false
                 return@launch
             }
             api = client
             account = info
+            offlineStart = false
+            accountCache.save(info)
+            if (!info.hasPlus && !plusNoticeShown) {
+                plusNotice = true
+                plusNoticeShown = true
+            }
             tokenStore.save(clean)
             val cached = librarySnapshotStore.read(info.uid)
             cached?.let(::applyLibrarySnapshot)
@@ -380,8 +407,15 @@ fun MusicApp(
         busy = true
         scope.launch {
             client.playlistTracks(value).fold(
-                onSuccess = { selectedTracks = it },
-                onFailure = { toast(it.message ?: "Не удалось открыть плейлист") },
+                onSuccess = {
+                    selectedTracks = it
+                    librarySnapshotStore.writePlaylist(value.id, it)
+                },
+                onFailure = { error ->
+                    val cached = librarySnapshotStore.readPlaylist(value.id)
+                    if (cached.isNotEmpty()) selectedTracks = cached
+                    else toast(if (!online) "Плейлист ещё не открывался с сетью, без неё его треков нет" else error.message ?: "Не удалось открыть плейлист")
+                },
             )
             busy = false
         }
@@ -432,11 +466,11 @@ fun MusicApp(
         }
     }
 
-    fun playTracks(
+    fun playTracksNow(
         tracks: List<YandexClient.Track>,
         index: Int,
         source: PlaySource,
-        isWave: Boolean = false,
+        isWave: Boolean,
     ) {
         if (tracks.isEmpty()) return
         val chosen = tracks.getOrNull(index)
@@ -454,6 +488,32 @@ fun MusicApp(
         showLyrics = settings.showLyricsByDefault
         if (settings.openPlayerOnTrack) showPlayer = true
     }
+
+    fun playTracks(
+        tracks: List<YandexClient.Track>,
+        index: Int,
+        source: PlaySource,
+        isWave: Boolean = false,
+    ) {
+        if (tracks.isEmpty()) return
+        val restricted = !online || account?.hasPlus == false
+        if (restricted) {
+            scope.launch {
+                val ids = cachedIds ?: withContext(Dispatchers.IO) { AudioCache.cachedTrackIds(context) }.also { cachedIds = it }
+                val chosen = tracks.getOrNull(index)
+                if (chosen == null || chosen.id.substringBefore(':') !in ids) {
+                    if (account?.hasPlus == false) plusNotice = true
+                    else toast("Этот трек не сохранён. Без сети играют только сохранённые треки")
+                    return@launch
+                }
+                val saved = tracks.filter { it.id.substringBefore(':') in ids }
+                playTracksNow(saved, saved.indexOfFirst { it === chosen }.coerceAtLeast(0), source, false)
+            }
+            return
+        }
+        playTracksNow(tracks, index, source, isWave)
+    }
+
 
     fun startStation(station: String, title: String) {
         val client = api ?: return
@@ -966,6 +1026,20 @@ fun MusicApp(
         }
     }
 
+    LaunchedEffect(online, offlineStart) {
+        if (!online || !offlineStart) return@LaunchedEffect
+        val client = api ?: return@LaunchedEffect
+        client.accountInfo().onSuccess { info ->
+            account = info
+            offlineStart = false
+            accountCache.save(info)
+            loadHomeData(client, info)
+        }
+    }
+    val restrictedMode = !online || account?.hasPlus == false
+    LaunchedEffect(restrictedMode, player.mediaId) {
+        cachedIds = if (restrictedMode) withContext(Dispatchers.IO) { AudioCache.cachedTrackIds(context) } else null
+    }
     val hasMini = player.title.isNotBlank()
     val snackbarBottom = when {
         api == null -> 16.dp
@@ -975,11 +1049,12 @@ fun MusicApp(
     }
     androidx.compose.runtime.CompositionLocalProvider(
         LocalNowPlaying provides NowPlaying(player.mediaId, player.isPlaying),
+        LocalPlayableIds provides cachedIds,
     ) {
         Box(Modifier.fillMaxSize()) {
             Surface(Modifier.fillMaxSize(), color = background) {
                 when {
-                    api == null -> LoginScreen(busy, message, ::connect)
+                    api == null -> LoginScreen(busy, message, ::connect, settings.language) { updateSettings(settings.copy(language = it)) }
 
                     showSettings -> SettingsScreen(
                         settings = settings,
@@ -991,6 +1066,7 @@ fun MusicApp(
                         onBack = { showSettings = false },
                         onLogout = {
                             tokenStore.forget()
+                            accountCache.clear()
                             api = null
                             account = null
                             liked = emptyList()
@@ -1273,6 +1349,21 @@ fun MusicApp(
                     },
                 )
             }
+            if (api != null && !showPlayer) {
+                StatusBanner(
+                    offline = !online,
+                    noPlus = account?.hasPlus == false,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    onClick = { if (account?.hasPlus == false) plusNotice = true },
+                )
+            }
+            if (plusNotice) PlusNoticeDialog(
+                onOpen = {
+                    plusNotice = false
+                    runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://plus.yandex.ru")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                },
+                onDismiss = { plusNotice = false },
+            )
             SnackbarHost(
                 snackbar,
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = snackbarBottom),

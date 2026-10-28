@@ -87,7 +87,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -402,6 +401,8 @@ private fun LazyListScope.animationSettings(settings: AppSettings, onChange: (Ap
 }
 
 private fun LazyListScope.appearanceSettings(settings: AppSettings, onChange: (AppSettings) -> Unit) {
+    item { SettingsTitle("Язык") }
+    item { LanguagePicker(settings.language) { onChange(settings.copy(language = it)) } }
     item { SettingsTitle("Стиль") }
     item { StylePicker(settings, onChange) }
     item {
@@ -841,8 +842,7 @@ private fun LazyListScope.playbackSettings(
     }
     item {
         Text(
-            "Прослушанные треки и плейлисты, сохранённые для офлайна, играют без сети. " +
-                "Когда место заканчивается, первыми удаляются давно не игравшие. Новый размер применится после перезапуска приложения.",
+            "Прослушанные треки и плейлисты, сохранённые для офлайна, играют без сети. Когда место заканчивается, первыми удаляются давно не игравшие. Новый размер применится после перезапуска приложения.",
             color = SoftText,
             fontSize = 13.sp,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
@@ -1319,6 +1319,7 @@ private val SETTINGS_INDEX = listOf(
     SettingsEntry("Тема", SettingsPage.APPEARANCE, "тёмная светлая amoled чёрная системная"),
     SettingsEntry("Monet / динамические цвета", SettingsPage.APPEARANCE, "обои цвет"),
     SettingsEntry("Цвета под песню", SettingsPage.APPEARANCE, "обложка трек оттенок акцент"),
+    SettingsEntry("Язык", SettingsPage.APPEARANCE, "language english русский"),
     SettingsEntry("Цвет акцента", SettingsPage.APPEARANCE, "жёлтый синий розовый зелёный оранжевый"),
     SettingsEntry("Скругление интерфейса", SettingsPage.APPEARANCE, "углы форма"),
     SettingsEntry("Скругление обложек", SettingsPage.APPEARANCE, "углы форма"),
@@ -1689,3 +1690,25 @@ private fun QuickTile(icon: ImageVector, title: String, on: Boolean, modifier: M
     }
 }
 
+
+@Composable
+internal fun LanguagePicker(selected: String, onSelect: (String) -> Unit) {
+    val options = listOf(ru.muz.i18n.I18n.SYSTEM to tr("Как в системе")) + ru.muz.i18n.I18n.languages.map { it.code to it.name }
+    Column(Modifier.fillMaxWidth()) {
+        options.forEach { (code, name) ->
+            Row(
+                Modifier.fillMaxWidth().clickable { onSelect(code) }.padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = selected == code, onClick = { onSelect(code) })
+                androidx.compose.material3.Text(name, modifier = Modifier.padding(start = 8.dp), fontWeight = FontWeight.SemiBold)
+            }
+        }
+        Text(
+            "Новые языки подгружаются из GitHub сами, обновлять приложение не нужно",
+            color = SoftText,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+        )
+    }
+}

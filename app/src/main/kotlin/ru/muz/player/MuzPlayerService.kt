@@ -77,6 +77,7 @@ class MuzPlayerService : MediaLibraryService() {
             .build()
         player = exo
         val prefs = ru.muz.settings.AppPreferences(this).load()
+        ru.muz.i18n.I18n.loadSync(this, prefs.language)
         AudioEffects.apply(prefs.eqBands, prefs.crossfadeSeconds)
         exo.skipSilenceEnabled = prefs.skipSilence
         val startSpeed = prefs.playbackSpeedPercent / 100f
@@ -194,7 +195,7 @@ class MuzPlayerService : MediaLibraryService() {
         }
         val liked = currentLiked()
         val button = CommandButton.Builder()
-            .setDisplayName(if (liked) "Убрать из «Мне нравится»" else "Нравится")
+            .setDisplayName(ru.muz.i18n.I18n.t(if (liked) "Убрать из «Мне нравится»" else "Нравится"))
             .setIconResId(if (liked) R.drawable.ic_heart else R.drawable.ic_heart_outline)
             .setSessionCommand(toggleLike)
             .build()

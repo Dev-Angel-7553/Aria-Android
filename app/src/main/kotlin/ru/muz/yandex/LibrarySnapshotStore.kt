@@ -20,7 +20,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
-internal class LibrarySnapshotStore(context: Context) {
+internal class LibrarySnapshotStore(private val context: Context) {
     private val file = AtomicFile(File(context.filesDir, "yandex_library_snapshot_v1.json"))
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -75,6 +75,37 @@ internal class LibrarySnapshotStore(context: Context) {
             }
         }
     }
+
+    private val playlistDir = File(context.filesDir, "playlist_tracks")
+
+    suspend fun writePlaylist(id: String, tracks: List<YandexClient.Track>) = withContext(Dispatchers.IO) {
+        if (tracks.isEmpty()) return@withContext
+        runCatching {
+            playlistDir.mkdirs()
+            val value = buildJsonObject { put("tracks", tracks.asJsonArray { it.toJson() }) }.toString().encodeToByteArray()
+            val target = AtomicFile(File(playlistDir, playlistFile(id)))
+            val output = target.startWrite()
+            try {
+                output.write(value)
+                target.finishWrite(output)
+            } catch (error: Throwable) {
+                target.failWrite(output)
+                throw error
+            }
+        }
+    }
+
+    suspend fun readPlaylist(id: String): List<YandexClient.Track> = withContext(Dispatchers.IO) {
+        runCatching {
+            val target = AtomicFile(File(playlistDir, playlistFile(id)))
+            if (!target.baseFile.exists()) return@runCatching emptyList()
+            json.parseToJsonElement(target.readFully().decodeToString()).jsonObject
+                .array("tracks").mapNotNull { it.asObject()?.toTrack() }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun playlistFile(id: String): String =
+        id.map { if (it.isLetterOrDigit() || it == '-' || it == '_') it else '_' }.joinToString("").take(80) + "_" + id.hashCode().toUInt() + ".json"
 
     companion object {
         fun isFresh(snapshot: LibrarySnapshot?, intervalMinutes: Int, nowMs: Long = System.currentTimeMillis()): Boolean {

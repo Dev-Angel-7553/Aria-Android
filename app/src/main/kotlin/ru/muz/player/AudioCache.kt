@@ -107,6 +107,19 @@ object AudioCache {
         cache.keys.toList().forEach { key -> runCatching { cache.removeResource(key) } }
     }
 
+    fun cachedTrackIds(context: Context): Set<String> {
+        val cache = cache(context) ?: return emptySet()
+        val suffix = ":" + quality(context).name
+        return runCatching {
+            cache.keys.filter { key ->
+                key.startsWith("yamusic:") && key.endsWith(suffix) && run {
+                    val length = ContentMetadata.getContentLength(cache.getContentMetadata(key))
+                    length > 0 && cache.isCached(key, 0, length)
+                }
+            }.mapTo(HashSet()) { it.removePrefix("yamusic:").removeSuffix(suffix) }
+        }.getOrDefault(emptySet())
+    }
+
     fun isCached(context: Context, trackId: String): Boolean {
         val cache = cache(context) ?: return false
         val key = cacheKey(trackId, quality(context))

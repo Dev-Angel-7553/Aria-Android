@@ -28,6 +28,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Lyrics
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Lock
@@ -41,7 +45,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -66,7 +69,11 @@ internal fun LoginScreen(
     busy: Boolean,
     message: String,
     onConnect: (String) -> Unit,
+    language: String = ru.muz.i18n.I18n.SYSTEM,
+    onLanguage: (String) -> Unit = {},
 ) {
+    var webLogin by remember { mutableStateOf(false) }
+    var manual by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var raw by remember { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
@@ -85,23 +92,50 @@ internal fun LoginScreen(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 28.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AndroidView(
-                factory = { android.widget.ImageView(it).apply { setImageResource(ru.muz.R.mipmap.ic_launcher) } },
-                modifier = Modifier.size(64.dp),
-            )
-            Column(Modifier.padding(start = 14.dp)) {
-                Text("Aria", fontSize = 28.sp, fontWeight = FontWeight.Black)
-                Text("Клиент Яндекс Музыки с текстами песен", color = SoftText, fontSize = 13.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            LanguageChips(language, onLanguage)
+        }
+        Spacer(Modifier.height(18.dp))
+        AndroidView(
+            factory = { android.widget.ImageView(it).apply { setImageResource(ru.muz.R.mipmap.ic_launcher) } },
+            modifier = Modifier.size(84.dp),
+        )
+        Spacer(Modifier.height(18.dp))
+        Text("Aria", fontSize = 44.sp, fontWeight = FontWeight.Black)
+        Text("Клиент Яндекс Музыки с текстами песен", color = SoftText, fontSize = 15.sp)
+        Spacer(Modifier.height(26.dp))
+        Feature(Icons.Filled.Lyrics, "Текст по словам", "Строка заливается, пока её поют, дальние строки размыты")
+        Feature(Icons.Filled.GraphicEq, "Моя волна, чарт и офлайн", "Сохранённое играет и без сети")
+        Feature(Icons.Filled.Palette, "Всё под себя", "Стили, цвета, жесты, эквалайзер")
+        Spacer(Modifier.height(28.dp))
+        Button(
+            onClick = { webLogin = true },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(18.dp * LocalCornerRadiusScale.current),
+        ) {
+            if (busy) {
+                MuzLoadingIndicator(modifier = Modifier.size(28.dp), color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Text("Войти через Яндекс", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
-        Spacer(Modifier.height(32.dp))
-        Text("Вход", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Нужен токен Яндекс Музыки — это ключ к вашему аккаунту. Получить его можно за минуту, ниже по шагам.",
+            "Откроется обычная страница входа Яндекса прямо в приложении, токен подставится сам",
             color = SoftText,
-            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 8.dp, start = 4.dp, end = 4.dp),
         )
+        if (message.isNotBlank() && !manual) {
+            Text(message, color = SoftText, modifier = Modifier.padding(top = 12.dp))
+        }
+        TextButton(onClick = { manual = !manual }, modifier = Modifier.padding(top = 10.dp)) {
+            Text(if (manual) "Скрыть ручной вход" else "У меня уже есть токен")
+            Icon(if (manual) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, modifier = Modifier.padding(start = 4.dp).size(18.dp))
+        }
+        androidx.compose.animation.AnimatedVisibility(manual) {
+        Column {
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = raw,
             onValueChange = { raw = it },
@@ -135,7 +169,7 @@ internal fun LoginScreen(
             if (busy) {
                 MuzLoadingIndicator(modifier = Modifier.size(28.dp), color = MaterialTheme.colorScheme.onPrimary)
             } else {
-                Text("Войти", fontWeight = FontWeight.Bold)
+                Text("Войти по токену", fontWeight = FontWeight.Bold)
             }
         }
         if (message.isNotBlank()) {
@@ -183,6 +217,8 @@ internal fun LoginScreen(
                 Text("Подробная инструкция")
             }
         }
+        }
+        }
         Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.Top) {
             Icon(Icons.Filled.Lock, null, tint = SoftText, modifier = Modifier.size(16.dp).padding(top = 2.dp))
             Text(
@@ -190,6 +226,100 @@ internal fun LoginScreen(
                 color = SoftText,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+    }
+    if (webLogin) YandexWebLogin(onToken = { webLogin = false; onConnect(it) }, onDismiss = { webLogin = false })
+}
+
+@Composable
+private fun Feature(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, text: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(40.dp).clip(RoundedCornerShape(13.dp)).background(Accent.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, null, tint = Accent, modifier = Modifier.size(21.dp))
+        }
+        Column(Modifier.padding(start = 14.dp)) {
+            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text(text, color = SoftText, fontSize = 13.sp)
+        }
+    }
+}
+
+@Composable
+private fun LanguageChips(selected: String, onSelect: (String) -> Unit) {
+    val current = ru.muz.i18n.I18n.language
+    Row(
+        Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)).padding(3.dp),
+    ) {
+        listOf("ru" to "RU", "en" to "EN").forEach { (code, label) ->
+            val active = current == code
+            Box(
+                Modifier.clip(RoundedCornerShape(50))
+                    .background(if (active) MaterialTheme.colorScheme.surface else androidx.compose.ui.graphics.Color.Transparent)
+                    .clickable { onSelect(code) }
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+            ) {
+                androidx.compose.material3.Text(label, fontWeight = if (active) FontWeight.Bold else FontWeight.Medium, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun YandexWebLogin(onToken: (String) -> Unit, onDismiss: () -> Unit) {
+    var loading by remember { mutableStateOf(true) }
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding().imePadding()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, "Закрыть") }
+                Column(Modifier.weight(1f)) {
+                    Text("Вход в Яндекс", fontWeight = FontWeight.Bold)
+                    Text("oauth.yandex.ru", color = SoftText, fontSize = 12.sp)
+                }
+                if (loading) MuzLoadingIndicator(modifier = Modifier.padding(end = 12.dp).size(22.dp))
+            }
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { context ->
+                    android.webkit.WebView(context).apply {
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        var done = false
+                        fun check(url: String?): Boolean {
+                            if (done || url == null || !url.contains("access_token=")) return false
+                            val token = TokenInput.extract(url)
+                            if (!TokenInput.looksValid(token)) return false
+                            done = true
+                            post { onToken(token) }
+                            return true
+                        }
+                        webViewClient = object : android.webkit.WebViewClient() {
+                            override fun shouldOverrideUrlLoading(view: android.webkit.WebView, request: android.webkit.WebResourceRequest): Boolean =
+                                check(request.url.toString())
+
+                            override fun onPageStarted(view: android.webkit.WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                                loading = true
+                                check(url)
+                            }
+
+                            override fun onPageFinished(view: android.webkit.WebView, url: String?) {
+                                loading = false
+                                check(url)
+                            }
+
+                            override fun doUpdateVisitedHistory(view: android.webkit.WebView, url: String?, isReload: Boolean) {
+                                check(url)
+                            }
+                        }
+                        loadUrl(TokenInput.OAUTH_URL)
+                    }
+                },
             )
         }
     }

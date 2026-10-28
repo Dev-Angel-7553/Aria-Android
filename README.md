@@ -30,6 +30,10 @@ An unofficial Yandex Music client for Android. It started as a way to get a prop
 - tab bar that can be dragged across: the bubble follows the finger, the highlight flows between tabs
 - almost everything is configurable: theme, any accent color, font, text size, home blocks, tabs, player buttons, play button shape, double tap action, playback speed with or without pitch change; settings can be saved to a file
 
+## Languages
+
+Russian and English. Translations are in `app/src/main/assets/i18n/`: `index.json` lists the languages, each language is a `<code>.json` file with Russian strings as keys. The app downloads these files from GitHub, so a new language or a fixed translation reaches users without a new release: add the file, list it in `index.json` and raise its `version`. `tools/i18n_keys.py` collects all strings from the code.
+
 ## Gestures
 
 | Where | What to do | What happens |

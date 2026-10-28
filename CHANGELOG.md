@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.36
+
+- English. Language packs live in the repository and are downloaded from GitHub, so new languages appear without updating the app. The language is chosen in Appearance and on the sign in screen
+- New sign in screen: "Sign in with Yandex" opens the usual Yandex page inside the app and picks up the token by itself, manual sign in with a token is still there
+- Works without network: the app opens with the saved library instead of the sign in screen, playlists opened before are available, saved tracks play and the rest are dimmed, everything syncs when the network comes back
+- Without an active Plus subscription saved tracks still play, the app explains what is not available
+- More liked tracks load and the app tells how many Yandex did not return
+
 ## 0.35
 
 - More liked tracks load: tracks that Yandex returns under a new id are matched, and the ones it did not return are asked for again in small batches. If some still do not come, the app says how many loaded out of how many

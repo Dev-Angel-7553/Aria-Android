@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -651,8 +650,9 @@ internal fun TrackRow(
     val artSize = (if (compact) 46.dp else 56.dp) * scale
     val nowPlaying = LocalNowPlaying.current
     val current = nowPlaying.matches(value.id)
+    val playable = LocalPlayableIds.current?.contains(value.id.substringBefore(':')) ?: true
     Row(
-        Modifier.fillMaxWidth()
+        Modifier.fillMaxWidth().then(if (playable) Modifier else Modifier.graphicsLayer { alpha = 0.4f })
             .then(if (current) Modifier.background(Accent.copy(alpha = 0.08f)) else Modifier)
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = (if (compact) 5.dp else 8.dp) * scale),

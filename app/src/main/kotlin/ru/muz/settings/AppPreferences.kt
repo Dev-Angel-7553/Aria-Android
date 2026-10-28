@@ -75,6 +75,7 @@ data class AppSettings(
     val skipSilence: Boolean = false,
     val customAccent: Int = 0xFFB388FF.toInt(),
     val trackColors: Boolean = false,
+    val language: String = "system",
     val eqBands: List<Int> = listOf(0, 0, 0, 0, 0),
     val crossfadeSeconds: Int = 0,
     val miniCoverTint: Boolean = true,
@@ -177,6 +178,7 @@ class AppPreferences(context: Context) {
             skipSilence = prefs.getBoolean("skip_silence", false),
             customAccent = prefs.getInt("custom_accent", 0xFFB388FF.toInt()),
             trackColors = prefs.getBoolean("track_colors", false),
+            language = prefs.getString("language", null) ?: "system",
             eqBands = prefs.getString("eq_bands", null)?.split(',')?.mapNotNull { it.trim().toIntOrNull()?.coerceIn(-12, 12) }?.takeIf { it.size == 5 } ?: listOf(0, 0, 0, 0, 0),
             crossfadeSeconds = prefs.getInt("crossfade_seconds", 0).coerceIn(0, 12),
             miniCoverTint = prefs.getBoolean("mini_cover_tint", true),
@@ -272,6 +274,7 @@ class AppPreferences(context: Context) {
             .putBoolean("skip_silence", value.skipSilence)
             .putInt("custom_accent", value.customAccent)
             .putBoolean("track_colors", value.trackColors)
+            .putString("language", value.language)
             .putString("eq_bands", value.eqBands.joinToString(","))
             .putInt("crossfade_seconds", value.crossfadeSeconds)
             .putBoolean("mini_cover_tint", value.miniCoverTint)
