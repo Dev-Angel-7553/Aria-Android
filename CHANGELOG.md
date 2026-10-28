@@ -2,6 +2,7 @@
 
 ## 0.38
 
+- Menus in Glass, including the three dots menu in the player, are translucent like the other sheets: their rows no longer have a solid background
 - Settings: every section opens at the top, and going back returns to the place in the main list where you were
 
 ## 0.37

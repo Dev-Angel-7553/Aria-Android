@@ -1014,6 +1014,7 @@ private fun PlayerSheetAction(
     androidx.compose.material3.ListItem(
         headlineContent = { Text(title) },
         leadingContent = { Icon(icon, null) },
+        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
         modifier = Modifier.fillMaxWidth().then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
             .graphicsLayer { alpha = if (enabled) 1f else 0.4f },
     )
