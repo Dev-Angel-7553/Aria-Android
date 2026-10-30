@@ -28,6 +28,9 @@ An unofficial Yandex Music client for Android. It started as a way to get a prop
 - four progress bar styles (line, wave, capsule, thin with a dot), player controls that take their color from the cover, search and sorting in the queue
 - interface styles: Classic, Material You, Glass, Minimal. Glass is liquid glass: panel edges bend what is under them, the rim catches light and follows the tilt of the phone (Android 13+, blur on 12, a solid panel on older versions)
 - tab bar that can be dragged across: the bubble follows the finger, the highlight flows between tabs
+- Russian and English, new languages are downloaded from GitHub without an app update
+- works without network: the saved library opens, saved tracks play, the rest are dimmed
+- without an active Plus subscription the tracks already saved on the phone still play
 - almost everything is configurable: theme, any accent color, font, text size, home blocks, tabs, player buttons, play button shape, double tap action, playback speed with or without pitch change; settings can be saved to a file
 
 ## Languages
@@ -50,7 +53,9 @@ Tap to seek, double tap and vibration can be turned off in the settings.
 
 ## Installation
 
-The ready-made APK is in [Releases](../../releases). Android 8.0 and newer. After that the app finds new versions on its own and offers to update.
+The ready-made APK is in [Releases](../../releases). Android 8.0 and newer, about 3 MB. After that the app finds new versions on its own and offers to update.
+
+Android may ask to scan the app with Play Protect the first time, because it does not come from Google Play. Allow the scan or tap "Install anyway". Updates install over the previous version and keep your data.
 
 You need a Yandex Music OAuth token to sign in. How to get it is explained right on the login screen: open the Yandex page, sign in, copy the address and paste it into the app. The token is stored only on the phone, in encrypted storage, and is sent only to Yandex. There is no token in the repository or in the APK.
 
