@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.40
+
+- Rounded icons, calmer navigation animations and more consistent text in the player, settings and library
+- Track and playlist menus have grouped actions and scroll when they do not fit on the screen
+- Copy all artist names from the player or track menu; names keep their punctuation and duplicate credits are removed
+- New English strings remain available when a cached language pack is older than the app
+
 ## 0.39
 
 - The in-app "Sign in with Yandex" is removed: Yandex does not accept confirmation codes in an embedded page. Sign in with a token is back on the first screen, with the steps right under the field
