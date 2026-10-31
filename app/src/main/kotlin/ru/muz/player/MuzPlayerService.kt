@@ -47,6 +47,9 @@ class MuzPlayerService : MediaLibraryService() {
     private val setLiked = SessionCommand(MediaExtras.CMD_SET_LIKED, Bundle.EMPTY)
     private val sleepCommand = SessionCommand(MediaExtras.CMD_SLEEP, Bundle.EMPTY)
     private val silenceCommand = SessionCommand(MediaExtras.CMD_SKIP_SILENCE, Bundle.EMPTY)
+    private val queueSnapshots = kotlinx.coroutines.channels.Channel<Triple<List<MediaItem>, Int, Long>>(kotlinx.coroutines.channels.Channel.CONFLATED)
+    private var retryJob: Job? = null
+    private var retryAttempt = 0
     private var sleepJob: Job? = null
     private var sleepEndsAt = 0L
 
@@ -54,6 +57,9 @@ class MuzPlayerService : MediaLibraryService() {
         super.onCreate()
         tree = LibraryTree(this)
         resume = ResumeStore(this)
+        scope.launch(Dispatchers.IO) {
+            for ((items, index, position) in queueSnapshots) runCatching { resume.save(items, index, position) }
+        }
         val audioAttributes = AudioAttributes.Builder()
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .setUsage(C.USAGE_MEDIA)
@@ -101,11 +107,42 @@ class MuzPlayerService : MediaLibraryService() {
                 fadeIn = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && AudioEffects.crossfadeMs > 0
                 applyLoudness(mediaItem)
                 updateLikeButton()
+                retryJob?.cancel()
+                retryAttempt = 0
                 saveQueue()
             }
 
+            override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
+                saveQueue()
+            }
+
+            override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+                resume.savePosition(exo.currentPosition, exo.currentMediaItem?.let(MediaExtras::trackId).orEmpty())
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                retryJob?.cancel()
+                val wait = PlaybackRetry.delayMs(error.errorCode, retryAttempt, (error.cause as? androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException)?.responseCode) ?: return
+                if (!exo.playWhenReady) return
+                val item = exo.currentMediaItem
+                retryAttempt++
+                retryJob = scope.launch {
+                    delay(wait)
+                    if (exo.currentMediaItem != item || !exo.playWhenReady || exo.playerError == null) return@launch
+                    exo.prepare()
+                    exo.play()
+                }
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_READY) {
+                    retryAttempt = 0
+                    retryJob?.cancel()
+                }
+            }
+
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (!isPlaying) resume.savePosition(exo.currentPosition)
+                resume.savePosition(exo.currentPosition, exo.currentMediaItem?.let(MediaExtras::trackId).orEmpty())
             }
 
             override fun onEvents(player: Player, events: Player.Events) {
@@ -136,6 +173,12 @@ class MuzPlayerService : MediaLibraryService() {
         })
         tracker = ListenTracker(this, exo).also { it.start() }
         updateLikeButton()
+        scope.launch {
+            while (true) {
+                delay(5_000)
+                if (exo.currentMediaItem != null) resume.savePosition(exo.currentPosition, exo.currentMediaItem?.let(MediaExtras::trackId).orEmpty())
+            }
+        }
         scope.launch {
             while (true) {
                 delay(50)
@@ -170,7 +213,9 @@ class MuzPlayerService : MediaLibraryService() {
 
     override fun onDestroy() {
         sleepJob?.cancel()
-        player?.let { resume.savePosition(it.currentPosition) }
+        retryJob?.cancel()
+        queueSnapshots.close()
+        player?.let { resume.savePosition(it.currentPosition, it.currentMediaItem?.let(MediaExtras::trackId).orEmpty()) }
         tracker?.release()
         tracker = null
         session?.release()
@@ -205,7 +250,8 @@ class MuzPlayerService : MediaLibraryService() {
     private fun saveQueue() {
         val exo = player ?: return
         val items = (0 until exo.mediaItemCount).map(exo::getMediaItemAt)
-        resume.save(items, exo.currentMediaItemIndex, exo.currentPosition)
+        resume.savePosition(exo.currentPosition, exo.currentMediaItem?.let(MediaExtras::trackId).orEmpty())
+        queueSnapshots.trySend(Triple(items, exo.currentMediaItemIndex, exo.currentPosition))
     }
 
     private var loudnessGain = 1f
@@ -421,7 +467,7 @@ class MuzPlayerService : MediaLibraryService() {
             mediaSession: MediaSession,
             controller: MediaSession.ControllerInfo,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = future {
-            val saved = resume.read() ?: error("Нечего продолжать")
+            val saved = kotlinx.coroutines.withContext(Dispatchers.IO) { resume.read() } ?: error("Нечего продолжать")
             val items = saved.tracks.mapIndexed { index, track -> MediaExtras.item(track, saved.sources[index]) }
             MediaSession.MediaItemsWithStartPosition(items, saved.index, saved.positionMs)
         }

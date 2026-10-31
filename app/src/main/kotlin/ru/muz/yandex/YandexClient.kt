@@ -1,5 +1,6 @@
 package ru.muz.yandex
 
+import ru.muz.net.readText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -75,7 +76,7 @@ class YandexClient(
         val shorts = response.likedTrackElements()
         val embedded = shorts.mapNotNull { item ->
             val obj = item.asObject() ?: return@mapNotNull null
-            (obj.obj("track") ?: obj).asTrack()
+            (obj.obj("track") ?: obj).asTrack()?.let { it.copy(addedAtMs = obj.addedAtMs().takeIf { time -> time > 0 } ?: it.addedAtMs) }
         }
         val ids = shorts.mapNotNull { item ->
             val obj = item.asObject()
@@ -92,7 +93,12 @@ class YandexClient(
             return@runCatching embedded.distinctBy { it.id }
         }
         val fetched = fetchTracks(ids)
-        val result = (embedded + fetched).distinctBy { it.id }
+        val dates = shorts.mapNotNull { value ->
+            val obj = value.asObject() ?: return@mapNotNull null
+            val id = obj.string("id") ?: obj.string("trackId") ?: obj.obj("track")?.string("id") ?: return@mapNotNull null
+            id.substringBefore(':') to obj.addedAtMs()
+        }.toMap()
+        val result = (embedded + fetched).distinctBy { it.id }.map { it.copy(addedAtMs = dates[it.id.substringBefore(':')] ?: it.addedAtMs) }
         lastLikedRequested = ids.distinct().size
         lastLikedLoaded = result.size
         result
@@ -198,7 +204,7 @@ class YandexClient(
         val sequence = result.waveTrackElements()
         sequence.mapNotNull { item ->
             val obj = item.asObject() ?: return@mapNotNull null
-            (obj.obj("track") ?: obj).asTrack()
+            (obj.obj("track") ?: obj).asTrack()?.let { it.copy(addedAtMs = obj.addedAtMs().takeIf { time -> time > 0 } ?: it.addedAtMs) }
         }.distinctBy { it.id }
     }
 
@@ -593,7 +599,7 @@ class YandexClient(
         execute(url, authorized)
     }
 
-    private fun execute(url: String, authorized: Boolean): String {
+    private suspend fun execute(url: String, authorized: Boolean): String {
         val request = baseRequest(url, authorized).build()
         return execute(request)
     }
@@ -604,9 +610,9 @@ class YandexClient(
             .header("Accept-Language", "ru")
             .apply { if (authorized) header("Authorization", "OAuth $token") }
 
-    private fun execute(request: Request): String {
-        return http.newCall(request).execute().use { response ->
-            val body = response.body?.string().orEmpty()
+    private suspend fun execute(request: Request): String {
+        return http.newCall(request).readText().let { response ->
+            val body = response.body
             val apiError = body.extractYandexError()
             when {
                 response.code == 401 -> throw YandexHttpException(response.code, "Токен отклонён: войдите заново")
@@ -622,6 +628,9 @@ class YandexClient(
             }
         }
     }
+
+    private fun JsonObject.addedAtMs(): Long = sequenceOf("timestamp", "addedAt", "added").mapNotNull { string(it) }
+        .mapNotNull { raw -> runCatching { Instant.parse(raw).toEpochMilli() }.getOrNull() }.firstOrNull() ?: 0L
 
     private fun JsonObject.asTrack(): Track? {
         val id = string("id") ?: string("trackId") ?: return null
@@ -642,6 +651,12 @@ class YandexClient(
         return Track(
             id = id,
             artistId = artistId,
+            addedAtMs = addedAtMs(),
+            artists = array("artists").orEmpty().mapNotNull { value ->
+                val obj = value.asObject() ?: return@mapNotNull null
+                val name = obj.string("name")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                Artist(obj.string("id").orEmpty(), name, coverUrl(obj.string("coverUri")), 0)
+            }.distinctBy { it.id.ifBlank { it.name.lowercase() } },
             albumId = string("albumId") ?: album?.string("id").orEmpty(),
             title = title,
             artist = artists,
@@ -711,7 +726,7 @@ class YandexClient(
 
     private fun JsonObject.trackList(): List<Track> = array("tracks").orEmpty().mapNotNull { item ->
         val obj = item.asObject() ?: return@mapNotNull null
-        (obj.obj("track") ?: obj).asTrack()
+        (obj.obj("track") ?: obj).asTrack()?.let { it.copy(addedAtMs = obj.addedAtMs().takeIf { time -> time > 0 } ?: it.addedAtMs) }
     }
 
     private fun JsonObject.albumTrackList(): List<Track> {
@@ -719,13 +734,13 @@ class YandexClient(
         if (direct != null) {
             return direct.mapNotNull { item ->
                 val obj = item.asObject() ?: return@mapNotNull null
-                (obj.obj("track") ?: obj).asTrack()
+                (obj.obj("track") ?: obj).asTrack()?.let { it.copy(addedAtMs = obj.addedAtMs().takeIf { time -> time > 0 } ?: it.addedAtMs) }
             }
         }
         return array("volumes").orEmpty().flatMap { volume ->
             (volume as? JsonArray).orEmpty().mapNotNull { item ->
                 val obj = item.asObject() ?: return@mapNotNull null
-                (obj.obj("track") ?: obj).asTrack()
+                (obj.obj("track") ?: obj).asTrack()?.let { it.copy(addedAtMs = obj.addedAtMs().takeIf { time -> time > 0 } ?: it.addedAtMs) }
             }
         }
     }
@@ -736,6 +751,8 @@ class YandexClient(
         val durationMs: Long, val coverUrl: String?, val explicit: Boolean, val lyricsAvailable: Boolean,
         val artistId: String = "",
         val loudness: Float = Float.NaN,
+        val artists: List<Artist> = emptyList(),
+        val addedAtMs: Long = 0,
     )
     data class Playlist(
         val id: String, val ownerUid: String, val kind: String, val uuid: String, val title: String,

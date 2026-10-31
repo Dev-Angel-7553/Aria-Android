@@ -32,6 +32,8 @@ class PlaybackController(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state
+    private val _queue = MutableStateFlow<List<YandexTrack>>(emptyList())
+    val queue: StateFlow<List<YandexTrack>> = _queue
     private var controller: MediaController? = null
     private var pendingQueue: Triple<List<YandexTrack>, Int, PlaySource>? = null
     private var currentSource = PlaySource.other()
@@ -62,6 +64,8 @@ class PlaybackController(context: Context) {
 
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
+            if (events.contains(Player.EVENT_TIMELINE_CHANGED)) publishQueue(player)
+            if (player.playerError == null) playbackError = ""
             publish(player)
         }
 
@@ -97,6 +101,7 @@ class PlaybackController(context: Context) {
                 }
                 controller = connected
                 connected.addListener(listener)
+                publishQueue(connected)
                 publish(connected)
                 sendSleep(MediaExtras.SLEEP_QUERY)
                 pendingQueue?.also { (tracks, index, source) ->
@@ -151,6 +156,52 @@ class PlaybackController(context: Context) {
                 it.play()
             }
             publish(it)
+        }
+    }
+
+    fun retry() {
+        controller?.let {
+            playbackError = ""
+            it.prepare()
+            it.play()
+            publish(it)
+        }
+    }
+
+    data class QueueSnapshot(val items: List<MediaItem>, val index: Int, val positionMs: Long, val playing: Boolean)
+
+    fun queueSnapshot(): QueueSnapshot? = controller?.let {
+        QueueSnapshot((0 until it.mediaItemCount).map(it::getMediaItemAt), it.currentMediaItemIndex, it.currentPosition, it.playWhenReady)
+    }
+
+    fun restoreQueue(snapshot: QueueSnapshot) {
+        controller?.let { current ->
+            if (snapshot.items.isEmpty()) { current.clearMediaItems(); return }
+            val item = current.currentMediaItem
+            val token = item?.mediaMetadata?.extras?.getString(MediaExtras.QUEUE_ENTRY)
+            val keptIndex = if (token != null) snapshot.items.indexOfFirst { it.mediaMetadata.extras?.getString(MediaExtras.QUEUE_ENTRY) == token }
+                else snapshot.items.indexOfFirst { it == item }
+            val index = if (keptIndex >= 0) keptIndex else snapshot.index.coerceIn(0, snapshot.items.lastIndex.coerceAtLeast(0))
+            val position = if (keptIndex >= 0) current.currentPosition else snapshot.positionMs
+            val playing = current.playWhenReady
+            current.setMediaItems(snapshot.items, index, position)
+            current.prepare()
+            current.playWhenReady = playing
+        }
+    }
+
+    fun removeFromQueue(index: Int) { controller?.takeIf { index in 0 until it.mediaItemCount }?.removeMediaItem(index) }
+    fun moveInQueue(from: Int, to: Int) { controller?.takeIf { from in 0 until it.mediaItemCount && to in 0 until it.mediaItemCount }?.moveMediaItem(from, to) }
+
+    private fun publishQueue(player: Player) {
+        _queue.value = (0 until player.mediaItemCount).map { index ->
+            val item = player.getMediaItemAt(index)
+            val metadata = item.mediaMetadata
+            val extras = metadata.extras
+            YandexTrack(MediaExtras.trackId(item), metadata.title?.toString().orEmpty(), metadata.artist?.toString().orEmpty(),
+                metadata.artworkUri?.toString(), extras?.getString(MediaExtras.ALBUM_ID).orEmpty(),
+                extras?.getLong(MediaExtras.DURATION) ?: 0L, extras?.getBoolean(MediaExtras.LIKED) ?: false,
+                extras?.getFloat(MediaExtras.LOUDNESS, Float.NaN) ?: Float.NaN, ArtistMetadata.decode(extras?.getString(MediaExtras.ARTISTS).orEmpty()))
         }
     }
 
@@ -240,6 +291,7 @@ class PlaybackController(context: Context) {
             sampledAtMs = android.os.SystemClock.elapsedRealtime(),
             playbackSpeed = player.playbackParameters.speed,
             discontinuity = discontinuity,
+            queueIndex = player.currentMediaItemIndex,
         )
     }
 
@@ -254,5 +306,6 @@ class PlaybackController(context: Context) {
         val durationMs: Long = 0,
         val liked: Boolean = false,
         val loudness: Float = Float.NaN,
+        val artists: List<ru.muz.yandex.YandexClient.Artist> = emptyList(),
     )
 }

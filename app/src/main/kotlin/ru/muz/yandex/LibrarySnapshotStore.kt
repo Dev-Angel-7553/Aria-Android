@@ -133,6 +133,8 @@ private fun <T> List<T>.asJsonArray(transform: (T) -> JsonObject): JsonArray = b
 private fun YandexClient.Track.toJson() = buildJsonObject {
     put("id", id); put("albumId", albumId); put("title", title); put("artist", artist)
     put("album", album); put("durationMs", durationMs); put("coverUrl", coverUrl?.let(::JsonPrimitive) ?: JsonNull)
+    put("addedAtMs", addedAtMs)
+    put("artists", ru.muz.player.ArtistMetadata.encode(artists))
     put("explicit", explicit); put("lyricsAvailable", lyricsAvailable); put("artistId", artistId)
 }
 
@@ -154,6 +156,8 @@ private fun JsonObject.toTrack(): YandexClient.Track? {
         id = id, albumId = string("albumId"), title = string("title"), artist = string("artist"),
         album = string("album"), durationMs = long("durationMs"), coverUrl = nullableString("coverUrl"),
         explicit = boolean("explicit"), lyricsAvailable = boolean("lyricsAvailable"), artistId = string("artistId"),
+        artists = ru.muz.player.ArtistMetadata.decode(string("artists")),
+        addedAtMs = long("addedAtMs"),
     )
 }
 

@@ -18,6 +18,7 @@ data class PlayerState(
     val sampledAtMs: Long = 0,
     val playbackSpeed: Float = 1f,
     val discontinuity: Long = 0,
+    val queueIndex: Int = -1,
 ) {
     val progress: Float
         get() = if (durationMs <= 0) 0f else (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)

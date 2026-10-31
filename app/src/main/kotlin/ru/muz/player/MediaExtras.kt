@@ -8,6 +8,8 @@ import ru.muz.yandex.PlaySource
 import ru.muz.yandex.YandexClient
 
 internal object MediaExtras {
+    const val QUEUE_ENTRY = "aria.queueEntry"
+    const val ARTISTS = "aria.artists"
     const val ALBUM_ID = "aria.albumId"
     const val DURATION = "aria.durationMs"
     const val FROM = "aria.from"
@@ -33,7 +35,9 @@ internal object MediaExtras {
     const val ARG_LIKED = "liked"
 
     fun bundle(track: PlaybackController.YandexTrack, source: PlaySource): Bundle = Bundle().apply {
+        putString(QUEUE_ENTRY, java.util.UUID.randomUUID().toString())
         putString(ALBUM_ID, track.albumId)
+        putString(ARTISTS, ArtistMetadata.encode(track.artists))
         putLong(DURATION, track.durationMs)
         putBoolean(LIKED, track.liked)
         if (!track.loudness.isNaN()) putFloat(LOUDNESS, track.loudness)
@@ -84,6 +88,7 @@ internal object MediaExtras {
         durationMs = value.durationMs,
         liked = liked,
         loudness = value.loudness,
+        artists = value.artists,
     )
 
     fun trackId(item: MediaItem): String =
