@@ -30,9 +30,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.TrendingDown
 import androidx.compose.material.icons.rounded.TrendingUp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -209,7 +207,7 @@ internal fun StatisticsScreen(
         }
     }
     if (confirmReset) {
-        AlertDialog(
+        AriaDialog(
             onDismissRequest = { confirmReset = false },
             title = { Text("Сбросить статистику?") },
             text = { Text("Удалится вся локальная история прослушиваний. Яндекс Музыку это не затронет.") },
@@ -242,7 +240,7 @@ private fun HeroCard(data: PeriodStats, onShare: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Вы слушали ${data.period.headline()}", color = SoftText, fontSize = 13.sp, modifier = Modifier.weight(1f))
             if (data.hasData) {
-                Box(Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)).clickable(onClick = onShare), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)).clickable(onClickLabel = tr("Поделиться итогами"), onClick = onShare), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.Share, "Поделиться итогами", modifier = Modifier.size(18.dp))
                 }
             }

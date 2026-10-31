@@ -32,7 +32,7 @@ import ru.muz.settings.AppStyle
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AriaSheet(onDismissRequest: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    if (LocalAppStyle.current != AppStyle.GLASS) {
+    if (LocalAppStyle.current != AppStyle.GLASS || LocalHighContrast.current) {
         ModalBottomSheet(onDismissRequest = onDismissRequest, content = content)
         return
     }

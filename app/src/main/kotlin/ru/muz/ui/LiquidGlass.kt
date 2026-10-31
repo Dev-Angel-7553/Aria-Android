@@ -11,6 +11,8 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
@@ -166,6 +168,7 @@ internal fun Modifier.glass(
     corner: androidx.compose.ui.unit.Dp? = null,
 ): Modifier {
     val surface = MaterialTheme.colorScheme.surface
+    if (LocalHighContrast.current) return this.background(surface, shape).border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
     val dark = surface.luminance() < 0.4f
     val tint = if (dark) Color(0xFF16161A) else Color.White
     val light by LocalGlassLight.current

@@ -4,6 +4,12 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -47,32 +53,23 @@ internal fun AriaSwitch(
     val haptic = LocalHapticFeedback.current
     val change by rememberUpdatedState(onCheckedChange)
     val current by rememberUpdatedState(checked)
-    var pressed by remember { mutableStateOf(false) }
+    val interactions = remember { MutableInteractionSource() }
+    val pressed by interactions.collectIsPressedAsState()
     val progress by animateFloatAsState(if (checked) 1f else 0f, spring(dampingRatio = 0.72f, stiffness = 520f), label = "switch-progress")
     val stretch by animateFloatAsState(if (pressed) 1f else 0f, tween(animationDuration(140)), label = "switch-stretch")
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.4f
     val off = if (dark) Color(0xFF39393D) else Color(0xFFE5E5EA)
     Canvas(
-        modifier
+        modifier.minimumInteractiveComponentSize()
             .size(51.dp, 31.dp)
-            .semantics {
-                role = Role.Switch
-                stateDescription = if (checked) "Вкл" else "Выкл"
-            }
-            .pointerInput(enabled) {
-                if (!enabled) return@pointerInput
-                detectTapGestures(
-                    onPress = {
-                        pressed = true
-                        tryAwaitRelease()
-                        pressed = false
-                    },
-                    onTap = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        change?.invoke(!current)
-                    },
-                )
-            },
+            .then(if (onCheckedChange != null) Modifier.toggleable(
+                value = checked, enabled = enabled, role = Role.Switch,
+                interactionSource = interactions, indication = null,
+                onValueChange = { value ->
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    change?.invoke(value)
+                },
+            ) else Modifier.semantics { toggleableState = ToggleableState(checked); role = Role.Switch }),
     ) {
         val width = size.width
         val height = size.height

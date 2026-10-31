@@ -43,6 +43,7 @@ val LocalSeekStyle = staticCompositionLocalOf { ru.muz.settings.SeekStyle.LINE }
 val LocalAnimateLoading = staticCompositionLocalOf { true }
 val LocalPlayerTransitions = staticCompositionLocalOf { true }
 val LocalReduceMotion = staticCompositionLocalOf { false }
+internal val LocalHighContrast = staticCompositionLocalOf { false }
 internal val LocalPlayShape = staticCompositionLocalOf { PlayShape.CIRCLE }
 internal val LocalMiniPrevious = staticCompositionLocalOf { false }
 
@@ -105,6 +106,10 @@ fun MuzTheme(settings: AppSettings, content: @Composable () -> Unit) {
         )
     }
 
+    if (settings.highContrast) {
+        scheme = scheme.copy(onSurfaceVariant = scheme.onSurface, outline = scheme.onSurface, outlineVariant = scheme.onSurface.copy(alpha = 0.55f))
+    }
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -126,6 +131,8 @@ fun MuzTheme(settings: AppSettings, content: @Composable () -> Unit) {
         LocalAnimationSpeed provides settings.animationSpeedPercent.coerceIn(50, 200) / 100f,
         LocalReduceMotion provides settings.reduceMotion,
         LocalAppStyle provides settings.appStyle,
+        LocalIconPack provides settings.iconPack,
+        LocalHighContrast provides settings.highContrast,
         LocalGlassLight provides rememberGlassLight(settings.appStyle == ru.muz.settings.AppStyle.GLASS),
         LocalGlassStrength provides settings.glassStrength / 100f,
         LocalSeekStyle provides settings.seekStyle,

@@ -18,6 +18,10 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.DataSaverOn
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -81,9 +85,7 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Sync
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -168,6 +170,7 @@ internal fun SettingsScreen(
 ) {
     var page by remember { mutableStateOf(SettingsPage.ROOT) }
     var query by remember { mutableStateOf("") }
+    var showStorage by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     BackHandler(enabled = page != SettingsPage.ROOT || query.isNotBlank()) {
@@ -223,7 +226,10 @@ internal fun SettingsScreen(
                 SettingsPage.ROOT -> {
                     item { AccountCard(account, settings.reportListening) { page = SettingsPage.ACCOUNT } }
                     if (query.isBlank()) {
-                        item { SettingsTitle("Стиль") }
+                        item { SettingSwitch("Повышенный контраст", "Чёткий текст и непрозрачные панели в Glass", settings.highContrast) { onChange(settings.copy(highContrast = it)) } }
+    item { SettingsTitle("Набор иконок") }
+    item { IconPackPicker(settings, onChange) }
+    item { SettingsTitle("Стиль") }
                         item { StylePicker(settings, onChange) }
                         item { QuickToggles(settings, onChange) }
                     }
@@ -335,7 +341,10 @@ internal fun SettingsScreen(
                 SettingsPage.HOME -> homeSettings(settings, onChange)
                 SettingsPage.PLAYER -> playerSettings(settings, onChange)
                 SettingsPage.LYRICS -> lyricsSettings(settings, onChange)
-                SettingsPage.PLAYBACK -> playbackSettings(settings, onChange, cacheUsedBytes, onClearCache, onRefreshCache)
+                SettingsPage.PLAYBACK -> {
+                    item { SettingsActionRow(Icons.Rounded.DeleteSweep, "Память приложения", "Музыка, обложки и временные файлы", true) { showStorage = true } }
+                    playbackSettings(settings, onChange, cacheUsedBytes, { showStorage = true }, onRefreshCache)
+                }
                 SettingsPage.ABOUT -> aboutSettings(
                     settings, onChange, appVersion, availableUpdate, updateChecking, updateProgress,
                     onCheckUpdates, onInstallUpdate,
@@ -347,8 +356,9 @@ internal fun SettingsScreen(
             }
         }
     }
+    if (showStorage) StorageDialog({ showStorage = false }, onRefreshCache)
     if (confirmReset) {
-        AlertDialog(
+        AriaDialog(
             onDismissRequest = { confirmReset = false },
             title = { Text("Сбросить настройки?") },
             text = { Text("Тема, плеер, списки и экран текста вернутся к исходным значениям. Аккаунт и статистика останутся.") },
@@ -359,7 +369,7 @@ internal fun SettingsScreen(
         )
     }
     if (confirmLogout) {
-        AlertDialog(
+        AriaDialog(
             onDismissRequest = { confirmLogout = false },
             title = { Text("Выйти из аккаунта?") },
             text = { Text("Токен будет удалён с устройства. Чтобы вернуться, понадобится вставить его снова.") },
@@ -482,6 +492,8 @@ private fun LazyListScope.appearanceSettings(settings: AppSettings, onChange: (A
             onChange(
                 settings.copy(
                     themeMode = defaults.themeMode,
+                    iconPack = defaults.iconPack,
+                    highContrast = defaults.highContrast,
                     appFont = defaults.appFont,
                     textScalePercent = defaults.textScalePercent,
                     useDynamicColors = defaults.useDynamicColors,
@@ -845,7 +857,7 @@ private fun LazyListScope.playbackSettings(
     }
     item {
         Text(
-            "Прослушанные треки и плейлисты, сохранённые для офлайна, играют без сети. Когда место заканчивается, первыми удаляются давно не игравшие. Новый размер применится после перезапуска приложения.",
+            "Кэш прослушивания очищается автоматически при заполнении. Музыка, сохранённая для офлайна, хранится отдельно и удаляется только вручную. Новый размер кэша применится после перезапуска приложения.",
             color = SoftText,
             fontSize = 13.sp,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
@@ -1360,6 +1372,9 @@ private val SETTINGS_INDEX = listOf(
     SettingsEntry("Прослушивания в Яндексе", SettingsPage.ACCOUNT, "история моя волна"),
     SettingsEntry("Синхронизация библиотеки", SettingsPage.ACCOUNT, "обновить"),
     SettingsEntry("Выйти из аккаунта", SettingsPage.ACCOUNT, "токен"),
+    SettingsEntry("Набор иконок", SettingsPage.APPEARANCE, "контурные угловатые двухцветные"),
+    SettingsEntry("Повышенный контраст", SettingsPage.APPEARANCE, "доступность читаемость glass"),
+    SettingsEntry("Память приложения", SettingsPage.PLAYBACK, "офлайн музыка обложки временные очистить"),
     SettingsEntry("Обновления", SettingsPage.ABOUT, "версия github"),
     SettingsEntry("Свой цвет", SettingsPage.APPEARANCE, "палитра hex акцент"),
     SettingsEntry("Шрифт", SettingsPage.APPEARANCE, "гарнитура засечки моноширинный"),
@@ -1459,24 +1474,24 @@ private fun SettingsTitle(value: String) {
 @Composable
 private fun SettingSwitch(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = 20.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onChange).padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text(title, fontWeight = FontWeight.SemiBold)
             if (!subtitle.isNullOrBlank()) Text(subtitle, color = SoftText, fontSize = 13.sp)
         }
-        AriaSwitch(checked = checked, onCheckedChange = onChange)
+        AriaSwitch(checked = checked, onCheckedChange = null, modifier = Modifier.clearAndSetSemantics { })
     }
 }
 
 @Composable
 private fun SettingRadio(title: String, selected: Boolean, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().selectable(selected = selected, role = Role.RadioButton, onClick = onClick).padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = onClick)
+        RadioButton(selected = selected, onClick = null)
         Text(title, modifier = Modifier.padding(start = 8.dp), fontWeight = FontWeight.SemiBold)
     }
 }

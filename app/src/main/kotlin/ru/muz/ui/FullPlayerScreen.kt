@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -46,7 +47,6 @@ import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.IconButton
@@ -120,6 +120,8 @@ internal fun FullPlayerScreen(
     onRepeat: () -> Unit,
     onRetryLyrics: () -> Unit,
     queue: List<YandexClient.Track>,
+    onRemoveQueueTrack: (Int) -> Unit,
+    onMoveQueueTrack: (Int, Int) -> Unit,
     transferBusy: Boolean,
     transferMessage: String,
     onCopyTransferLog: () -> Unit = {},
@@ -442,7 +444,7 @@ internal fun FullPlayerScreen(
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             )
-            val currentIndex = queue.indexOfFirst { it.id == state.mediaId }.coerceAtLeast(0)
+            val currentIndex = state.queueIndex.coerceAtLeast(0)
             val queueState = androidx.compose.foundation.lazy.rememberLazyListState(
                 initialFirstVisibleItemIndex = (currentIndex - 2).coerceAtLeast(0),
             )
@@ -464,7 +466,7 @@ internal fun FullPlayerScreen(
                 )
                 androidx.compose.material3.TextButton(onClick = { queueSort = queueSort.next() }) { Text(queueSort.label) }
             }
-            LazyColumn(Modifier.fillMaxWidth().height(480.dp), state = queueState) {
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp), state = queueState) {
                 itemsIndexed(entries, key = { _, entry -> "${entry.index}:${entry.track.id}" }) { _, entry ->
                     val index = entry.index
                     val track = entry.track
@@ -479,14 +481,32 @@ internal fun FullPlayerScreen(
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                             Text(
                                 track.title,
-                                color = if (track.id == state.mediaId) Accent else MaterialTheme.colorScheme.onSurface,
+                                color = if (index == state.queueIndex) Accent else MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(track.artist, color = SoftText, fontSize = 13.sp, maxLines = 1)
                         }
-                        if (track.id == state.mediaId) {
+                        var actions by remember(index, track.id) { mutableStateOf(false) }
+                        Box {
+                            androidx.compose.material3.IconButton(onClick = { actions = true }) {
+                                Icon(Icons.Rounded.MoreHoriz, "Действия с треком")
+                            }
+                            androidx.compose.material3.DropdownMenu(expanded = actions, onDismissRequest = { actions = false }) {
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text("Выше в очереди") }, enabled = index > 0,
+                                    onClick = { actions = false; onMoveQueueTrack(index, index - 1) },
+                                )
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text("Ниже в очереди") }, enabled = index < queue.lastIndex,
+                                    onClick = { actions = false; onMoveQueueTrack(index, index + 1) },
+                                )
+                                androidx.compose.material3.DropdownMenuItem(text = { Text("Удалить из очереди") },
+                                    onClick = { actions = false; onRemoveQueueTrack(index) })
+                            }
+                        }
+                        if (index == state.queueIndex) {
                             NowPlayingBars(state.isPlaying, Modifier.size(width = 18.dp, height = 16.dp))
                         } else {
                             Text(formatDuration(track.durationMs), color = SoftText, fontSize = 12.sp)
@@ -509,7 +529,7 @@ private fun PlayerHeader(
     onCancelSleep: () -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 8.dp),
+        Modifier.fillMaxWidth().heightIn(min = 58.dp).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Свернуть") }
@@ -719,53 +739,58 @@ private fun StandardPlayer(
     privateLabel: String = "",
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.padding(horizontal = 20.dp)) {
-        if (privateLabel.isNotBlank()) {
-            Text(
-                "Приватный режим: прослушивания не уходят в Яндекс",
-                color = SoftText,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxSize()) {
+        val scrollable = maxHeight < 500.dp || androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
+        Column(Modifier.fillMaxSize().then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier).padding(horizontal = 20.dp)) {
+            val artworkModifier = if (scrollable) Modifier.height(160.dp) else Modifier.weight(1f)
+            if (privateLabel.isNotBlank()) {
+                Text(
+                    "Приватный режим: прослушивания не уходят в Яндекс",
+                    color = SoftText,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                )
+            }
+            if (layout == PlayerLayout.COVER_FIRST) {
+                PlayerArtwork(
+                    settingsSwipe = gesturesEnabled,
+                    state = state, artworkPercent = artworkPercent,
+                    onSwipeUp = onQueue, onSwipeDown = onDismiss, modifier = artworkModifier,
+                    onDoubleTap = if (doubleTapLike) ({
+                        when (doubleTapAction) {
+                            ru.muz.settings.DoubleTapAction.LIKE -> if (!liked) onLike()
+                            ru.muz.settings.DoubleTapAction.PLAY_PAUSE -> onPlayPause()
+                            ru.muz.settings.DoubleTapAction.NEXT -> onNext()
+                        }
+                    }) else null,
+                    showHeart = doubleTapAction == ru.muz.settings.DoubleTapAction.LIKE,
+                )
+            }
+                PlayerDetails(
+                state, liked, onPlayPause, onPrevious, onNext, onSeek, onLike, onShuffle, onRepeat,
+                onQueue, transferBusy, transferMessage, onCopyTransferLog, onDownload, onDownloadCover, onOpenCover, onShareLink, onShareFile, onArtist, onCopyArtist,
+                tools, onQuote,
             )
-        }
-        if (layout == PlayerLayout.COVER_FIRST) {
-            PlayerArtwork(
-                settingsSwipe = gesturesEnabled,
-                state = state, artworkPercent = artworkPercent,
-                onSwipeUp = onQueue, onSwipeDown = onDismiss, modifier = Modifier.weight(1f),
-                onDoubleTap = if (doubleTapLike) ({
-                    when (doubleTapAction) {
-                        ru.muz.settings.DoubleTapAction.LIKE -> if (!liked) onLike()
-                        ru.muz.settings.DoubleTapAction.PLAY_PAUSE -> onPlayPause()
-                        ru.muz.settings.DoubleTapAction.NEXT -> onNext()
-                    }
-                }) else null,
-                showHeart = doubleTapAction == ru.muz.settings.DoubleTapAction.LIKE,
-            )
-        }
-            PlayerDetails(
-            state, liked, onPlayPause, onPrevious, onNext, onSeek, onLike, onShuffle, onRepeat,
-            onQueue, transferBusy, transferMessage, onCopyTransferLog, onDownload, onDownloadCover, onOpenCover, onShareLink, onShareFile, onArtist, onCopyArtist,
-            tools, onQuote,
-        )
-        if (layout == PlayerLayout.CONTROLS_FIRST) {
-            PlayerArtwork(
-                settingsSwipe = gesturesEnabled,
-                state = state, artworkPercent = artworkPercent,
-                onSwipeUp = onQueue, onSwipeDown = onDismiss, modifier = Modifier.weight(1f),
-                onDoubleTap = if (doubleTapLike) ({
-                    when (doubleTapAction) {
-                        ru.muz.settings.DoubleTapAction.LIKE -> if (!liked) onLike()
-                        ru.muz.settings.DoubleTapAction.PLAY_PAUSE -> onPlayPause()
-                        ru.muz.settings.DoubleTapAction.NEXT -> onNext()
-                    }
-                }) else null,
-                showHeart = doubleTapAction == ru.muz.settings.DoubleTapAction.LIKE,
-            )
+            if (layout == PlayerLayout.CONTROLS_FIRST) {
+                PlayerArtwork(
+                    settingsSwipe = gesturesEnabled,
+                    state = state, artworkPercent = artworkPercent,
+                    onSwipeUp = onQueue, onSwipeDown = onDismiss, modifier = artworkModifier,
+                    onDoubleTap = if (doubleTapLike) ({
+                        when (doubleTapAction) {
+                            ru.muz.settings.DoubleTapAction.LIKE -> if (!liked) onLike()
+                            ru.muz.settings.DoubleTapAction.PLAY_PAUSE -> onPlayPause()
+                            ru.muz.settings.DoubleTapAction.NEXT -> onNext()
+                        }
+                    }) else null,
+                    showHeart = doubleTapAction == ru.muz.settings.DoubleTapAction.LIKE,
+                )
+            }
         }
     }
 }
+
 
 @Composable
 private fun PlayerArtwork(
@@ -902,7 +927,7 @@ private fun PlayerDetails(
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(transferMessage, color = SoftText, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                 if (!transferBusy && transferMessage.contains("Не удалось", ignoreCase = true)) {
-                    IconButton(onClick = onCopyTransferLog, modifier = Modifier.size(30.dp)) {
+                    IconButton(onClick = onCopyTransferLog, modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Rounded.ContentCopy, "Скопировать диагностический лог", tint = SoftText, modifier = Modifier.size(16.dp))
                     }
                 }

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,7 +34,8 @@ internal fun ImportDialog(
     onClose: () -> Unit,
     onCopyMissing: () -> Unit,
 ) {
-    AlertDialog(
+    AriaDialog(
+        scrollable = false,
         onDismissRequest = { if (state.finished) onClose() },
         title = { Text(if (state.finished) "Импорт завершён" else "Импорт плейлиста") },
         text = {

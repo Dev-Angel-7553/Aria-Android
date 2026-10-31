@@ -23,6 +23,7 @@ import ru.muz.update.AppRelease
 import ru.muz.update.AppUpdate
 import ru.muz.update.UpdateInstaller
 import ru.muz.yandex.PlaySource
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.LibraryMusic
@@ -91,7 +92,9 @@ fun MusicApp(
     var offlineStart by remember { mutableStateOf(false) }
     var plusNotice by remember { mutableStateOf(false) }
     var plusNoticeShown by remember { mutableStateOf(false) }
+    var cacheRevision by remember { mutableStateOf(0) }
     var cachedIds by remember { mutableStateOf<Set<String>?>(null) }
+    val screenStates = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     val player by playback.state.collectAsState()
     LaunchedEffect(settings.eqBands, settings.crossfadeSeconds) {
         ru.muz.player.AudioEffects.apply(settings.eqBands, settings.crossfadeSeconds)
@@ -120,6 +123,7 @@ fun MusicApp(
     var selectedPlaylist by remember { mutableStateOf<YandexClient.Playlist?>(null) }
     var selectedCollectionTitle by remember { mutableStateOf<String?>(null) }
     var selectedTracks by remember { mutableStateOf<List<YandexClient.Track>>(emptyList()) }
+    var artistChoices by remember { mutableStateOf<List<YandexClient.Artist>>(emptyList()) }
     var queue by remember { mutableStateOf<List<YandexClient.Track>>(emptyList()) }
     var lyrics by remember { mutableStateOf(Lyrics.EMPTY) }
     var lyricsLoading by remember { mutableStateOf(false) }
@@ -158,6 +162,14 @@ fun MusicApp(
     var offlineBusy by remember { mutableStateOf(false) }
     var availableUpdate by remember { mutableStateOf<AppRelease?>(null) }
     var updateProgress by remember { mutableStateOf<Float?>(null) }
+    var updateJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var updateControl by remember { mutableStateOf<ru.muz.net.TransferControl?>(null) }
+    var pendingUpdate by remember { mutableStateOf<AppRelease?>(null) }
+    var transferJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var transferControl by remember { mutableStateOf<ru.muz.net.TransferControl?>(null) }
+    var transferProgress by remember { mutableStateOf<Float?>(null) }
+    var offlineJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var offlineProgress by remember { mutableStateOf<Float?>(null) }
     var updateChecking by remember { mutableStateOf(false) }
     var cacheUsedBytes by remember { mutableStateOf(0L) }
     val updatePrefs = remember { context.getSharedPreferences("updates", android.content.Context.MODE_PRIVATE) }
@@ -202,6 +214,18 @@ fun MusicApp(
         }
     }
 
+    fun changeQueue(label: String, action: () -> Unit) {
+        val before = playback.queueSnapshot()
+        action()
+        val expected = playback.queueSnapshot()?.items
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            if (snackbar.showSnackbar(tr(label), tr("Отменить"), withDismissAction = true) == androidx.compose.material3.SnackbarResult.ActionPerformed && before != null) {
+                if (playback.queueSnapshot()?.items == expected) playback.restoreQueue(before) else toast("Очередь уже изменилась")
+            }
+        }
+    }
+
     fun copyArtist(value: String) {
         val credit = ru.muz.text.ArtistCredit.copyText(value)
         if (credit.isBlank()) return
@@ -232,19 +256,46 @@ fun MusicApp(
     }
 
     fun installUpdate(release: AppRelease) {
-        if (updateProgress != null) return
+        if (updateJob?.isActive == true) return
         if (!UpdateInstaller.canInstall(context)) {
-            toast("Разрешите Aria устанавливать приложения и нажмите «Обновить» ещё раз")
+            pendingUpdate = release
             UpdateInstaller.openInstallPermission(context)
             return
         }
+        pendingUpdate = null
+        val control = ru.muz.net.TransferControl()
+        updateControl = control
         updateProgress = 0f
-        scope.launch {
-            UpdateInstaller.download(context, release) { updateProgress = it }.fold(
-                onSuccess = { UpdateInstaller.install(context, it) },
-                onFailure = { toast(it.message ?: "Не удалось скачать обновление") },
-            )
-            updateProgress = null
+        updateJob = scope.launch {
+            try {
+                val apk = UpdateInstaller.download(context, release, control) { updateProgress = it }.getOrThrow()
+                UpdateInstaller.install(context, apk)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                toast("Загрузка обновления отменена")
+            } catch (error: Exception) {
+                toast(error.message ?: "Не удалось скачать обновление")
+            } finally {
+                updateProgress = null
+                updateControl = null
+            }
+        }
+    }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                pendingUpdate?.let { release ->
+                    if (UpdateInstaller.canInstall(context)) installUpdate(release)
+                    else { pendingUpdate = null; toast("Для обновления нужно разрешить установку приложений") }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            updateControl?.cancel()
+            transferControl?.cancel()
         }
     }
 
@@ -581,45 +632,60 @@ fun MusicApp(
     }
 
     fun downloadTrack(target: YandexClient.Track?, shareFile: Boolean) {
+        if (transferBusy) return
         val client = api ?: return
         val track = target ?: return
+        val control = ru.muz.net.TransferControl()
+        transferControl = control
         transferBusy = true
+        transferProgress = null
         transferDiagnostic = ""
         transferMessage = if (shareFile) "Готовим аудиофайл…" else "Скачиваем трек…"
-        scope.launch {
-            TrackTransfer.download(context, client, track, forSharing = shareFile).fold(
-                onSuccess = { uri ->
-                    if (shareFile) {
-                        TrackTransfer.shareFile(context, uri, track)
-                        transferMessage = "Аудиофайл готов"
-                    } else {
-                        transferMessage = "Сохранено в Music/Aria"
-                    }
-                },
-                onFailure = {
-                    transferMessage = "Не удалось скачать трек"
-                    transferDiagnostic = it.stackTraceToString()
-                },
-            )
-            transferBusy = false
+        transferJob = scope.launch {
+            try {
+                val uri = TrackTransfer.download(context, client, track, shareFile, control) { done, total ->
+                    transferProgress = if (total > 0) done.toFloat() / total else null
+                }.getOrThrow()
+                if (shareFile) TrackTransfer.shareFile(context, uri, track)
+                transferMessage = if (shareFile) "Аудиофайл готов" else "Сохранено в Music/Aria"
+                toast(transferMessage)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                transferMessage = "Загрузка отменена"
+            } catch (error: Exception) {
+                transferMessage = "Не удалось скачать трек"
+                transferDiagnostic = error.stackTraceToString()
+                toast(transferMessage)
+            } finally {
+                transferBusy = false
+                transferControl = null
+                transferProgress = null
+            }
         }
     }
 
     fun downloadCover(target: YandexClient.Track?) {
-        api ?: return
+        if (transferBusy) return
         val track = target ?: return
+        val control = ru.muz.net.TransferControl()
+        transferControl = control
         transferBusy = true
-        transferDiagnostic = ""
+        transferProgress = null
         transferMessage = "Сохраняем обложку…"
-        scope.launch {
-            TrackTransfer.downloadCover(context, track).fold(
-                onSuccess = { transferMessage = "Обложка сохранена в Pictures/Aria" },
-                onFailure = {
-                    transferMessage = "Не удалось сохранить обложку"
-                    transferDiagnostic = it.stackTraceToString()
-                },
-            )
-            transferBusy = false
+        transferJob = scope.launch {
+            try {
+                TrackTransfer.downloadCover(context, track, control).getOrThrow()
+                transferMessage = "Обложка сохранена в Pictures/Aria"
+                toast(transferMessage)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                transferMessage = "Загрузка отменена"
+            } catch (error: Exception) {
+                transferMessage = "Не удалось сохранить обложку"
+                transferDiagnostic = error.stackTraceToString()
+                toast(transferMessage)
+            } finally {
+                transferBusy = false
+                transferControl = null
+            }
         }
     }
 
@@ -652,6 +718,15 @@ fun MusicApp(
             }
             artistLoading = false
         }
+    }
+
+    fun chooseArtist(track: YandexClient.Track?) {
+        val target = track ?: return
+        val artists = target.artists.ifEmpty {
+            listOf(YandexClient.Artist(target.artistId, target.artist, target.coverUrl, 0))
+        }
+        if (artists.size == 1) openArtist(artists.first().name, artists.first().id)
+        else artistChoices = artists
     }
 
     fun toggleLike(target: YandexClient.Track? = currentTrack) {
@@ -834,12 +909,9 @@ fun MusicApp(
 
     fun saveOffline(playlist: YandexClient.Playlist) {
         if (offlineBusy) return
-        if (settings.cacheSizeMb <= 0) {
-            toast("Включите кэш в настройках воспроизведения")
-            return
-        }
         offlineBusy = true
-        scope.launch {
+        offlineProgress = 0f
+        offlineJob = scope.launch {
             try {
                 val tracks = tracksFor(playlist)
                 if (tracks.isEmpty()) {
@@ -847,14 +919,17 @@ fun MusicApp(
                     return@launch
                 }
                 toast("Сохраняем ${ru.muz.text.tracksLabel(tracks.size)} для офлайна…")
-                val saved = AudioCache.saveOffline(context, tracks.map { it.id }) { _, _ -> }
-                cacheUsedBytes = AudioCache.usedBytes(context)
+                val saved = AudioCache.saveOffline(context, tracks.map { it.id }, tracks.map(::playable)) { done, total -> offlineProgress = if (total > 0) done.toFloat() / total else 0f }
+                cacheUsedBytes = withContext(Dispatchers.IO) { AudioCache.usedBytes(context) }
+                cacheRevision++
                 toast(
                     if (saved == tracks.size) "Готово: ${ru.muz.text.tracksLabel(saved)} доступны без сети"
                     else "Сохранено ${saved} из ${tracks.size}, остальные не удалось скачать",
                 )
             } finally {
                 offlineBusy = false
+                offlineProgress = null
+                cacheRevision++
             }
         }
     }
@@ -914,6 +989,15 @@ fun MusicApp(
         transferDiagnostic = ""
         delay(300)
         statsSnapshot = listeningStats.snapshot()
+    }
+    LaunchedEffect(playback) {
+        playback.queue.collect { tracks ->
+            val known = (queue + selectedTracks + liked + searchResults.tracks).associateBy { it.id }
+            queue = tracks.map { value ->
+                known[value.id] ?: YandexClient.Track(value.id, value.albumId, value.title, value.artist, "", value.durationMs,
+                    value.coverUrl, false, true, value.artists.firstOrNull()?.id.orEmpty(), value.loudness, value.artists)
+            }
+        }
     }
     LaunchedEffect(player.mediaId, queue, settings.preloadArtwork) {
         if (!settings.preloadArtwork || queue.isEmpty()) return@LaunchedEffect
@@ -1005,7 +1089,6 @@ fun MusicApp(
                         )
                     }
                     if (fresh.isNotEmpty()) {
-                        queue = queue + fresh
                         wave = (wave + fresh).distinctBy { it.id.substringBefore(':') }
                     }
                 },
@@ -1038,7 +1121,7 @@ fun MusicApp(
         }
     }
     val restrictedMode = !online || account?.hasPlus == false
-    LaunchedEffect(restrictedMode, player.mediaId) {
+    LaunchedEffect(restrictedMode, player.mediaId, cacheRevision) {
         cachedIds = if (restrictedMode) withContext(Dispatchers.IO) { AudioCache.cachedTrackIds(context) } else null
     }
     val hasMini = player.title.isNotBlank()
@@ -1051,6 +1134,8 @@ fun MusicApp(
     androidx.compose.runtime.CompositionLocalProvider(
         LocalNowPlaying provides NowPlaying(player.mediaId, player.isPlaying),
         LocalPlayableIds provides cachedIds,
+        LocalPlaybackRetry provides playback::retry,
+        LocalStorageBusy provides (transferBusy || offlineBusy || updateProgress != null),
     ) {
         Box(Modifier.fillMaxSize()) {
             Surface(Modifier.fillMaxSize(), color = background) {
@@ -1100,6 +1185,7 @@ fun MusicApp(
                             scope.launch {
                                 withContext(Dispatchers.IO) { AudioCache.clear(context) }
                                 cacheUsedBytes = withContext(Dispatchers.IO) { AudioCache.usedBytes(context) }
+                                cacheRevision++
                                 toast("Кэш очищен")
                             }
                         },
@@ -1107,6 +1193,7 @@ fun MusicApp(
                         onExportSettings = { runCatching { settingsExporter.launch("Aria настройки.json") } },
                         onImportSettings = { runCatching { settingsImporter.launch(arrayOf("application/json", "text/*", "application/octet-stream")) } },
                         onRefreshCache = {
+                            cacheRevision++
                             scope.launch { cacheUsedBytes = withContext(Dispatchers.IO) { AudioCache.usedBytes(context) } }
                         },
                     )
@@ -1171,6 +1258,8 @@ fun MusicApp(
                         },
                         onRetryLyrics = { lyricsRequestKey++ },
                         queue = queue,
+                        onRemoveQueueTrack = { index -> changeQueue("Трек удалён из очереди") { playback.removeFromQueue(index) } },
+                        onMoveQueueTrack = { from, to -> changeQueue("Порядок изменён") { playback.moveInQueue(from, to) } },
                         transferBusy = transferBusy,
                         transferMessage = transferMessage,
                         onCopyTransferLog = {
@@ -1184,13 +1273,13 @@ fun MusicApp(
                         onDownload = { downloadTrack(currentTrack, false) },
                         onShareLink = { currentTrack?.let { TrackTransfer.shareLink(context, it) } },
                         onShareFile = { downloadTrack(currentTrack, true) },
-                        onArtist = { openArtist(player.artist, currentTrack?.artistId.orEmpty()) },
+                        onArtist = { chooseArtist(currentTrack) },
                         onDownloadCover = { downloadCover(currentTrack) },
                         onOpenCover = { currentTrack?.let { TrackTransfer.openCover(context, it) } },
                         onCopyArtist = { copyArtist(player.artist) },
                     )
 
-                    selectedPlaylist != null -> PlaylistScreen(
+                    selectedPlaylist != null -> screenStates.SaveableStateProvider("playlist:${selectedPlaylist!!.id}") { PlaylistScreen(
                         playlist = selectedPlaylist!!.copy(title = selectedCollectionTitle ?: selectedPlaylist!!.title),
                         tracks = selectedTracks,
                         busy = busy || artistLoading,
@@ -1221,7 +1310,7 @@ fun MusicApp(
                         },
                         offlineBusy = offlineBusy,
                         onSaveOffline = { saveOffline(selectedPlaylist!!) },
-                    )
+                    ) }
 
                     else -> MainShell(
                         haptics = settings.haptics,
@@ -1358,6 +1447,16 @@ fun MusicApp(
                 },
                 onDismiss = { plusNotice = false },
             )
+            if (transferBusy || offlineBusy || updateProgress != null) {
+                androidx.compose.foundation.layout.Column(
+                    Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = snackbarBottom),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+                ) {
+                    if (transferBusy) TransferPanel(transferMessage, transferProgress) { transferControl?.cancel(); transferJob?.cancel() }
+                    if (offlineBusy) TransferPanel("Сохраняем для офлайна…", offlineProgress) { offlineJob?.cancel() }
+                    if (updateProgress != null) TransferPanel("Скачиваем обновление…", updateProgress) { updateControl?.cancel(); updateJob?.cancel() }
+                }
+            }
             SnackbarHost(
                 snackbar,
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = snackbarBottom),
@@ -1369,6 +1468,10 @@ fun MusicApp(
                 applyWaveSettings(mood, diversity, language)
             }) { showWaveSettings = false }
         }
+        if (artistChoices.isNotEmpty()) ArtistPicker(artistChoices, onSelect = { artist ->
+            artistChoices = emptyList()
+            openArtist(artist.name, artist.id)
+        }, onDismiss = { artistChoices = emptyList() })
         actionTrack?.let { track ->
             TrackActionsSheet(
                 track = track,
@@ -1376,19 +1479,15 @@ fun MusicApp(
                 busy = transferBusy,
                 onDismiss = { actionTrack = null },
                 onPlayNext = {
-                    playback.playNext(playable(track))
-                    val current = queue.indexOfFirst { it.id == player.mediaId }
-                    queue = queue.toMutableList().apply { add((current + 1).coerceIn(0, size), track) }
+                    changeQueue("Будет играть следующим") { playback.playNext(playable(track)) }
                     actionTrack = null
-                    toast("Будет играть следующим")
                 },
                 onAddToQueue = {
-                    playback.addToQueue(playable(track))
-                    queue = queue + track
+                    changeQueue("Добавлено в очередь") { playback.addToQueue(playable(track)) }
                     actionTrack = null
-                    toast("Добавлено в очередь")
                 },
                 onCopyArtist = { copyArtist(track.artist); actionTrack = null },
+                onArtist = { actionTrack = null; chooseArtist(track) },
                 onToggleLike = { toggleLike(track); actionTrack = null },
                 onDownload = { downloadTrack(track, false); actionTrack = null },
                 onShareLink = { TrackTransfer.shareLink(context, track); actionTrack = null },
@@ -1418,19 +1517,36 @@ fun MusicApp(
                 },
                 onDownload = {
                     actionPlaylist = null
-                    scope.launch {
-                        val tracks = tracksFor(playlist)
+                    if (!transferBusy) {
+                        val control = ru.muz.net.TransferControl()
+                        transferControl = control
                         transferBusy = true
-                        toast("Скачиваем плейлист…")
-                        transferMessage = "Скачиваем плейлист: 0 из ${tracks.size}"
-                        var saved = 0
-                        tracks.forEach { track ->
-                            TrackTransfer.download(context, api ?: return@launch, track, false).onSuccess { saved++ }
-                            transferMessage = "Скачиваем плейлист: ${saved} из ${tracks.size}"
+                        transferProgress = 0f
+                        transferMessage = "Скачиваем плейлист…"
+                        transferJob = scope.launch {
+                            try {
+                                val client = api ?: return@launch
+                                val tracks = tracksFor(playlist)
+                                var saved = 0
+                                tracks.forEachIndexed { index, track ->
+                                    ensureActive()
+                                    transferMessage = "Скачиваем плейлист: ${index + 1} из ${tracks.size}"
+                                    TrackTransfer.download(context, client, track, false, control) { done, total ->
+                                        transferProgress = (index + if (total > 0) done.toFloat() / total else 0f) / tracks.size.coerceAtLeast(1)
+                                    }.onSuccess { saved++ }
+                                    ensureActive()
+                                }
+                                toast("Сохранено ${saved} из ${tracks.size}")
+                            } catch (error: kotlinx.coroutines.CancellationException) {
+                                transferMessage = "Загрузка отменена"
+                            } catch (error: Exception) {
+                                toast(error.message ?: "Не удалось скачать плейлист")
+                            } finally {
+                                transferBusy = false
+                                transferControl = null
+                                transferProgress = null
+                            }
                         }
-                        transferBusy = false
-                        transferMessage = "Плейлист сохранён: ${ru.muz.text.tracksLabel(saved)}"
-                        toast(transferMessage)
                     }
                 },
                 onShare = { TrackTransfer.sharePlaylistLink(context, playlist); actionPlaylist = null },

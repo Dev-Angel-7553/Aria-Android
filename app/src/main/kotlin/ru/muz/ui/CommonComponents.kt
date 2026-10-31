@@ -27,12 +27,12 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.input.pointer.positionChange
@@ -165,7 +165,12 @@ internal fun ThinSeekBar(
     val density = androidx.compose.ui.platform.LocalDensity.current
     val inset = with(density) { (if (style == ru.muz.settings.SeekStyle.CAPSULE) 6.dp else 10.dp).toPx() }
     Box(
-        modifier.fillMaxWidth().height(if (style == ru.muz.settings.SeekStyle.CAPSULE) 36.dp else 44.dp)
+        modifier.fillMaxWidth().height(48.dp)
+            .semantics {
+                contentDescription = tr("Позиция воспроизведения")
+                progressBarRangeInfo = ProgressBarRangeInfo(shown.coerceIn(0f, 1f), 0f..1f)
+                if (enabled) setProgress { value -> progressCallback(value.coerceIn(0f, 1f)); true } else disabled()
+            }
             .pointerInput(enabled, mediaId) {
                 if (!enabled) return@pointerInput
                 fun at(x: Float) = ((x - inset) / (size.width - inset * 2f).coerceAtLeast(1f)).coerceIn(0f, 1f)
@@ -507,16 +512,18 @@ internal fun LoadingCards(modifier: Modifier = Modifier) {
     }
 }
 
+internal val LocalPlaybackRetry = androidx.compose.runtime.staticCompositionLocalOf<() -> Unit> { {} }
+
 @Composable
 internal fun PlaybackErrorBanner(message: String) {
     if (message.isBlank()) return
-    Text(
-        message,
-        color = MaterialTheme.colorScheme.onErrorContainer,
-        fontSize = 13.sp,
-        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer)
-            .padding(horizontal = 16.dp, vertical = 9.dp),
-    )
+    val retry = LocalPlaybackRetry.current
+    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer).padding(start = 16.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Text(message, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 13.sp,
+            modifier = Modifier.weight(1f).padding(vertical = 12.dp))
+        androidx.compose.material3.TextButton(onClick = retry) { Text("Повторить", color = MaterialTheme.colorScheme.onErrorContainer) }
+    }
 }
 
 @Composable

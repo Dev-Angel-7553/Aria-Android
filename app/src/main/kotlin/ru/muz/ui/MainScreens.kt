@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -45,7 +47,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -56,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.togetherWith
@@ -438,7 +440,7 @@ private fun LibraryScreen(
         if (!busy && shown.isEmpty()) {
             item { EmptyHint("Любимые треки появятся здесь после обновления") }
         }
-        itemsIndexed(visible, key = { _, it -> it.id }) { index, track ->
+        itemsIndexed(visible, key = { index, track -> "$index:${track.id}" }) { index, track ->
             TrackRow(track, compact, listScalePercent, onTrackMore) { onPlay(shown, index) }
         }
         if (visible.size < shown.size) {
@@ -651,24 +653,13 @@ internal fun PlaylistScreen(
     offlineBusy: Boolean = false,
     onSaveOffline: () -> Unit = {},
 ) {
+    val focusManager = LocalFocusManager.current
     var exportMenu by remember { mutableStateOf(false) }
-    var query by remember(playlist.id) { mutableStateOf("") }
-    var sort by remember(playlist.id) { mutableStateOf("Порядок") }
+    var query by rememberSaveable(playlist.id) { mutableStateOf("") }
+    var sort by rememberSaveable(playlist.id) { mutableStateOf("Порядок") }
     var visibleCount by remember(playlist.id, listPageSize) { mutableStateOf(listPageSize) }
-    val shown = remember(tracks, query, sort) {
-        val filtered = query.trim().takeIf { it.isNotEmpty() }?.let { needle ->
-            tracks.filter {
-                it.title.contains(needle, ignoreCase = true) ||
-                    it.artist.contains(needle, ignoreCase = true) ||
-                    it.album.contains(needle, ignoreCase = true)
-            }
-        } ?: tracks
-        when (sort) {
-            "Название" -> filtered.sortedBy { it.title.lowercase() }
-            "Исполнитель" -> filtered.sortedBy { it.artist.lowercase() }
-            else -> filtered
-        }
-    }
+    val shown = remember(tracks, query, sort) { playlistView(tracks, query, sort) }
+    androidx.compose.runtime.LaunchedEffect(query, sort, listPageSize) { visibleCount = listPageSize }
     val isAlbum = playlist.id.startsWith("album:")
     val visible = remember(shown, visibleCount) { shown.take(visibleCount) }
     val isLiked = playlist.id == "liked"
@@ -694,7 +685,7 @@ internal fun PlaylistScreen(
     ) { scaffoldPadding ->
         val glassList = LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS
         LazyColumn(
-            if (glassList) Modifier.fillMaxSize() else Modifier.fillMaxSize().padding(scaffoldPadding),
+            if (glassList) Modifier.fillMaxSize().imePadding() else Modifier.fillMaxSize().imePadding().padding(scaffoldPadding),
             contentPadding = if (glassList) {
                 PaddingValues(top = scaffoldPadding.calculateTopPadding() + 20.dp, bottom = scaffoldPadding.calculateBottomPadding() + 32.dp)
             } else PaddingValues(top = 20.dp, bottom = 32.dp),
@@ -779,7 +770,7 @@ internal fun PlaylistScreen(
                     Button(
                         onClick = { if (shown.isNotEmpty()) onPlay(shown, 0) },
                         enabled = shown.isNotEmpty(),
-                        modifier = Modifier.height(48.dp),
+                        modifier = Modifier.heightIn(min = 48.dp),
                     ) {
                         Icon(Icons.Rounded.PlayArrow, null)
                         Spacer(Modifier.padding(horizontal = 3.dp))
@@ -800,7 +791,7 @@ internal fun PlaylistScreen(
             }
         }
         if (busy) item { LoadingCards() }
-        if (tracks.size >= 20) {
+        if (tracks.isNotEmpty()) {
             item {
                 OutlinedTextField(
                     value = query,
@@ -811,6 +802,8 @@ internal fun PlaylistScreen(
                     trailingIcon = if (query.isNotEmpty()) {
                         { IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Очистить") } }
                     } else null,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                     label = { Text("Найти в ${if (isLiked) "любимых треках" else "списке"}") },
                 )
             }
@@ -820,14 +813,14 @@ internal fun PlaylistScreen(
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(listOf("Порядок", "Название", "Исполнитель")) { value ->
+                items(listOf("Порядок", "Название", "Исполнитель", "Обратный порядок") + if (tracks.any { it.addedAtMs > 0 }) listOf("Сначала новые", "Сначала старые") else emptyList()) { value ->
                     FilterChip(selected = sort == value, onClick = { sort = value }, label = { Text(value) })
                 }
             }
         }
         if (!busy && shown.isEmpty()) item { EmptyHint(if (query.isBlank()) "Здесь пока нет треков" else "Ничего не найдено") }
-        itemsIndexed(visible, key = { _, it -> it.id }) { index, track ->
-            TrackRow(track, compact, listScalePercent, onMore = onTrackMore) { onPlay(shown, index) }
+        itemsIndexed(visible, key = { index, track -> "$index:${track.id}" }) { index, track ->
+            TrackRow(track, compact, listScalePercent, onMore = onTrackMore) { focusManager.clearFocus(); onPlay(shown, index) }
         }
         if (visible.size < shown.size) {
             item {

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,7 +32,6 @@ import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -110,7 +110,7 @@ internal fun ModernLyricsHeader(
 ) {
     Column(Modifier.fillMaxWidth()) {
         Box(
-            Modifier.fillMaxWidth().height(22.dp).clickable(onClick = onBack),
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClickLabel = tr("Свернуть плеер"), onClick = onBack),
             contentAlignment = Alignment.Center,
         ) {
             Box(Modifier.width(38.dp).height(5.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)))
@@ -229,7 +229,7 @@ internal fun DockOverlay(visible: Boolean, modifier: Modifier, onShow: () -> Uni
             exit = androidx.compose.animation.fadeOut(tween(duration / 2)),
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
-            Box(Modifier.fillMaxWidth().height(36.dp).clickable(onClick = onShow), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClickLabel = tr("Открыть текст песни"), onClick = onShow), contentAlignment = Alignment.Center) {
                 Box(Modifier.width(56.dp).height(4.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)))
             }
         }

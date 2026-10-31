@@ -24,7 +24,6 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.Composable
@@ -50,6 +49,7 @@ internal fun TrackActionsSheet(
     onShareLink: () -> Unit,
     onShareFile: () -> Unit,
     onCopyArtist: () -> Unit = {},
+    onArtist: () -> Unit = {},
     onDownloadCover: () -> Unit = {},
     onOpenCover: () -> Unit = {},
     onTrackWave: (() -> Unit)? = null,
@@ -65,6 +65,7 @@ internal fun TrackActionsSheet(
             SheetAction(Icons.Rounded.PlaylistAdd, "Добавить в очередь", onAddToQueue)
             SheetAction(if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (liked) "Убрать лайк" else "Мне нравится", onToggleLike)
             SheetDivider()
+            SheetAction(Icons.Rounded.Person, "К исполнителю", onArtist, track.artist.isNotBlank())
             SheetAction(Icons.Rounded.ContentCopy, "Копировать исполнителей", onCopyArtist, track.artist.isNotBlank())
             SheetAction(Icons.Rounded.InsertLink, "Поделиться ссылкой", onShareLink)
             SheetAction(Icons.Rounded.Share, if (busy) "Подготовка файла…" else "Отправить аудиофайл", onShareFile, !busy)

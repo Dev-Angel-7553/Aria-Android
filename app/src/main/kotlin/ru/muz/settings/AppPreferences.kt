@@ -4,6 +4,8 @@ import android.content.Context
 import ru.muz.lyrics.KaraokeDirection
 import ru.muz.lyrics.KaraokeFillStyle
 
+enum class IconPack { ROUNDED, OUTLINED, SHARP, TWO_TONE }
+
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 enum class AccentStyle { YELLOW, ORANGE, PINK, BLUE, GREEN, CUSTOM }
 enum class PlayerAction { QUEUE, DOWNLOAD, LINK, SHARE_FILE, SAVE_COVER, OPEN_COVER, SLEEP, SPEED, SOUND, QUOTE, COPY_ARTIST, TRACK_WAVE, DISLIKE, PRIVATE }
@@ -18,6 +20,8 @@ enum class PlayerLayout { COVER_FIRST, CONTROLS_FIRST }
 enum class LyricsAlignment { LEFT, CENTER }
 
 data class AppSettings(
+    val highContrast: Boolean = false,
+    val iconPack: IconPack = IconPack.ROUNDED,
     val themeMode: ThemeMode = ThemeMode.DARK,
     val useDynamicColors: Boolean = true,
     val accentStyle: AccentStyle = AccentStyle.YELLOW,
@@ -122,6 +126,8 @@ class AppPreferences(context: Context) {
         }
         return AppSettings(
             themeMode = migratedTheme,
+            highContrast = prefs.getBoolean("high_contrast", false),
+            iconPack = enumValue(prefs.getString("icon_pack", null), IconPack.ROUNDED),
             useDynamicColors = prefs.getBoolean("dynamic_colors", true),
             accentStyle = enumValue(prefs.getString("accent_style", null), AccentStyle.YELLOW),
             compactLists = prefs.getBoolean("compact_lists", false),
@@ -217,6 +223,8 @@ class AppPreferences(context: Context) {
 
     fun save(value: AppSettings) {
         prefs.edit()
+            .putBoolean("high_contrast", value.highContrast)
+            .putString("icon_pack", value.iconPack.name)
             .putString("theme_mode", value.themeMode.name)
             .putBoolean("dynamic_colors", value.useDynamicColors)
             .putString("accent_style", value.accentStyle.name)

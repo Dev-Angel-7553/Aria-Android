@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +42,7 @@ internal fun ArtistCreditLine(
     Row(
         modifier = Modifier.heightIn(min = 48.dp).combinedClickable(
             enabled = credit.isNotEmpty(),
+            role = androidx.compose.ui.semantics.Role.Button,
             onClickLabel = tr("Открыть исполнителя"),
             onLongClickLabel = tr("Копировать исполнителей"),
             onClick = onArtist,

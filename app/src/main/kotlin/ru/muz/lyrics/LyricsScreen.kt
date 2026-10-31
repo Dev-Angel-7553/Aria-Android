@@ -22,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
@@ -72,10 +74,18 @@ fun LyricsScreen(
     val activeIndex = if (lyrics.synced) lyrics.activeIndexAt(positionMs) else -1
     val dragged by listState.interactionSource.collectIsDraggedAsState()
     var following by remember(lyrics) { mutableStateOf(true) }
-    LaunchedEffect(dragged) {
+    val manualScroll = remember(lyrics) {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
+                if (source == androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput) following = false
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
+    LaunchedEffect(dragged, listState.isScrollInProgress, following) {
         if (dragged) following = false
-        else if (!following) {
-            kotlinx.coroutines.delay(3_000)
+        else if (!following && !listState.isScrollInProgress) {
+            kotlinx.coroutines.delay(5_000)
             following = true
         }
     }
@@ -96,7 +106,7 @@ fun LyricsScreen(
 
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().nestedScroll(manualScroll),
             contentPadding = PaddingValues(
                 start = settings.horizontalPaddingDp.dp,
                 end = settings.horizontalPaddingDp.dp,
@@ -121,19 +131,24 @@ fun LyricsScreen(
                     synced = lyrics.synced,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = (settings.lineSpacingDp / 2).dp)
+                        .heightIn(min = 48.dp).padding(vertical = (settings.lineSpacingDp / 2).dp)
                         .then(
                             when {
                                 onLongPressLine != null -> Modifier.combinedClickable(
-                                    onClick = { if (settings.tapToSeek && lyrics.synced) onSeek(line.startMs) },
+                                    onClickLabel = ru.muz.i18n.I18n.t("Перейти к строке"),
+                                    onLongClickLabel = ru.muz.i18n.I18n.t("Создать цитату"),
+                                    onClick = { if (settings.tapToSeek && lyrics.synced) { following = true; onSeek(line.startMs) } },
                                     onLongClick = { onLongPressLine(index) },
                                 )
-                                settings.tapToSeek && lyrics.synced -> Modifier.clickable { onSeek(line.startMs) }
+                                settings.tapToSeek && lyrics.synced -> Modifier.clickable(onClickLabel = ru.muz.i18n.I18n.t("Перейти к строке")) { following = true; onSeek(line.startMs) }
                                 else -> Modifier
                             }
                         ),
                 )
             }
+        }
+        if (!following && lyrics.synced && settings.autoScroll) {
+            FollowLyricsButton(Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(12.dp)) { following = true }
         }
     }
 }

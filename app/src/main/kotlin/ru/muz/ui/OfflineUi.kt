@@ -15,8 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.WorkspacePremium
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -65,7 +63,7 @@ internal fun StatusBanner(offline: Boolean, noPlus: Boolean, modifier: Modifier 
 
 @Composable
 internal fun PlusNoticeDialog(onOpen: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
+    AriaDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.WorkspacePremium, null) },
         title = { Text("Подписка Плюс не активна") },
