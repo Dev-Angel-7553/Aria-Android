@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.41
+
+- Four icon packs: Rounded, Outlined, Sharp and Two-tone, with previews in Appearance
+- Full playback queues survive restarts, including repeated tracks and all artist credits; temporary network failures retry with a limit
+- Queue tracks can be moved or removed, with Undo for queue changes
+- Choose which artist to open on collaborative tracks, including from the track menu
+- Downloads show progress and can be cancelled; incomplete files are cleaned up
+- Updates check the APK size, checksum, package, version and signing certificate; installation continues after granting permission
+- Offline music is stored separately from the listening cache and is only removed manually
+- Storage controls show music, artwork, lyrics and temporary files separately, with confirmation and Undo for saved music removal
+- Search works in small playlists too; date sorting is available when Yandex supplies addition dates, and the search field handles the keyboard
+- Both lyrics views pause following during manual scrolling and offer a button to return to the current line
+- Dialogs share a new layout with scrolling content and wrapping actions; the player scrolls on small screens or with large text
+- High contrast mode, accessible Glass switches and seek controls, larger touch targets, and updated English translations
+
 ## 0.40
 
 - Rounded icons, calmer navigation animations and more consistent text in the player, settings and library
