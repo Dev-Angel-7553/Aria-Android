@@ -188,7 +188,7 @@ internal fun FullPlayerScreen(
     }
     val animatedTint by animateColorAsState(coverTint, tween(playerTransitionDuration(400)), label = "cover-tint")
     val animatedAccent by animateColorAsState(coverAccentColor, tween(playerTransitionDuration(400)), label = "cover-accent")
-    val backdrop = if (settings.coverColorBackground || settings.playerBlurBackground) {
+    val backdrop = if (LocalHighContrast.current) Modifier.background(AppBackground) else if (settings.coverColorBackground || settings.playerBlurBackground) {
         Modifier.background(
             Brush.verticalGradient(
                 listOf(
@@ -223,10 +223,10 @@ internal fun FullPlayerScreen(
     val glassStyle = LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS
     val playerGlass = rememberGlassBackdrop()
     val glassDock = if (glassStyle && modern) playerGlass else null
-    val coverBackground = settings.coverColorBackground || glassStyle
+    val coverBackground = !LocalHighContrast.current && (settings.coverColorBackground || glassStyle)
     androidx.compose.runtime.CompositionLocalProvider(
-        LocalPlayerAccent provides if (settings.coverAccent) animatedAccent else null,
-        LocalOnPlayerAccent provides if (settings.coverAccent) Color(ColorMath.contentColorFor(animatedAccent.toArgb())) else null,
+        LocalPlayerAccent provides if (settings.coverAccent && !LocalHighContrast.current) animatedAccent else null,
+        LocalOnPlayerAccent provides if (settings.coverAccent && !LocalHighContrast.current) Color(ColorMath.contentColorFor(animatedAccent.toArgb())) else null,
     ) {
       Box(Modifier.fillMaxSize()) {
       Box(Modifier.fillMaxSize().glassSource(glassDock)) {

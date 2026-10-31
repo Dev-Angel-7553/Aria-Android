@@ -119,7 +119,7 @@ class UiAccessibilityTest {
     @Test
     fun fullPlayerControlsRemainReachableWithLargeText() {
         var plays = 0
-        val settings = AppSettings(reduceMotion = true, coverColorBackground = false, coverAccent = false)
+        val settings = AppSettings(reduceMotion = true, appStyle = AppStyle.GLASS, highContrast = true)
         rule.setContent {
             MuzTheme(settings) {
                 CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
