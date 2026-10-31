@@ -12,6 +12,7 @@ data class AppRelease(
     val apkSize: Long,
     val notes: String,
     val pageUrl: String,
+    val sha256: String? = null,
 )
 
 object AppUpdate {
@@ -33,6 +34,7 @@ object AppUpdate {
             apkSize = asset["size"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L,
             notes = root.text("body").orEmpty().trim(),
             pageUrl = root.text("html_url").orEmpty(),
+            sha256 = asset.text("digest")?.takeIf { it.startsWith("sha256:") }?.removePrefix("sha256:"),
         )
     }.getOrNull()
 

@@ -13,6 +13,7 @@ import java.io.FileOutputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -33,22 +34,37 @@ object TrackTransfer {
         client: YandexClient,
         track: YandexClient.Track,
         forSharing: Boolean,
+        control: ru.muz.net.TransferControl = ru.muz.net.TransferControl(),
+        onProgress: (Long, Long) -> Unit = { _, _ -> },
     ): Result<Uri> = runCatching {
         withContext(Dispatchers.IO) {
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             val stream = resolveStream(client, track.id)
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            control.checkActive()
             val fileName = safeName("${track.artist} — ${track.title}.mp3")
             if (forSharing) {
                 val directory = File(context.cacheDir, "shared_music").apply { mkdirs() }
                 val file = File(directory, fileName)
-                FileOutputStream(file).use { output -> copy(client, track.id, stream, output) }
+                val partial = File(file.parentFile, file.name + ".part")
+                try {
+                    FileOutputStream(partial).use { output -> copy(client, track.id, stream, output, control, onProgress) }
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    check(partial.renameTo(file)) { "Не удалось сохранить файл" }
+                } finally { partial.delete() }
                 FileProvider.getUriForFile(context, "${context.packageName}.files", file)
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                saveToMediaStore(context, client, track.id, stream, fileName)
+                saveToMediaStore(context, client, track.id, stream, fileName, control, onProgress)
             } else {
                 val directory = File(context.getExternalFilesDir(Environment.DIRECTORY_MUSIC), "Aria")
                     .apply { mkdirs() }
                 val file = File(directory, fileName)
-                FileOutputStream(file).use { output -> copy(client, track.id, stream, output) }
+                val partial = File(file.parentFile, file.name + ".part")
+                try {
+                    FileOutputStream(partial).use { output -> copy(client, track.id, stream, output, control, onProgress) }
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    check(partial.renameTo(file)) { "Не удалось сохранить файл" }
+                } finally { partial.delete() }
                 Uri.fromFile(file)
             }
         }
@@ -95,7 +111,7 @@ object TrackTransfer {
         context.startActivity(Intent.createChooser(intent, "Поделиться плейлистом"))
     }
 
-    suspend fun downloadCover(context: Context, track: YandexClient.Track): Result<Uri> = runCatching {
+    suspend fun downloadCover(context: Context, track: YandexClient.Track, control: ru.muz.net.TransferControl = ru.muz.net.TransferControl()): Result<Uri> = runCatching {
         withContext(Dispatchers.IO) {
             val url = track.coverUrl ?: error("Не удалось сохранить обложку")
             val name = safeName("${track.artist} — ${track.title}.jpg")
@@ -108,7 +124,7 @@ object TrackTransfer {
             val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                 ?: error("Не удалось создать файл обложки")
             try {
-                context.contentResolver.openOutputStream(uri)?.use { output -> copyImage(url, output) }
+                context.contentResolver.openOutputStream(uri)?.use { output -> copyImage(url, output, control) }
                     ?: error("Не удалось открыть файл обложки")
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     val done = ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }
@@ -240,7 +256,7 @@ object TrackTransfer {
         }
     }
 
-    private suspend fun saveToMediaStore(context: Context, client: YandexClient, trackId: String, url: String, fileName: String): Uri {
+    private suspend fun saveToMediaStore(context: Context, client: YandexClient, trackId: String, url: String, fileName: String, control: ru.muz.net.TransferControl, onProgress: (Long, Long) -> Unit): Uri {
         val values = ContentValues().apply {
             put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
             put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg")
@@ -250,8 +266,10 @@ object TrackTransfer {
         val uri = context.contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values)
             ?: error("Не удалось создать файл")
         try {
-            context.contentResolver.openOutputStream(uri)?.use { copy(client, trackId, url, it) }
+            context.contentResolver.openOutputStream(uri)?.use { copy(client, trackId, url, it, control, onProgress) }
                 ?: error("Не удалось открыть файл")
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            control.checkActive()
             values.clear()
             values.put(MediaStore.Audio.Media.IS_PENDING, 0)
             context.contentResolver.update(uri, values, null, null)
@@ -268,6 +286,7 @@ object TrackTransfer {
             client.streamUrl(trackId, quality).onSuccess { url ->
                 return url
             }.onFailure { error ->
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 failure = error
                 client.freshStreamUrl(trackId, quality).onSuccess { url -> return url }.onFailure { failure = it }
             }
@@ -275,7 +294,7 @@ object TrackTransfer {
         throw (failure ?: IllegalStateException("Аудиопоток недоступен")).let(::friendlyDownloadError)
     }
 
-    private suspend fun copy(client: YandexClient, trackId: String, initialUrl: String, output: java.io.OutputStream) {
+    private suspend fun copy(client: YandexClient, trackId: String, initialUrl: String, output: java.io.OutputStream, control: ru.muz.net.TransferControl, onProgress: (Long, Long) -> Unit) {
         var last: Throwable? = null
         repeat(3) { attempt ->
             var wroteBytes = false
@@ -290,7 +309,7 @@ object TrackTransfer {
                     .header("User-Agent", "Aria/0.18")
                     .header("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.1")
                     .build()
-                http.newCall(request).execute().use { response ->
+                control.response(http.newCall(request)) { response ->
                     if (!response.isSuccessful) {
                         val detail = response.body?.string()?.take(280).orEmpty()
                         if (detail.contains("0x41c", ignoreCase = true) || detail.contains("1052")) {
@@ -300,20 +319,33 @@ object TrackTransfer {
                     }
                     val body = response.body ?: error("Аудиопоток пуст")
                     if (body.contentLength() == 0L) error("Аудиопоток пуст")
+                    var done = 0L
+                    var lastPercent = -1L
+                    val total = body.contentLength()
                     body.byteStream().use { input ->
                         val buffer = ByteArray(32 * 1024)
                         while (true) {
+                            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                            control.checkActive()
                             val count = input.read(buffer)
                             if (count < 0) break
                             if (count > 0) {
                                 wroteBytes = true
                                 output.write(buffer, 0, count)
+                                done += count
+                                val percent = if (total > 0) done * 100 / total else done / (256 * 1024)
+                                if (percent != lastPercent) {
+                                    lastPercent = percent
+                                    withContext(Dispatchers.Main) { onProgress(done, total) }
+                                }
                             }
                         }
                     }
                 }
                 return
             } catch (error: Throwable) {
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                control.checkActive()
                 last = error
                 if (wroteBytes || attempt == 2) throw friendlyDownloadError(error)
                 kotlinx.coroutines.delay((250L shl attempt).coerceAtMost(1_500L))
@@ -330,7 +362,7 @@ object TrackTransfer {
         else -> "Не удалось скачать трек"
     }
 
-    private fun copyImage(url: String, output: java.io.OutputStream) {
+    private suspend fun copyImage(url: String, output: java.io.OutputStream, control: ru.muz.net.TransferControl) {
         var last: Throwable? = null
         val candidates = listOf(
             url,
@@ -344,13 +376,15 @@ object TrackTransfer {
                     .header("User-Agent", "Aria/0.18")
                     .header("Accept", "image/avif,image/webp,image/jpeg,image/*;q=0.8,*/*;q=0.1")
                     .build()
-                http.newCall(request).execute().use { response ->
+                control.response(http.newCall(request)) { response ->
                     if (!response.isSuccessful) error("Обложка недоступна (${response.code})")
                     val body = response.body ?: error("Обложка пуста")
                     var wrote = 0L
                     body.byteStream().use { input ->
                         val buffer = ByteArray(16 * 1024)
                         while (true) {
+                            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                            control.checkActive()
                             val count = input.read(buffer)
                             if (count < 0) break
                             if (count > 0) {
@@ -363,6 +397,8 @@ object TrackTransfer {
                 }
                 return
             } catch (error: Throwable) {
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                control.checkActive()
                 last = error
             }
         }

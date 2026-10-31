@@ -28,6 +28,37 @@ object AudioCache {
     @Volatile
     private var instance: SimpleCache? = null
     private var disabled = false
+    private var offlineInstance: SimpleCache? = null
+
+    @Synchronized
+    private fun offlineCache(context: Context): SimpleCache = offlineInstance ?: SimpleCache(
+        File(context.applicationContext.filesDir, "offline_audio"),
+        androidx.media3.datasource.cache.NoOpCacheEvictor(),
+        StandaloneDatabaseProvider(context.applicationContext),
+    ).also { offlineInstance = it }
+
+    data class OfflineEntry(val id: String, val title: String, val artist: String, val bytes: Long)
+
+    fun offlineEntries(context: Context): List<OfflineEntry> {
+        val cache = offlineCache(context)
+        val prefs = context.getSharedPreferences("offline_tracks", Context.MODE_PRIVATE)
+        return cache.keys.filter { it.startsWith("yamusic:") }.groupBy { it.removePrefix("yamusic:").substringBefore(':') }
+            .mapNotNull { (id, keys) ->
+                val bytes = keys.sumOf { key -> cache.getCachedSpans(key).sumOf { it.length } }
+                if (bytes <= 0) return@mapNotNull null
+                OfflineEntry(id, prefs.getString("title:$id", null) ?: id, prefs.getString("artist:$id", null).orEmpty(), bytes)
+            }.sortedBy { it.title.lowercase() }
+    }
+
+    fun removeOffline(context: Context, ids: Set<String>) {
+        val cache = offlineCache(context)
+        cache.keys.filter { it.removePrefix("yamusic:").substringBefore(':') in ids }.forEach { cache.removeResource(it) }
+    }
+
+    private fun complete(cache: SimpleCache, key: String): Boolean {
+        val size = ContentMetadata.getContentLength(cache.getContentMetadata(key))
+        return size > 0 && cache.isCached(key, 0, size)
+    }
 
     fun cache(context: Context): SimpleCache? {
         instance?.let { return it }
@@ -96,8 +127,19 @@ object AudioCache {
     }
 
     fun dataSourceFactory(context: Context): DataSource.Factory {
-        val cache = cache(context) ?: return upstreamFactory(context)
-        return cacheFactory(context, cache)
+        val app = context.applicationContext
+        val offline = offlineCache(app)
+        val upstream = cache(app)?.let { cacheFactory(app, it) } ?: upstreamFactory(app)
+        return CacheDataSource.Factory().setCache(offline)
+            .setUpstreamDataSourceFactory(upstream)
+            .setCacheWriteDataSinkFactory(null)
+            .setCacheKeyFactory { spec ->
+                val id = spec.uri.lastPathSegment.orEmpty().substringBefore(':')
+                val desired = cacheKey(id, quality(app))
+                if (complete(offline, desired)) desired
+                else offline.keys.firstOrNull { it.startsWith("yamusic:$id:") && complete(offline, it) } ?: desired
+            }
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
     fun usedBytes(context: Context): Long = cache(context)?.cacheSpace ?: 0L
@@ -108,7 +150,9 @@ object AudioCache {
     }
 
     fun cachedTrackIds(context: Context): Set<String> {
-        val cache = cache(context) ?: return emptySet()
+        val offline = offlineCache(context)
+        val saved = offline.keys.filter { complete(offline, it) }.mapTo(HashSet()) { it.removePrefix("yamusic:").substringBefore(':') }
+        val cache = cache(context) ?: return saved
         val suffix = ":" + quality(context).name
         return runCatching {
             cache.keys.filter { key ->
@@ -117,10 +161,13 @@ object AudioCache {
                     length > 0 && cache.isCached(key, 0, length)
                 }
             }.mapTo(HashSet()) { it.removePrefix("yamusic:").removeSuffix(suffix) }
-        }.getOrDefault(emptySet())
+        }.getOrDefault(emptySet()) + saved
     }
 
     fun isCached(context: Context, trackId: String): Boolean {
+        val offline = offlineCache(context)
+        val prefix = "yamusic:${trackId.substringBefore(':')}:"
+        if (offline.keys.any { it.startsWith(prefix) && complete(offline, it) }) return true
         val cache = cache(context) ?: return false
         val key = cacheKey(trackId, quality(context))
         val length = ContentMetadata.getContentLength(cache.getContentMetadata(key))
@@ -130,17 +177,31 @@ object AudioCache {
     suspend fun saveOffline(
         context: Context,
         trackIds: List<String>,
+        metadata: List<PlaybackController.YandexTrack> = emptyList(),
         onProgress: (done: Int, total: Int) -> Unit,
     ): Int = withContext(Dispatchers.IO) {
-        val cache = cache(context) ?: return@withContext 0
+        val cache = offlineCache(context)
         val factory = cacheFactory(context, cache)
+        val details = metadata.associateBy { it.id.substringBefore(':') }
+        val coroutine = currentCoroutineContext()
         var saved = 0
         trackIds.forEachIndexed { index, id ->
             currentCoroutineContext().ensureActive()
-            val ok = isCached(context, id) || runCatching {
-                CacheWriter(factory.createDataSource(), DataSpec(MediaExtras.uri(id)), null, null).cache()
-            }.isSuccess
-            if (ok) saved++
+            val key = cacheKey(id, quality(context))
+            val ok = complete(cache, key) || runCatching {
+                CacheWriter(factory.createDataSource(), DataSpec(MediaExtras.uri(id)), null) { _, _, _ -> coroutine.ensureActive() }.cache()
+                complete(cache, key)
+            }.getOrDefault(false)
+            if (!ok) runCatching { cache.removeResource(key) }
+            coroutine.ensureActive()
+            if (ok) {
+                saved++
+                details[id.substringBefore(':')]?.let { track ->
+                    context.getSharedPreferences("offline_tracks", Context.MODE_PRIVATE).edit()
+                        .putString("title:${id.substringBefore(':')}", track.title)
+                        .putString("artist:${id.substringBefore(':')}", track.artist).apply()
+                }
+            }
             withContext(Dispatchers.Main) { onProgress(index + 1, trackIds.size) }
         }
         saved

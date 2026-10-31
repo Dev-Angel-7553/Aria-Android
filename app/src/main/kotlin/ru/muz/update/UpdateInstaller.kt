@@ -43,40 +43,76 @@ object UpdateInstaller {
         }
     }
 
-    suspend fun download(context: Context, release: AppRelease, onProgress: (Float) -> Unit): Result<File> = runCatching {
+    suspend fun download(
+        context: Context,
+        release: AppRelease,
+        control: ru.muz.net.TransferControl = ru.muz.net.TransferControl(),
+        onProgress: (Float) -> Unit,
+    ): Result<File> = runCatching {
         withContext(Dispatchers.IO) {
             val directory = File(context.cacheDir, "updates").apply { mkdirs() }
-            directory.listFiles()?.forEach { it.delete() }
             val target = File(directory, "Aria-${release.version}.apk")
-            val request = Request.Builder().url(release.apkUrl).header("User-Agent", "Aria").build()
-            http.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) error("Не удалось скачать обновление (${response.code})")
-                val body = response.body ?: error("Пустой ответ")
-                val total = body.contentLength().takeIf { it > 0 } ?: release.apkSize
-                var done = 0L
-                var lastReported = -1
-                body.byteStream().use { input ->
-                    target.outputStream().use { output ->
-                        val buffer = ByteArray(64 * 1024)
-                        while (true) {
-                            currentCoroutineContext().ensureActive()
-                            val count = input.read(buffer)
-                            if (count < 0) break
-                            output.write(buffer, 0, count)
-                            done += count
-                            if (total > 0) {
-                                val percent = (done * 100 / total).toInt()
-                                if (percent != lastReported) {
-                                    lastReported = percent
-                                    withContext(Dispatchers.Main) { onProgress(percent / 100f) }
+            val partial = File(directory, "Aria-${release.version}.part")
+            try {
+                if (target.exists()) {
+                    runCatching { UpdateIntegrity.verify(target, release.apkSize, release.sha256); validatePackage(context, target) }
+                        .onSuccess { return@withContext target }
+                    target.delete()
+                }
+                val request = Request.Builder().url(release.apkUrl).header("User-Agent", "Aria").build()
+                control.response(http.newCall(request)) { response ->
+                    if (!response.isSuccessful) error("Не удалось скачать обновление (${response.code})")
+                    val body = response.body ?: error("Пустой ответ")
+                    val total = body.contentLength().takeIf { it > 0 } ?: release.apkSize
+                    var done = 0L
+                    var lastReported = -1
+                    body.byteStream().use { input ->
+                        partial.outputStream().use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            while (true) {
+                                currentCoroutineContext().ensureActive()
+                                control.checkActive()
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                                done += count
+                                if (total > 0) {
+                                    val percent = (done * 100 / total).toInt().coerceIn(0, 100)
+                                    if (percent != lastReported) {
+                                        lastReported = percent
+                                        withContext(Dispatchers.Main) { onProgress(percent / 100f) }
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                UpdateIntegrity.verify(partial, release.apkSize, release.sha256)
+                validatePackage(context, partial)
+                currentCoroutineContext().ensureActive()
+                control.checkActive()
+                check(partial.renameTo(target)) { "Не удалось сохранить обновление" }
+                target
+            } finally {
+                partial.delete()
             }
-            target
         }
+    }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+
+    @Suppress("DEPRECATION")
+    private fun validatePackage(context: Context, file: File) {
+        val flags = if (android.os.Build.VERSION.SDK_INT >= 28) android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES else android.content.pm.PackageManager.GET_SIGNATURES
+        val incoming = context.packageManager.getPackageArchiveInfo(file.absolutePath, flags) ?: error("Не удалось прочитать APK")
+        val installed = context.packageManager.getPackageInfo(context.packageName, flags)
+        require(incoming.packageName == context.packageName) { "Это обновление другого приложения" }
+        fun signatures(info: android.content.pm.PackageInfo): Set<String> =
+            (if (android.os.Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners else info.signatures)
+                .orEmpty().map { it.toCharsString() }.toSet()
+        val expected = signatures(installed)
+        require(expected.isNotEmpty() && signatures(incoming) == expected) { "Подпись обновления отличается от установленной версии" }
+        val incomingVersion = if (android.os.Build.VERSION.SDK_INT >= 28) incoming.longVersionCode else incoming.versionCode.toLong()
+        val installedVersion = if (android.os.Build.VERSION.SDK_INT >= 28) installed.longVersionCode else installed.versionCode.toLong()
+        require(incomingVersion > installedVersion) { "Установлена такая же или более новая версия" }
     }
 
     fun canInstall(context: Context): Boolean = context.packageManager.canRequestPackageInstalls()
