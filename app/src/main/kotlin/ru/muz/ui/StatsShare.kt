@@ -21,9 +21,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -101,7 +101,7 @@ internal fun StatsShareDialog(data: PeriodStats, onDismiss: () -> Unit) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, "Закрыть") }
+                    IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "Закрыть") }
                     Text("Итоги · ${data.period.title()}", fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
                 }
                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
@@ -128,12 +128,12 @@ internal fun StatsShareDialog(data: PeriodStats, onDismiss: () -> Unit) {
                 }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(onClick = { export(false) }, enabled = !busy, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Filled.Save, null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Save, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Сохранить")
                     }
                     Button(onClick = { export(true) }, enabled = !busy, modifier = Modifier.weight(1.3f)) {
-                        Icon(Icons.Filled.Share, null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Share, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Поделиться")
                     }

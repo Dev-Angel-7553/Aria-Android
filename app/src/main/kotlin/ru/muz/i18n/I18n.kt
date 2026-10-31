@@ -107,11 +107,12 @@ object I18n {
             memo.evictAll()
             return
         }
-        val text = File(dir(context), "$code.json").takeIf { it.exists() }?.readText()
-            ?.takeIf { parsePack(it).isNotEmpty() }
-            ?: runCatching { context.assets.open("i18n/$code.json").bufferedReader().use { it.readText() } }.getOrNull()
-            ?: return
-        val strings = parsePack(text)
+        val bundled = runCatching {
+            context.assets.open("i18n/$code.json").bufferedReader().use { parsePack(it.readText()) }
+        }.getOrDefault(emptyMap())
+        val cached = File(dir(context), "$code.json").takeIf { it.exists() }
+            ?.let { runCatching { parsePack(it.readText()) }.getOrDefault(emptyMap()) }.orEmpty()
+        val strings = bundled + cached
         if (strings.isEmpty()) return
         templates = strings.filterKeys { it.contains("{0}") }.map { (key, value) -> pattern(key) to value }
             .sortedByDescending { it.first.pattern.length }

@@ -13,8 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,7 +47,7 @@ internal fun StatusBanner(offline: Boolean, noPlus: Boolean, modifier: Modifier 
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                if (offline) Icons.Filled.CloudOff else Icons.Filled.WorkspacePremium,
+                if (offline) Icons.Rounded.CloudOff else Icons.Rounded.WorkspacePremium,
                 null,
                 tint = scheme.inverseOnSurface,
                 modifier = Modifier.size(16.dp),
@@ -67,7 +67,7 @@ internal fun StatusBanner(offline: Boolean, noPlus: Boolean, modifier: Modifier 
 internal fun PlusNoticeDialog(onOpen: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Filled.WorkspacePremium, null) },
+        icon = { Icon(Icons.Rounded.WorkspacePremium, null) },
         title = { Text("Подписка Плюс не активна") },
         text = {
             Text(

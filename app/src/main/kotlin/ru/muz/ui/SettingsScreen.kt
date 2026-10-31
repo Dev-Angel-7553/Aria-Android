@@ -15,9 +15,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.material.icons.filled.MotionPhotosOff
-import androidx.compose.material.icons.filled.DataSaverOn
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.rounded.MotionPhotosOff
+import androidx.compose.material.icons.rounded.DataSaverOn
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,31 +36,31 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.ImportExport
-import androidx.compose.material.icons.filled.FileUpload
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.QueueMusic
-import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.Equalizer
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Colorize
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.SlowMotionVideo
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Dashboard
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.ImportExport
+import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Colorize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.graphics.toArgb
@@ -69,18 +69,18 @@ import ru.muz.settings.AppTab
 import ru.muz.settings.HomeSection
 import ru.muz.settings.PlayShape
 import ru.muz.settings.PlayerAction
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.SystemUpdate
-import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material.icons.rounded.Code
 import ru.muz.update.AppRelease
-import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.Lyrics
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.PlayCircle
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -229,7 +229,7 @@ internal fun SettingsScreen(
                     }
                     if (availableUpdate != null) {
                         item {
-                            SettingsNavRow(Icons.Filled.SystemUpdate, "Доступна Aria ${availableUpdate.version}", "Нажмите, чтобы обновить") {
+                            SettingsNavRow(Icons.Rounded.SystemUpdate, "Доступна Aria ${availableUpdate.version}", "Нажмите, чтобы обновить") {
                                 page = SettingsPage.ABOUT
                             }
                         }
@@ -250,75 +250,75 @@ internal fun SettingsScreen(
                         }
                     } else {
                         item { SettingsTitle("Внешний вид") }
-                        item { SettingsNavRow(Icons.Filled.Palette, "Оформление", themeLabel(settings), Color(0xFFE5487A)) { page = SettingsPage.APPEARANCE } }
+                        item { SettingsNavRow(Icons.Rounded.Palette, "Оформление", themeLabel(settings)) { page = SettingsPage.APPEARANCE } }
                         item {
                             SettingsNavRow(
-                                Icons.Filled.AutoAwesome,
+                                Icons.Rounded.SlowMotionVideo,
                                 "Анимации",
                                 if (settings.reduceMotion) "Минимум движения" else "Скорость ${settings.animationSpeedPercent}%",
-                                tint = Color(0xFF8E5CF7),
+
                             ) { page = SettingsPage.ANIMATION }
                         }
                         item { SettingsTitle("Музыка") }
                         item {
                             SettingsNavRow(
-                                Icons.Filled.PlayCircle,
+                                Icons.Rounded.PlayCircle,
                                 "Плеер",
                                 buildString {
                                     append(if (settings.playerLayout == PlayerLayout.COVER_FIRST) "Сначала обложка" else "Сначала управление")
                                     if (settings.coverAccent) append(" · цвет обложки")
                                 },
-                                tint = Color(0xFFFF8A3D),
+
                             ) { page = SettingsPage.PLAYER }
                         }
                         item {
                             SettingsNavRow(
-                                Icons.Filled.Lyrics,
+                                Icons.Rounded.Lyrics,
                                 "Текст песни",
                                 LYRICS_PRESETS.firstOrNull { it.matches(settings) }?.title
                                     ?: "Своя настройка · ${settings.lyricsFontSize} sp",
-                                tint = Color(0xFF3D8BFF),
+
                             ) { page = SettingsPage.LYRICS }
                         }
                         item {
                             SettingsNavRow(
-                                Icons.Filled.Headphones,
+                                Icons.Rounded.Headphones,
                                 "Звук и офлайн",
                                 listOf(
                                     if (settings.dataSaver) "Экономия трафика" else "Высокое качество",
                                     if (settings.cacheSizeMb == 0) "кэш выключен" else "кэш ${formatSize(cacheUsedBytes)} из ${formatSize(settings.cacheSizeMb * 1024L * 1024L)}",
                                 ).joinToString(" · "),
-                                tint = Color(0xFF2FBF71),
+
                             ) { page = SettingsPage.PLAYBACK }
                         }
                         item { SettingsTitle("Библиотека") }
                         item {
                             SettingsNavRow(
-                                Icons.Filled.Home,
+                                Icons.Rounded.Home,
                                 "Главная и вкладки",
                                 listOf(
                                     "${settings.homeSections.size} ${ru.muz.text.plural(settings.homeSections.size, "блок", "блока", "блоков")}",
                                     "${settings.tabs.size} ${ru.muz.text.plural(settings.tabs.size, "вкладка", "вкладки", "вкладок")}",
                                 ).joinToString(" · "),
-                                tint = Color(0xFF17ADA8),
+
                             ) { page = SettingsPage.HOME }
                         }
                         item {
                             SettingsNavRow(
-                                Icons.Filled.Dashboard,
+                                Icons.Rounded.Dashboard,
                                 "Списки и поиск",
                                 "${if (settings.compactLists) "Компактно" else "Обычно"} · масштаб ${settings.listScalePercent}%",
-                                tint = Color(0xFF5B6CF0),
+
                             ) { page = SettingsPage.LISTS }
                         }
-                        item { SettingsNavRow(Icons.Filled.ImportExport, "Импорт и экспорт", "Плейлисты в CSV и обратно, резервная копия настроек", Color(0xFFF2A516)) { page = SettingsPage.EXPORT } }
+                        item { SettingsNavRow(Icons.Rounded.ImportExport, "Импорт и экспорт", "Плейлисты в CSV и обратно, резервная копия настроек") { page = SettingsPage.EXPORT } }
                         item { SettingsTitle("Приложение") }
                         item {
                             SettingsNavRow(
-                                Icons.Filled.Info,
+                                Icons.Rounded.Info,
                                 "О приложении",
                                 availableUpdate?.let { "Доступна версия ${it.version}" } ?: "Aria $appVersion",
-                                tint = Color(0xFF8A8F98),
+
                             ) { page = SettingsPage.ABOUT }
                         }
                         item {
@@ -509,8 +509,8 @@ private fun AccentSwatch(accent: AccentStyle, custom: Int, selected: Boolean, on
     ) {
         val mark = Color(ru.muz.theme.ColorMath.contentColorFor(colour.toArgb()))
         when {
-            selected -> Icon(Icons.Filled.Check, accentName(accent), tint = mark, modifier = Modifier.size(20.dp))
-            accent == AccentStyle.CUSTOM -> Icon(Icons.Filled.Colorize, accentName(accent), tint = mark, modifier = Modifier.size(20.dp))
+            selected -> Icon(Icons.Rounded.Check, accentName(accent), tint = mark, modifier = Modifier.size(20.dp))
+            accent == AccentStyle.CUSTOM -> Icon(Icons.Rounded.Colorize, accentName(accent), tint = mark, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -633,7 +633,7 @@ private fun LazyListScope.playerSettings(settings: AppSettings, onChange: (AppSe
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            Icons.Filled.PlayArrow,
+                            Icons.Rounded.PlayArrow,
                             null,
                             tint = if (settings.playShape == shape) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                         )
@@ -853,7 +853,7 @@ private fun LazyListScope.playbackSettings(
     }
     item {
         SettingsActionRow(
-            Icons.Filled.DeleteSweep,
+            Icons.Rounded.DeleteSweep,
             "Очистить кэш",
             "Сейчас занято ${formatSize(cacheUsedBytes)}",
             cacheUsedBytes > 0,
@@ -894,7 +894,7 @@ private fun LazyListScope.aboutSettings(
     if (availableUpdate != null) {
         item {
             SettingsActionRow(
-                Icons.Filled.SystemUpdate,
+                Icons.Rounded.SystemUpdate,
                 if (updateProgress != null) "Скачиваем… ${(updateProgress * 100).toInt()}%" else "Установить Aria ${availableUpdate.version}",
                 "Что нового в этой версии",
                 updateProgress == null,
@@ -906,7 +906,7 @@ private fun LazyListScope.aboutSettings(
     }
     item {
         SettingsActionRow(
-            Icons.Filled.Sync,
+            Icons.Rounded.Sync,
             if (updateChecking) "Проверяем…" else "Проверить сейчас",
             null,
             !updateChecking,
@@ -915,7 +915,7 @@ private fun LazyListScope.aboutSettings(
     }
     item {
         val context = androidx.compose.ui.platform.LocalContext.current
-        SettingsActionRow(Icons.Filled.Code, "Исходный код на GitHub", "github.com/Dev-Angel-7553/Aria-Android", true) {
+        SettingsActionRow(Icons.Rounded.Code, "Исходный код на GitHub", "github.com/Dev-Angel-7553/Aria-Android", true) {
             ru.muz.update.UpdateInstaller.openPage(context, "https://github.com/Dev-Angel-7553/Aria-Android")
         }
     }
@@ -941,7 +941,7 @@ private fun AppearancePreview() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(46.dp).clip(CircleShape).background(Accent), contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.PlayCircle, null, tint = scheme.onPrimary)
+            Icon(Icons.Rounded.PlayCircle, null, tint = scheme.onPrimary)
         }
         Column(Modifier.weight(1f).padding(start = 14.dp)) {
             Text("Предпросмотр темы", fontWeight = FontWeight.Bold)
@@ -1073,7 +1073,7 @@ private fun LazyListScope.accountSettings(
     }
     item { Text("Кэш открывается сразу после входа, свежие данные подмешиваются в фоне.", color = SoftText, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
     item {
-        SettingsActionRow(Icons.Filled.Sync, if (syncBusy) "Синхронизация…" else "Синхронизировать сейчас", null, !syncBusy, onSyncNow)
+        SettingsActionRow(Icons.Rounded.Sync, if (syncBusy) "Синхронизация…" else "Синхронизировать сейчас", null, !syncBusy, onSyncNow)
     }
     item { SettingsTitle("Выход") }
     item { TextButton(onClick = onLogout, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Выйти и удалить токен", color = MaterialTheme.colorScheme.error) } }
@@ -1089,7 +1089,7 @@ private fun LazyListScope.exportSettings(
     item { SettingsTitle("Импорт плейлистов") }
     item {
         SettingsActionRow(
-            Icons.Filled.FileUpload,
+            Icons.Rounded.FileUpload,
             "Импорт из CSV",
             "Файл из Spotify, TuneMyMusic, Exportify или список «Исполнитель — Название». Треки найдутся в Яндексе, плейлисты создадутся в вашем аккаунте",
             true,
@@ -1099,16 +1099,16 @@ private fun LazyListScope.exportSettings(
     item { SettingsTitle("Экспорт коллекции") }
     item {
         SettingsActionRow(
-            Icons.Filled.FileDownload,
+            Icons.Rounded.FileDownload,
             if (exportBusy) "Готовим CSV…" else "Сохранить в Загрузки",
             "«Мне нравится» и все плейлисты в одном CSV. Понимают TuneMyMusic, Soundiiz и Excel",
             !exportBusy,
         ) { onExportCollection(false) }
     }
-    item { SettingsActionRow(Icons.Filled.Share, "Отправить файлом", "Через Telegram, почту или любое приложение", !exportBusy) { onExportCollection(true) } }
+    item { SettingsActionRow(Icons.Rounded.Share, "Отправить файлом", "Через Telegram, почту или любое приложение", !exportBusy) { onExportCollection(true) } }
     item { SettingsTitle("Настройки") }
-    item { SettingsActionRow(Icons.Filled.Save, "Сохранить настройки в файл", "Тема, плеер, текст, главная — всё, кроме аккаунта", true, onExportSettings) }
-    item { SettingsActionRow(Icons.Filled.Restore, "Загрузить настройки из файла", "Например, с другого телефона", true, onImportSettings) }
+    item { SettingsActionRow(Icons.Rounded.Save, "Сохранить настройки в файл", "Тема, плеер, текст, главная — всё, кроме аккаунта", true, onExportSettings) }
+    item { SettingsActionRow(Icons.Rounded.Restore, "Загрузить настройки из файла", "Например, с другого телефона", true, onImportSettings) }
 }
 
 private fun LazyListScope.homeSettings(settings: AppSettings, onChange: (AppSettings) -> Unit) {
@@ -1155,10 +1155,10 @@ private fun homeSectionName(section: HomeSection): String = when (section) {
 }
 
 private fun homeSectionIcon(section: HomeSection): ImageVector = when (section) {
-    HomeSection.WAVE -> Icons.Filled.GraphicEq
-    HomeSection.RECENT -> Icons.Filled.History
-    HomeSection.PLAYLISTS -> Icons.Filled.QueueMusic
-    HomeSection.CHART -> Icons.Filled.TrendingUp
+    HomeSection.WAVE -> Icons.Rounded.GraphicEq
+    HomeSection.RECENT -> Icons.Rounded.History
+    HomeSection.PLAYLISTS -> Icons.Rounded.QueueMusic
+    HomeSection.CHART -> Icons.Rounded.TrendingUp
 }
 
 private fun tabName(tab: AppTab): String = when (tab) {
@@ -1169,10 +1169,10 @@ private fun tabName(tab: AppTab): String = when (tab) {
 }
 
 private fun tabIcon(tab: AppTab): ImageVector = when (tab) {
-    AppTab.HOME -> Icons.Filled.Home
-    AppTab.LIBRARY -> Icons.Filled.LibraryMusic
-    AppTab.SEARCH -> Icons.Filled.Search
-    AppTab.STATS -> Icons.Filled.Equalizer
+    AppTab.HOME -> Icons.Rounded.Home
+    AppTab.LIBRARY -> Icons.Rounded.LibraryMusic
+    AppTab.SEARCH -> Icons.Rounded.Search
+    AppTab.STATS -> Icons.Rounded.Equalizer
 }
 
 private fun fontName(font: AppFont): String = when (font) {
@@ -1205,11 +1205,11 @@ private fun <T> ReorderList(
                 IconButton(
                     onClick = { onChange(enabled.toMutableList().apply { add(index - 1, removeAt(index)) }) },
                     enabled = index > 0,
-                ) { Icon(Icons.Filled.KeyboardArrowUp, "Выше") }
+                ) { Icon(Icons.Rounded.KeyboardArrowUp, "Выше") }
                 IconButton(
                     onClick = { onChange(enabled.toMutableList().apply { add(index + 1, removeAt(index)) }) },
                     enabled = index < enabled.lastIndex,
-                ) { Icon(Icons.Filled.KeyboardArrowDown, "Ниже") }
+                ) { Icon(Icons.Rounded.KeyboardArrowDown, "Ниже") }
                 AriaSwitch(
                     checked = true,
                     enabled = enabled.size > minEnabled,
@@ -1296,7 +1296,7 @@ private fun AccountCard(account: YandexClient.Account?, reportListening: Boolean
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (onClick != null) Icon(Icons.Filled.ChevronRight, null, tint = SoftText)
+        if (onClick != null) Icon(Icons.Rounded.ChevronRight, null, tint = SoftText)
     }
 }
 
@@ -1308,9 +1308,9 @@ private fun SettingsSearchField(query: String, onQuery: (String) -> Unit) {
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         singleLine = true,
         placeholder = { Text("Поиск по настройкам") },
-        leadingIcon = { Icon(Icons.Filled.Search, null) },
+        leadingIcon = { Icon(Icons.Rounded.Search, null) },
         trailingIcon = if (query.isNotEmpty()) {
-            { IconButton(onClick = { onQuery("") }) { Icon(Icons.Filled.Close, "Очистить") } }
+            { IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, "Очистить") } }
         } else null,
         shape = RoundedCornerShape(28.dp * LocalCornerRadiusScale.current),
     )
@@ -1381,45 +1381,41 @@ private fun searchSettings(query: String): List<SettingsEntry> {
 }
 
 private fun SettingsPage.icon(): ImageVector = when (this) {
-    SettingsPage.APPEARANCE -> Icons.Filled.Palette
-    SettingsPage.ANIMATION -> Icons.Filled.AutoAwesome
-    SettingsPage.LISTS -> Icons.Filled.Dashboard
-    SettingsPage.HOME -> Icons.Filled.Home
-    SettingsPage.PLAYER -> Icons.Filled.PlayCircle
-    SettingsPage.LYRICS -> Icons.Filled.Lyrics
-    SettingsPage.PLAYBACK -> Icons.Filled.Headphones
-    SettingsPage.ACCOUNT -> Icons.Filled.AccountCircle
-    SettingsPage.EXPORT -> Icons.Filled.ImportExport
-    SettingsPage.ABOUT -> Icons.Filled.Info
-    SettingsPage.ROOT -> Icons.Filled.Search
+    SettingsPage.APPEARANCE -> Icons.Rounded.Palette
+    SettingsPage.ANIMATION -> Icons.Rounded.SlowMotionVideo
+    SettingsPage.LISTS -> Icons.Rounded.Dashboard
+    SettingsPage.HOME -> Icons.Rounded.Home
+    SettingsPage.PLAYER -> Icons.Rounded.PlayCircle
+    SettingsPage.LYRICS -> Icons.Rounded.Lyrics
+    SettingsPage.PLAYBACK -> Icons.Rounded.Headphones
+    SettingsPage.ACCOUNT -> Icons.Rounded.AccountCircle
+    SettingsPage.EXPORT -> Icons.Rounded.ImportExport
+    SettingsPage.ABOUT -> Icons.Rounded.Info
+    SettingsPage.ROOT -> Icons.Rounded.Search
 }
 
 @Composable
 private fun SettingsHeader(title: String, onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Назад") }
+        IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Назад") }
         Text(title, fontSize = 23.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
 @Composable
-private fun SettingsNavRow(icon: ImageVector, title: String, value: String, tint: Color? = null, onClick: () -> Unit) {
-    val colored = tint != null && LocalAppStyle.current != ru.muz.settings.AppStyle.MINIMAL
+private fun SettingsNavRow(icon: ImageVector, title: String, value: String, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier.size(40.dp)
-                .clip(if (colored) RoundedCornerShape(12.dp) else CircleShape)
-                .background(if (colored) tint!! else MaterialTheme.colorScheme.secondaryContainer),
-            contentAlignment = Alignment.Center,
-        ) { Icon(icon, null, tint = if (colored) Color.White else MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(22.dp)) }
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = SoftText, modifier = Modifier.size(24.dp))
+        }
         Column(Modifier.weight(1f).padding(start = 16.dp)) {
             Text(title, fontWeight = FontWeight.SemiBold)
             Text(value, color = SoftText, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Icon(Icons.Filled.ChevronRight, null, tint = SoftText)
+        Icon(Icons.Rounded.ChevronRight, null, tint = SoftText)
     }
 }
 
@@ -1449,7 +1445,7 @@ private fun ExpandableSection(title: String, subtitle: String, content: @Composa
                 Text(title, fontWeight = FontWeight.Bold, color = Accent)
                 Text(subtitle, color = SoftText, fontSize = 13.sp)
             }
-            Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, if (expanded) "Свернуть" else "Развернуть", tint = SoftText)
+            Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, if (expanded) "Свернуть" else "Развернуть", tint = SoftText)
         }
         AnimatedVisibility(expanded) { content() }
     }
@@ -1457,7 +1453,7 @@ private fun ExpandableSection(title: String, subtitle: String, content: @Composa
 
 @Composable
 private fun SettingsTitle(value: String) {
-    Text(value, color = Accent, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 6.dp))
+    Text(value, color = SoftText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 24.dp, bottom = 8.dp))
 }
 
 @Composable
@@ -1562,7 +1558,7 @@ private fun StylePicker(settings: AppSettings, onChange: (AppSettings) -> Unit) 
                 StyleThumb(style, Modifier.fillMaxWidth().height(150.dp))
                 Row(Modifier.padding(top = 8.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(styleName(style), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                    if (chosen) Icon(Icons.Filled.Check, null, tint = Accent, modifier = Modifier.size(18.dp))
+                    if (chosen) Icon(Icons.Rounded.Check, null, tint = Accent, modifier = Modifier.size(18.dp))
                 }
                 Text(styleHint(style), color = SoftText, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2, modifier = Modifier.padding(horizontal = 4.dp))
             }
@@ -1643,7 +1639,7 @@ private fun MiniApp(style: ru.muz.settings.AppStyle) {
                             .background(if (style == ru.muz.settings.AppStyle.MATERIAL_YOU) scheme.primary else Color.White),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Filled.PlayArrow, null, tint = if (style == ru.muz.settings.AppStyle.MATERIAL_YOU) scheme.onPrimary else Color.Black)
+                        Icon(Icons.Rounded.PlayArrow, null, tint = if (style == ru.muz.settings.AppStyle.MATERIAL_YOU) scheme.onPrimary else Color.Black)
                     }
                 }
                 Spacer(Modifier.height(12.dp))
@@ -1673,9 +1669,9 @@ private fun MiniApp(style: ru.muz.settings.AppStyle) {
 @Composable
 private fun QuickToggles(settings: AppSettings, onChange: (AppSettings) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        QuickTile(Icons.Filled.VisibilityOff, "Приватно", settings.privateSession, Modifier.weight(1f)) { onChange(settings.copy(privateSession = !settings.privateSession)) }
-        QuickTile(Icons.Filled.DataSaverOn, "Экономия", settings.dataSaver, Modifier.weight(1f)) { onChange(settings.copy(dataSaver = !settings.dataSaver)) }
-        QuickTile(Icons.Filled.MotionPhotosOff, "Без анимаций", settings.reduceMotion, Modifier.weight(1f)) { onChange(settings.copy(reduceMotion = !settings.reduceMotion)) }
+        QuickTile(Icons.Rounded.VisibilityOff, "Приватно", settings.privateSession, Modifier.weight(1f)) { onChange(settings.copy(privateSession = !settings.privateSession)) }
+        QuickTile(Icons.Rounded.DataSaverOn, "Экономия", settings.dataSaver, Modifier.weight(1f)) { onChange(settings.copy(dataSaver = !settings.dataSaver)) }
+        QuickTile(Icons.Rounded.MotionPhotosOff, "Без анимаций", settings.reduceMotion, Modifier.weight(1f)) { onChange(settings.copy(reduceMotion = !settings.reduceMotion)) }
     }
 }
 

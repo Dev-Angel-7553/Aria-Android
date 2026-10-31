@@ -255,8 +255,8 @@ private fun TabItem(item: MainTab, active: Boolean, label: Boolean, glass: Boole
     val pop = remember { Animatable(1f) }
     LaunchedEffect(active) {
         if (active && !reduce) {
-            pop.snapTo(0.8f)
-            pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow))
+            pop.snapTo(0.96f)
+            pop.animateTo(1f, tween(160))
         }
     }
     val tint by animateColorAsState(
@@ -272,10 +272,10 @@ private fun TabItem(item: MainTab, active: Boolean, label: Boolean, glass: Boole
     )
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(
-            if (glass) GlassIcons.forTab(item, active) else if (active) item.active else item.inactive,
+            AriaIcons.forTab(item, active),
             null,
             tint = tint,
-            modifier = Modifier.size(if (glass) 25.dp else 24.dp).graphicsLayer {
+            modifier = Modifier.size(24.dp).graphicsLayer {
                 scaleX = pop.value
                 scaleY = pop.value
             },
@@ -284,7 +284,7 @@ private fun TabItem(item: MainTab, active: Boolean, label: Boolean, glass: Boole
             Text(
                 item.title,
                 color = tint,
-                fontSize = if (glass) 10.sp else 12.sp,
+                fontSize = if (glass) 11.sp else 12.sp,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,
                 modifier = Modifier.padding(top = if (glass) 2.dp else 6.dp),

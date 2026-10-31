@@ -23,16 +23,12 @@ import ru.muz.update.AppRelease
 import ru.muz.update.AppUpdate
 import ru.muz.update.UpdateInstaller
 import ru.muz.yandex.PlaySource
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.ManageSearch
 import androidx.compose.material.icons.outlined.Insights
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Search
@@ -49,7 +45,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.ensureActive
@@ -73,15 +68,11 @@ import ru.muz.download.TrackTransfer
 import ru.muz.stats.ListeningStats
 import ru.muz.stats.ListeningStatsSnapshot
 
-internal enum class MainTab(
-    val title: String,
-    val active: ImageVector,
-    val inactive: ImageVector,
-) {
-    HOME("Главная", Icons.Rounded.Home, Icons.Outlined.Home),
-    LIBRARY("Коллекция", Icons.Rounded.LibraryMusic, Icons.Outlined.LibraryMusic),
-    SEARCH("Поиск", Icons.Rounded.ManageSearch, Icons.Outlined.Search),
-    STATS("Статистика", Icons.Rounded.Insights, Icons.Outlined.Insights),
+internal enum class MainTab(val title: String) {
+    HOME("Главная"),
+    LIBRARY("Коллекция"),
+    SEARCH("Поиск"),
+    STATS("Статистика"),
 }
 
 @Composable
@@ -208,6 +199,16 @@ fun MusicApp(
         scope.launch {
             snackbar.currentSnackbarData?.dismiss()
             snackbar.showSnackbar(tr(text))
+        }
+    }
+
+    fun copyArtist(value: String) {
+        val credit = ru.muz.text.ArtistCredit.copyText(value)
+        if (credit.isBlank()) return
+        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+        clipboard.setPrimaryClip(ClipData.newPlainText(tr("Исполнители"), credit))
+        if (android.os.Build.VERSION.SDK_INT < 33) {
+            android.widget.Toast.makeText(context, tr("Исполнители скопированы"), android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1186,14 +1187,7 @@ fun MusicApp(
                         onArtist = { openArtist(player.artist, currentTrack?.artistId.orEmpty()) },
                         onDownloadCover = { downloadCover(currentTrack) },
                         onOpenCover = { currentTrack?.let { TrackTransfer.openCover(context, it) } },
-                        onCopyArtist = {
-                            val artist = player.artist.trim()
-                            if (artist.isNotBlank()) {
-                                (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? ClipboardManager)
-                                    ?.setPrimaryClip(ClipData.newPlainText("Артист", artist))
-                                toast("Имя артиста скопировано")
-                            }
-                        },
+                        onCopyArtist = { copyArtist(player.artist) },
                     )
 
                     selectedPlaylist != null -> PlaylistScreen(
@@ -1394,6 +1388,7 @@ fun MusicApp(
                     actionTrack = null
                     toast("Добавлено в очередь")
                 },
+                onCopyArtist = { copyArtist(track.artist); actionTrack = null },
                 onToggleLike = { toggleLike(track); actionTrack = null },
                 onDownload = { downloadTrack(track, false); actionTrack = null },
                 onShareLink = { TrackTransfer.shareLink(context, track); actionTrack = null },

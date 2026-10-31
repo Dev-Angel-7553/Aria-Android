@@ -16,22 +16,22 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.FileUpload
-import androidx.compose.material.icons.filled.DownloadForOffline
-import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.DownloadForOffline
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.background
@@ -40,7 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import ru.muz.update.AppRelease
 import ru.muz.settings.HomeSection
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.layout.Box
@@ -231,10 +231,10 @@ private fun HomeScreen(
             ScreenHeader("Для вас", account?.displayName) {
                 Row {
                     IconButton(onClick = onRefresh, enabled = !busy) {
-                        Icon(Icons.Filled.Refresh, "Обновить")
+                        Icon(Icons.Rounded.Refresh, "Обновить")
                     }
                     IconButton(onClick = onSettings) {
-                        Icon(Icons.Filled.Settings, "Настройки")
+                        Icon(Icons.Rounded.Settings, "Настройки")
                     }
                 }
             }
@@ -341,13 +341,13 @@ private fun LibraryScreen(
             ScreenHeader("Коллекция", "Ваши треки и плейлисты") {
                 Row {
                     IconButton(onClick = onImportCsv) {
-                        Icon(Icons.Filled.FileUpload, "Импорт плейлиста из CSV")
+                        Icon(Icons.Rounded.FileUpload, "Импорт плейлиста из CSV")
                     }
                     IconButton(onClick = onRefresh, enabled = !busy) {
-                        Icon(Icons.Filled.Refresh, "Обновить коллекцию")
+                        Icon(Icons.Rounded.Refresh, "Обновить коллекцию")
                     }
                     IconButton(onClick = onSettings) {
-                        Icon(Icons.Filled.Settings, "Настройки")
+                        Icon(Icons.Rounded.Settings, "Настройки")
                     }
                 }
             }
@@ -506,7 +506,7 @@ private fun SearchScreen(
         item {
             ScreenHeader("Поиск", "Треки и плейлисты Яндекс Музыки") {
                 IconButton(onClick = onSettings) {
-                    Icon(Icons.Filled.Settings, "Настройки")
+                    Icon(Icons.Rounded.Settings, "Настройки")
                 }
             }
         }
@@ -516,14 +516,14 @@ private fun SearchScreen(
                 onValueChange = { query = it },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 singleLine = true,
-                leadingIcon = { Icon(Icons.Filled.Search, null) },
+                leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 label = { Text("Что хотите послушать?") },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = {
                     submitSearch(query)
                 }),
                 trailingIcon = if (query.isNotEmpty()) {
-                    { IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, "Очистить") } }
+                    { IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Очистить") } }
                 } else null,
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp * LocalCornerRadiusScale.current),
             )
@@ -534,13 +534,13 @@ private fun SearchScreen(
                     Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Filled.History, null, tint = SoftText, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.History, null, tint = SoftText, modifier = Modifier.size(18.dp))
                     Text("Недавние", color = SoftText, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 8.dp).weight(1f))
                     TextButton(onClick = {
                         recentQueries = emptyList()
                         historyPrefs.edit().remove("queries_ordered").remove("queries").apply()
                     }) {
-                        Icon(Icons.Filled.DeleteSweep, null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.DeleteSweep, null, modifier = Modifier.size(18.dp))
                         Text("Очистить", modifier = Modifier.padding(start = 4.dp))
                     }
                 }
@@ -553,14 +553,14 @@ private fun SearchScreen(
                     AssistChip(
                         onClick = { submitSearch(value) },
                         label = { Text(value, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        leadingIcon = { Icon(Icons.Filled.History, null, modifier = Modifier.size(16.dp)) },
+                        leadingIcon = { Icon(Icons.Rounded.History, null, modifier = Modifier.size(16.dp)) },
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = {
                         recentQueries = recentQueries.filterNot { it == value }
                         persistHistory(recentQueries)
                     }) {
-                        Icon(Icons.Filled.Close, "Удалить запрос", tint = SoftText, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Close, "Удалить запрос", tint = SoftText, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -570,7 +570,7 @@ private fun SearchScreen(
                 item { Text("Предложения", color = SoftText, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) }
                 items(suggestions, key = { "suggestion-$it" }) { value ->
                     TextButton(onClick = { submitSearch(value) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-                        Icon(Icons.Filled.History, null, tint = SoftText)
+                        Icon(Icons.Rounded.History, null, tint = SoftText)
                         Text(value, modifier = Modifier.padding(start = 10.dp).weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
@@ -704,27 +704,27 @@ internal fun PlaylistScreen(
                 Modifier.fillMaxWidth().padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Назад") }
+                IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Назад") }
                 Text(screenLabel, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
                 Box {
                     IconButton(onClick = { exportMenu = true }, enabled = tracks.isNotEmpty()) {
-                        Icon(Icons.Filled.FileDownload, "Сохранить или экспортировать")
+                        Icon(Icons.Rounded.FileDownload, "Сохранить или экспортировать")
                     }
                     DropdownMenu(expanded = exportMenu, onDismissRequest = { exportMenu = false }) {
                         DropdownMenuItem(
                             enabled = !exportBusy,
                             text = { Text("Сохранить CSV в Загрузки") },
-                            leadingIcon = { Icon(Icons.Filled.FileDownload, null) },
+                            leadingIcon = { Icon(Icons.Rounded.FileDownload, null) },
                             onClick = { exportMenu = false; onExportCsv(false) },
                         )
                         DropdownMenuItem(
                             text = { Text("Отправить CSV") },
-                            leadingIcon = { Icon(Icons.Filled.Share, null) },
+                            leadingIcon = { Icon(Icons.Rounded.Share, null) },
                             onClick = { exportMenu = false; onExportCsv(true) },
                         )
                         DropdownMenuItem(
                             text = { Text(if (offlineBusy) "Сохраняем для офлайна…" else "Сохранить для офлайна") },
-                            leadingIcon = { Icon(Icons.Filled.DownloadForOffline, null) },
+                            leadingIcon = { Icon(Icons.Rounded.DownloadForOffline, null) },
                             enabled = !offlineBusy,
                             onClick = { exportMenu = false; onSaveOffline() },
                         )
@@ -733,13 +733,13 @@ internal fun PlaylistScreen(
                 if (isAlbum) {
                     IconButton(onClick = onToggleAlbumLike) {
                         Icon(
-                            if (albumLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            if (albumLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             if (albumLiked) "Убрать альбом из любимых" else "Добавить альбом в любимые",
                             tint = if (albumLiked) Accent else SoftText,
                         )
                     }
                 } else if (!isSynthetic) {
-                    IconButton(onClick = { onPlaylistMore(playlist) }) { Icon(Icons.Filled.MoreVert, "Ещё") }
+                    IconButton(onClick = { onPlaylistMore(playlist) }) { Icon(Icons.Rounded.MoreVert, "Ещё") }
                 }
             }
         }
@@ -752,7 +752,7 @@ internal fun PlaylistScreen(
                 Text(
                     playlist.title,
                     fontSize = 25.sp,
-                    fontWeight = FontWeight.Black,
+                    fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 20.dp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -781,7 +781,7 @@ internal fun PlaylistScreen(
                         enabled = shown.isNotEmpty(),
                         modifier = Modifier.height(48.dp),
                     ) {
-                        Icon(Icons.Filled.PlayArrow, null)
+                        Icon(Icons.Rounded.PlayArrow, null)
                         Spacer(Modifier.padding(horizontal = 3.dp))
                         Text("Слушать", fontWeight = FontWeight.Bold)
                     }
@@ -794,7 +794,7 @@ internal fun PlaylistScreen(
                         },
                         enabled = shown.isNotEmpty(),
                     ) {
-                        Icon(Icons.Filled.Shuffle, "Перемешать")
+                        Icon(Icons.Rounded.Shuffle, "Перемешать")
                     }
                 }
             }
@@ -807,9 +807,9 @@ internal fun PlaylistScreen(
                     onValueChange = { query = it },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                     singleLine = true,
-                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                    leadingIcon = { Icon(Icons.Rounded.Search, null) },
                     trailingIcon = if (query.isNotEmpty()) {
-                        { IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, "Очистить") } }
+                        { IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Очистить") } }
                     } else null,
                     label = { Text("Найти в ${if (isLiked) "любимых треках" else "списке"}") },
                 )
@@ -855,7 +855,7 @@ private fun UpdateBanner(
             .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.SystemUpdate, null, tint = scheme.onPrimaryContainer)
+            Icon(Icons.Rounded.SystemUpdate, null, tint = scheme.onPrimaryContainer)
             Text("Доступна Aria ${release.version}", fontWeight = FontWeight.Bold, color = scheme.onPrimaryContainer, modifier = Modifier.weight(1f).padding(start = 12.dp))
         }
         ReleaseNotes(release.notes, scheme.onPrimaryContainer, Modifier.padding(top = 8.dp))

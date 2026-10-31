@@ -34,22 +34,22 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AspectRatio
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FormatAlignCenter
-import androidx.compose.material.icons.filled.FormatAlignLeft
-import androidx.compose.material.icons.filled.FormatBold
-import androidx.compose.material.icons.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.FormatQuote
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.InsertLink
-import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.rounded.AspectRatio
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.FormatAlignCenter
+import androidx.compose.material.icons.rounded.FormatAlignLeft
+import androidx.compose.material.icons.rounded.FormatBold
+import androidx.compose.material.icons.rounded.FormatListBulleted
+import androidx.compose.material.icons.rounded.FormatQuote
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.InsertLink
+import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -148,11 +148,11 @@ private const val CARD_WIDTH_PX = 1080
 private const val MAX_LINES = 8
 
 private enum class QuoteTab(val title: String, val icon: ImageVector) {
-    STYLE("Фон", Icons.Filled.Palette),
-    FORMAT("Формат", Icons.Filled.AspectRatio),
-    TEXT("Текст", Icons.Filled.TextFields),
-    LINES("Строки", Icons.Filled.FormatListBulleted),
-    MUSIC("Музыка", Icons.Filled.MusicNote),
+    STYLE("Фон", Icons.Rounded.Palette),
+    FORMAT("Формат", Icons.Rounded.AspectRatio),
+    TEXT("Текст", Icons.Rounded.TextFields),
+    LINES("Строки", Icons.Rounded.FormatListBulleted),
+    MUSIC("Музыка", Icons.Rounded.MusicNote),
 }
 
 private enum class QuoteOutput { IMAGE, VIDEO }
@@ -293,7 +293,7 @@ internal fun QuoteEditor(
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, "Закрыть") }
+                    IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "Закрыть") }
                     Column(Modifier.weight(1f)) {
                         Text("Карточка", fontSize = 18.sp, fontWeight = FontWeight.Black)
                         Text(
@@ -382,12 +382,12 @@ internal fun QuoteEditor(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         OutlinedButton(onClick = { export(false) }, enabled = !busy, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Filled.Save, null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Rounded.Save, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("Сохранить", maxLines = 1)
                         }
                         Button(onClick = { export(true) }, enabled = !busy, modifier = Modifier.weight(1.3f)) {
-                            Icon(if (output == QuoteOutput.VIDEO) Icons.Filled.Movie else Icons.Filled.Share, null, modifier = Modifier.size(18.dp))
+                            Icon(if (output == QuoteOutput.VIDEO) Icons.Rounded.Movie else Icons.Rounded.Share, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
                             Text(if (output == QuoteOutput.VIDEO) "Видео" else "Поделиться", maxLines = 1)
                         }
@@ -463,7 +463,7 @@ private fun StylePicker(selected: QuoteStyle, coverUrl: String?, coverColor: Col
                             Modifier.align(Alignment.TopEnd).padding(5.dp).size(18.dp).clip(CircleShape).background(Accent),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(13.dp))
+                            Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(13.dp))
                         }
                     }
                 }
@@ -534,14 +534,14 @@ private fun TextOptions(look: CardLook, onChange: (CardLook) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
-                OptionChip("Слева", Icons.Filled.FormatAlignLeft, !look.centered) { onChange(look.copy(centered = false)) }
+                OptionChip("Слева", Icons.Rounded.FormatAlignLeft, !look.centered) { onChange(look.copy(centered = false)) }
             }
             item {
-                OptionChip("По центру", Icons.Filled.FormatAlignCenter, look.centered) { onChange(look.copy(centered = true)) }
+                OptionChip("По центру", Icons.Rounded.FormatAlignCenter, look.centered) { onChange(look.copy(centered = true)) }
             }
-            item { OptionChip("Жирный", Icons.Filled.FormatBold, look.bold) { onChange(look.copy(bold = !look.bold)) } }
-            item { OptionChip("Кавычки", Icons.Filled.FormatQuote, look.quoteMark) { onChange(look.copy(quoteMark = !look.quoteMark)) } }
-            item { OptionChip("Трек", Icons.Filled.MusicNote, look.showTrack) { onChange(look.copy(showTrack = !look.showTrack)) } }
+            item { OptionChip("Жирный", Icons.Rounded.FormatBold, look.bold) { onChange(look.copy(bold = !look.bold)) } }
+            item { OptionChip("Кавычки", Icons.Rounded.FormatQuote, look.quoteMark) { onChange(look.copy(quoteMark = !look.quoteMark)) } }
+            item { OptionChip("Трек", Icons.Rounded.MusicNote, look.showTrack) { onChange(look.copy(showTrack = !look.showTrack)) } }
             item { OptionChip("Подпись Aria", null, look.showBrand) { onChange(look.copy(showBrand = !look.showBrand)) } }
         }
     }
@@ -555,7 +555,7 @@ private fun OptionChip(label: String, icon: ImageVector?, selected: Boolean, onC
         label = { Text(label) },
         leadingIcon = {
             when {
-                selected -> Icon(Icons.Filled.Check, null, modifier = Modifier.size(FilterChipDefaults.IconSize))
+                selected -> Icon(Icons.Rounded.Check, null, modifier = Modifier.size(FilterChipDefaults.IconSize))
                 icon != null -> Icon(icon, null, modifier = Modifier.size(FilterChipDefaults.IconSize))
             }
         },
@@ -620,7 +620,7 @@ private fun LinePicker(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (checked) Icon(Icons.Filled.Check, null, tint = Accent, modifier = Modifier.size(18.dp))
+                    if (checked) Icon(Icons.Rounded.Check, null, tint = Accent, modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -642,13 +642,13 @@ private fun MusicOptions(
 ) {
     Column(Modifier.fillMaxSize().padding(top = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutputCard("Картинка", "PNG, без звука", Icons.Filled.Image, output == QuoteOutput.IMAGE, true, Modifier.weight(1f)) {
+            OutputCard("Картинка", "PNG, без звука", Icons.Rounded.Image, output == QuoteOutput.IMAGE, true, Modifier.weight(1f)) {
                 onOutput(QuoteOutput.IMAGE)
             }
             OutputCard(
                 "Видео с музыкой",
                 if (canVideo) "MP4 · ${QuoteClip.label(clip.lengthMs)}" else "недоступно",
-                Icons.Filled.Movie,
+                Icons.Rounded.Movie,
                 output == QuoteOutput.VIDEO,
                 canVideo,
                 Modifier.weight(1f),
@@ -665,7 +665,7 @@ private fun MusicOptions(
                 }
             }
             if (hasLink) {
-                item { OptionChip("Ссылка на трек", Icons.Filled.InsertLink, attachLink) { onAttachLink(!attachLink) } }
+                item { OptionChip("Ссылка на трек", Icons.Rounded.InsertLink, attachLink) { onAttachLink(!attachLink) } }
             }
         }
         Text(

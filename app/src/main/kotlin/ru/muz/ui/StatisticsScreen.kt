@@ -23,13 +23,13 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.TrendingDown
+import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -164,7 +164,7 @@ internal fun StatisticsScreen(
                 Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 22.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Треки", fontWeight = FontWeight.Black, fontSize = 19.sp, modifier = Modifier.weight(1f))
                     TextButton(onClick = { onPlayTracks(data.topTracks, 0) }) {
-                        Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.PlayArrow, null, modifier = Modifier.size(18.dp))
                         Text("Слушать все", modifier = Modifier.padding(start = 4.dp))
                     }
                 }
@@ -198,11 +198,11 @@ internal fun StatisticsScreen(
                         TrackTransfer.shareExport(context, "Aria статистика ${LocalDate.now()}.json", "application/json", json.toByteArray(), "Сохранить статистику")
                     }
                 }) {
-                    Icon(Icons.Filled.FileDownload, null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.FileDownload, null, modifier = Modifier.size(18.dp))
                     Text("Выгрузить", modifier = Modifier.padding(start = 6.dp))
                 }
                 TextButton(onClick = { confirmReset = true }) {
-                    Icon(Icons.Filled.DeleteSweep, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Rounded.DeleteSweep, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
                     Text("Сбросить", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(start = 6.dp))
                 }
             }
@@ -243,7 +243,7 @@ private fun HeroCard(data: PeriodStats, onShare: () -> Unit) {
             Text("Вы слушали ${data.period.headline()}", color = SoftText, fontSize = 13.sp, modifier = Modifier.weight(1f))
             if (data.hasData) {
                 Box(Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)).clickable(onClick = onShare), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Share, "Поделиться итогами", modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.Share, "Поделиться итогами", modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -253,7 +253,7 @@ private fun HeroCard(data: PeriodStats, onShare: () -> Unit) {
             val up = change >= 0
             Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    if (up) Icons.Filled.TrendingUp else Icons.Filled.TrendingDown,
+                    if (up) Icons.Rounded.TrendingUp else Icons.Rounded.TrendingDown,
                     null,
                     tint = if (up) Color(0xFF5FD38D) else Color(0xFFFF7A7A),
                     modifier = Modifier.size(18.dp),
@@ -347,7 +347,7 @@ private fun StreakRow(data: PeriodStats) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Tile(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.LocalFireDepartment, null, tint = Color(0xFFFF9A3D), modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.LocalFireDepartment, null, tint = Color(0xFFFF9A3D), modifier = Modifier.size(20.dp))
                 Text("${data.currentStreak}", fontWeight = FontWeight.Black, fontSize = 20.sp, modifier = Modifier.padding(start = 4.dp))
             }
             Text("${plural(data.currentStreak, "день", "дня", "дней")} подряд", color = SoftText, fontSize = 11.sp)

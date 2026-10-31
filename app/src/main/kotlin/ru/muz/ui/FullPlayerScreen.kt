@@ -1,6 +1,8 @@
 package ru.muz.ui
 
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -24,32 +26,29 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.Lyrics
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.QueueMusic
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.InsertLink
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.FormatQuote
-import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.InsertLink
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.FormatQuote
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -395,22 +394,22 @@ internal fun FullPlayerScreen(
     }
     if (lyricsMenu) {
         AriaSheet(onDismissRequest = { lyricsMenu = false }) {
-            PlayerSheetAction(Icons.Filled.Image, "Обложка и управление") { lyricsMenu = false; onToggleView() }
-            PlayerSheetAction(Icons.Filled.QueueMusic, "Очередь") { lyricsMenu = false; showQueue = true }
-            PlayerSheetAction(Icons.Filled.FormatQuote, "Карточка с цитатой") { lyricsMenu = false; onQuote() }
-            PlayerSheetAction(Icons.Filled.Bedtime, if (sleepLabel != null) "Таймер сна: $sleepLabel" else "Таймер сна") { lyricsMenu = false; menuSleep = true }
-            PlayerSheetAction(Icons.Filled.Speed, "Скорость") { lyricsMenu = false; menuSpeed = true }
+            PlayerSheetAction(Icons.Rounded.Image, "Обложка и управление") { lyricsMenu = false; onToggleView() }
+            PlayerSheetAction(Icons.Rounded.QueueMusic, "Очередь") { lyricsMenu = false; showQueue = true }
+            PlayerSheetAction(Icons.Rounded.FormatQuote, "Карточка с цитатой") { lyricsMenu = false; onQuote() }
+            PlayerSheetAction(Icons.Rounded.Bedtime, if (sleepLabel != null) "Таймер сна: $sleepLabel" else "Таймер сна") { lyricsMenu = false; menuSleep = true }
+            PlayerSheetAction(Icons.Rounded.Speed, "Скорость") { lyricsMenu = false; menuSpeed = true }
             PlayerSheetAction(PlayerAction.SOUND.icon(), "Звук и эквалайзер") { lyricsMenu = false; menuSound = true }
             PlayerSheetAction(PlayerAction.DOWNLOAD.icon(), "Скачать трек") { lyricsMenu = false; onDownload() }
             PlayerSheetAction(PlayerAction.SAVE_COVER.icon(), "Сохранить обложку") { lyricsMenu = false; onDownloadCover() }
             PlayerSheetAction(PlayerAction.OPEN_COVER.icon(), "Открыть обложку") { lyricsMenu = false; onOpenCover() }
             PlayerSheetAction(PlayerAction.SHARE_FILE.icon(), "Отправить аудиофайл") { lyricsMenu = false; onShareFile() }
-            PlayerSheetAction(PlayerAction.COPY_ARTIST.icon(), "Скопировать имя артиста") { lyricsMenu = false; onCopyArtist() }
-            PlayerSheetAction(Icons.Filled.InsertLink, "Поделиться ссылкой") { lyricsMenu = false; onShareLink() }
+            PlayerSheetAction(PlayerAction.COPY_ARTIST.icon(), "Копировать исполнителей") { lyricsMenu = false; onCopyArtist() }
+            PlayerSheetAction(Icons.Rounded.InsertLink, "Поделиться ссылкой") { lyricsMenu = false; onShareLink() }
             PlayerSheetAction(PlayerAction.TRACK_WAVE.icon(), "Волна по треку") { lyricsMenu = false; tools.onTrackWave() }
             PlayerSheetAction(PlayerAction.DISLIKE.icon(), "Не рекомендовать") { lyricsMenu = false; tools.onDislike() }
             PlayerSheetAction(PlayerAction.PRIVATE.icon(), if (tools.privateSession) "Выключить приватный режим" else "Приватный режим") { lyricsMenu = false; tools.onPrivate(!tools.privateSession) }
-            PlayerSheetAction(Icons.Filled.Person, "К исполнителю") { lyricsMenu = false; onArtist() }
+            PlayerSheetAction(Icons.Rounded.Person, "К исполнителю") { lyricsMenu = false; onArtist() }
             androidx.compose.foundation.layout.Spacer(Modifier.height(24.dp))
         }
     }
@@ -440,7 +439,7 @@ internal fun FullPlayerScreen(
             Text(
                 "Очередь · ${queue.size}",
                 fontSize = 24.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             )
             val currentIndex = queue.indexOfFirst { it.id == state.mediaId }.coerceAtLeast(0)
@@ -460,7 +459,7 @@ internal fun FullPlayerScreen(
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     placeholder = { Text("Поиск по очереди") },
-                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                    leadingIcon = { Icon(Icons.Rounded.Search, null) },
                     shape = RoundedCornerShape(28.dp),
                 )
                 androidx.compose.material3.TextButton(onClick = { queueSort = queueSort.next() }) { Text(queueSort.label) }
@@ -513,7 +512,7 @@ private fun PlayerHeader(
         Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Свернуть") }
+        IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Свернуть") }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(if (showLyrics) "Текст песни" else "Сейчас играет", fontWeight = FontWeight.Bold)
             if (sleepLabel != null) {
@@ -537,7 +536,7 @@ private fun PlayerHeader(
         }
         IconButton(onClick = onToggleView) {
             Icon(
-                if (showLyrics) Icons.Filled.Headphones else Icons.Filled.Lyrics,
+                if (showLyrics) Icons.Rounded.Headphones else Icons.Rounded.Lyrics,
                 if (showLyrics) "Показать плеер" else "Показать текст песни",
             )
         }
@@ -671,7 +670,7 @@ private fun LyricsDock(
             }
             IconButton(onClick = onLike) {
                 Icon(
-                    if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                     "Нравится",
                     tint = if (liked) Accent else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -832,7 +831,7 @@ private fun PlayerArtwork(
         if (heart.value in 0.001f..0.999f) {
             val k = heart.value
             Icon(
-                Icons.Filled.Favorite,
+                Icons.Rounded.Favorite,
                 null,
                 tint = Color.White.copy(alpha = (1f - k) * 0.95f),
                 modifier = Modifier.size(110.dp).graphicsLayer {
@@ -884,24 +883,13 @@ private fun PlayerDetails(
         Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 PlayerCrossfade(state.title) { title ->
-                    Text(title, fontSize = 22.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(title, fontSize = 24.sp, lineHeight = 29.sp, letterSpacing = (-0.4).sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        state.artist,
-                        color = SoftText,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f).clickable(onClick = onArtist),
-                    )
-                    IconButton(onClick = onCopyArtist, modifier = Modifier.size(30.dp)) {
-                        Icon(Icons.Filled.ContentCopy, "Скопировать имя артиста", tint = SoftText, modifier = Modifier.size(16.dp))
-                    }
-                }
+                ArtistCreditLine(state.artist, onArtist, onCopyArtist)
             }
             IconButton(onClick = onLike) {
                 Icon(
-                    if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                     "Нравится",
                     tint = if (liked) PlayerAccent else MaterialTheme.colorScheme.onSurface,
                 )
@@ -915,7 +903,7 @@ private fun PlayerDetails(
                 Text(transferMessage, color = SoftText, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                 if (!transferBusy && transferMessage.contains("Не удалось", ignoreCase = true)) {
                     IconButton(onClick = onCopyTransferLog, modifier = Modifier.size(30.dp)) {
-                        Icon(Icons.Filled.ContentCopy, "Скопировать диагностический лог", tint = SoftText, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Rounded.ContentCopy, "Скопировать диагностический лог", tint = SoftText, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -960,14 +948,17 @@ private fun PlayerDetails(
                     Icon(action.icon(), action.title(), tint = if (active) PlayerAccent else LocalContentColor.current)
                 }
             }
-            IconButton(onClick = { moreActions = true }) { Icon(Icons.Filled.MoreHoriz, "Ещё") }
+            IconButton(onClick = { moreActions = true }) { Icon(Icons.Rounded.MoreHoriz, "Ещё") }
         }
         if (moreActions) {
             AriaSheet(onDismissRequest = { moreActions = false }) {
-                PlayerAction.entries.filter { it !in inRow }.forEach { action ->
-                    PlayerSheetAction(action.icon(), action.title(), enabled(action)) { moreActions = false; run(action) }
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    SheetHeader(state.title, state.artist, state.coverUrl)
+                    PlayerAction.entries.filter { it !in inRow }.forEach { action ->
+                        SheetAction(action.icon(), action.title(), { moreActions = false; run(action) }, enabled(action))
+                    }
+                    androidx.compose.foundation.layout.Spacer(Modifier.height(24.dp))
                 }
-                androidx.compose.foundation.layout.Spacer(Modifier.height(24.dp))
             }
         }
         if (showSleep) SleepTimerSheet(tools.sleepEndsAt, tools.onSleep) { showSleep = false }
@@ -983,19 +974,19 @@ private fun PlayerDetails(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onShuffle) {
-                Icon(Icons.Filled.Shuffle, "Перемешать", tint = if (state.shuffle) PlayerAccent else SoftText)
+                Icon(Icons.Rounded.Shuffle, "Перемешать", tint = if (state.shuffle) PlayerAccent else SoftText)
             }
-            IconButton(onClick = onPrevious) { Icon(Icons.Filled.SkipPrevious, "Предыдущий", modifier = Modifier.size(34.dp)) }
+            IconButton(onClick = onPrevious) { Icon(Icons.Rounded.SkipPrevious, "Предыдущий", modifier = Modifier.size(34.dp)) }
             Box(
                 Modifier.size(64.dp).clip(playShape(LocalPlayShape.current)).background(PlayerAccent).clickable(onClick = onPlayPause),
                 contentAlignment = Alignment.Center,
             ) {
                 PlaybackIcon(state, Modifier.size(38.dp), OnPlayerAccent)
             }
-            IconButton(onClick = onNext) { Icon(Icons.Filled.SkipNext, "Следующий", modifier = Modifier.size(34.dp)) }
+            IconButton(onClick = onNext) { Icon(Icons.Rounded.SkipNext, "Следующий", modifier = Modifier.size(34.dp)) }
             IconButton(onClick = onRepeat) {
                 Icon(
-                    if (state.repeat == PlayerRepeatMode.ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                    if (state.repeat == PlayerRepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
                     "Повтор",
                     tint = if (state.repeat != PlayerRepeatMode.OFF) PlayerAccent else SoftText,
                 )
@@ -1011,11 +1002,5 @@ private fun PlayerSheetAction(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    androidx.compose.material3.ListItem(
-        headlineContent = { Text(title) },
-        leadingContent = { Icon(icon, null) },
-        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-        modifier = Modifier.fillMaxWidth().then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
-            .graphicsLayer { alpha = if (enabled) 1f else 0.4f },
-    )
+    SheetAction(icon, title, onClick, enabled)
 }

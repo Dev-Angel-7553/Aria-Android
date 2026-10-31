@@ -626,10 +626,11 @@ class YandexClient(
     private fun JsonObject.asTrack(): Track? {
         val id = string("id") ?: string("trackId") ?: return null
         val title = string("title") ?: string("name") ?: return null
-        val artists = array("artists").orEmpty()
-            .mapNotNull { it.asObject()?.string("name") ?: it.asPrimitive()?.content }
-            .joinToString(", ")
-            .ifBlank { string("artist") ?: obj("artist")?.string("name").orEmpty() }
+        val artists = ru.muz.text.ArtistCredit.names(
+            array("artists").orEmpty().mapNotNull { it.asObject()?.string("name") ?: it.asPrimitive()?.content },
+        ).ifBlank {
+            ru.muz.text.ArtistCredit.names(listOf(string("artist") ?: obj("artist")?.string("name").orEmpty()))
+        }
         val artistId = array("artists")?.firstOrNull()?.asObject()?.string("id")
             ?: obj("artist")?.string("id")
             ?: string("artistId").orEmpty()

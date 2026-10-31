@@ -18,15 +18,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -262,7 +262,7 @@ internal fun ScreenHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, fontSize = if (LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS) 34.sp else 29.sp, fontWeight = FontWeight.Black)
+            Text(title, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.6).sp, fontWeight = FontWeight.SemiBold)
             if (!subtitle.isNullOrBlank()) {
                 Text(subtitle, color = SoftText, fontSize = 13.sp)
             }
@@ -280,7 +280,7 @@ internal fun Artwork(url: String?, modifier: Modifier, radius: Dp) {
     ) {
         if (url.isNullOrBlank()) {
             Icon(
-                Icons.Filled.Headphones,
+                Icons.Rounded.Headphones,
                 contentDescription = null,
                 tint = SoftText,
                 modifier = Modifier.fillMaxSize(0.36f),
@@ -298,7 +298,7 @@ internal fun Artwork(url: String?, modifier: Modifier, radius: Dp) {
                 loading = {
                     if (LocalAnimateArtwork.current) ArtworkPlaceholder()
                 },
-                error = { Icon(Icons.Filled.Headphones, null, tint = SoftText, modifier = Modifier.fillMaxSize(0.36f)) },
+                error = { Icon(Icons.Rounded.Headphones, null, tint = SoftText, modifier = Modifier.fillMaxSize(0.36f)) },
             )
         }
     }
@@ -376,7 +376,7 @@ internal fun CompactPlayer(
         }.then(
             if (glass) Modifier.glass(backdrop, shape, corner = 24.dp).then(if (tint != null) Modifier.background(tint.copy(alpha = 0.16f), shape) else Modifier)
             else Modifier.clip(shape).background(
-                tint?.copy(alpha = 0.22f)?.compositeOver(MaterialTheme.colorScheme.surfaceContainerHighest) ?: MaterialTheme.colorScheme.surfaceContainerHighest,
+                tint?.copy(alpha = 0.10f)?.compositeOver(MaterialTheme.colorScheme.surfaceContainerHighest) ?: MaterialTheme.colorScheme.surfaceContainerHighest,
             ),
         )
             .then(swipeModifier).clickable(onClick = onClick),
@@ -403,14 +403,14 @@ internal fun CompactPlayer(
             }
             if (LocalMiniPrevious.current) {
                 IconButton(onClick = onPrevious) {
-                    Icon(Icons.Filled.SkipPrevious, "Предыдущий")
+                    Icon(Icons.Rounded.SkipPrevious, "Предыдущий")
                 }
             }
             IconButton(onClick = onPlayPause) {
                 PlaybackIcon(state, Modifier.size(26.dp), MaterialTheme.colorScheme.onSurface)
             }
             IconButton(onClick = onNext) {
-                Icon(Icons.Filled.SkipNext, "Следующий")
+                Icon(Icons.Rounded.SkipNext, "Следующий")
             }
         }
         if (showProgress) {
@@ -444,7 +444,7 @@ internal fun MyWaveCard(trackCount: Int = 0, subtitle: String = "", onTune: (() 
                 .background(Accent.copy(alpha = 0.2f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.GraphicEq, null, tint = Accent, modifier = Modifier.size(32.dp))
+            Icon(Icons.Rounded.GraphicEq, null, tint = Accent, modifier = Modifier.size(32.dp))
         }
         Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
             Text(
@@ -463,10 +463,10 @@ internal fun MyWaveCard(trackCount: Int = 0, subtitle: String = "", onTune: (() 
         }
         if (onTune != null) {
             androidx.compose.material3.IconButton(onClick = onTune) {
-                Icon(Icons.Filled.Tune, "Настроить волну", tint = SoftText)
+                Icon(Icons.Rounded.Tune, "Настроить волну", tint = SoftText)
             }
         }
-        Icon(Icons.Filled.PlayArrow, "Слушать", tint = Accent, modifier = Modifier.size(30.dp))
+        Icon(Icons.Rounded.PlayArrow, "Слушать", tint = Accent, modifier = Modifier.size(30.dp))
     }
 }
 
@@ -585,7 +585,7 @@ internal fun PlaylistCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(ru.muz.text.tracksLabel(value.trackCount), color = SoftText, fontSize = 12.sp, modifier = Modifier.weight(1f))
             IconButton(onClick = { onMore(value) }, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Filled.MoreVert, "Ещё", tint = SoftText, modifier = Modifier.size(18.dp))
+                Icon(Icons.Rounded.MoreVert, "Ещё", tint = SoftText, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -634,7 +634,7 @@ internal fun PlaylistListRow(
                 fontSize = 13.sp,
             )
         }
-        IconButton(onClick = { onMore(value) }) { Icon(Icons.Filled.MoreVert, "Ещё", tint = SoftText) }
+        IconButton(onClick = { onMore(value) }) { Icon(Icons.Rounded.MoreVert, "Ещё", tint = SoftText) }
     }
 }
 
@@ -685,7 +685,7 @@ internal fun TrackRow(
         } else {
             Text(formatDuration(value.durationMs), color = SoftText, fontSize = 12.sp)
         }
-        IconButton(onClick = { onMore(value) }) { Icon(Icons.Filled.MoreVert, "Ещё", tint = SoftText) }
+        IconButton(onClick = { onMore(value) }) { Icon(Icons.Rounded.MoreVert, "Ещё", tint = SoftText) }
     }
 }
 
@@ -711,13 +711,13 @@ internal fun CollectionHero(count: Int, onClick: () -> Unit) {
             Modifier.size(64.dp).clip(RoundedCornerShape(18.dp * LocalCornerRadiusScale.current)).background(Accent),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Favorite, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
+            Icon(Icons.Rounded.Favorite, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
         }
         Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
             Text("Мне нравится", fontSize = 19.sp, fontWeight = FontWeight.Black)
             Text(ru.muz.text.tracksLabel(count), color = SoftText)
         }
-        Icon(Icons.Filled.ChevronRight, null, tint = Accent, modifier = Modifier.size(30.dp))
+        Icon(Icons.Rounded.ChevronRight, null, tint = Accent, modifier = Modifier.size(30.dp))
     }
 }
 
@@ -725,9 +725,10 @@ internal fun CollectionHero(count: Int, onClick: () -> Unit) {
 internal fun SectionTitle(value: String) {
     Text(
         value,
-        fontSize = 20.sp,
-        fontWeight = FontWeight.Black,
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+        fontSize = 19.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = (-0.2).sp,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 12.dp),
     )
 }
 

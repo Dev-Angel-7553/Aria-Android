@@ -23,14 +23,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Lyrics
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.QueueMusic
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -135,12 +135,12 @@ internal fun ModernLyricsHeader(
             }
             IconButton(onClick = onLike) {
                 Icon(
-                    if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                     if (liked) "Убрать из «Мне нравится»" else "Мне нравится",
                     tint = if (liked) PlayerAccent else MaterialTheme.colorScheme.onSurface,
                 )
             }
-            IconButton(onClick = onMore) { Icon(Icons.Filled.MoreHoriz, "Ещё") }
+            IconButton(onClick = onMore) { Icon(Icons.Rounded.MoreHoriz, "Ещё") }
         }
     }
 }
@@ -172,7 +172,7 @@ internal fun ModernLyricsDock(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onPrevious, modifier = Modifier.size(56.dp)) { Icon(Icons.Filled.SkipPrevious, "Предыдущий", modifier = Modifier.size(40.dp)) }
+            IconButton(onClick = onPrevious, modifier = Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipPrevious, "Предыдущий", modifier = Modifier.size(40.dp)) }
             Box(
                 Modifier.then(if (accentControls) Modifier.size(width = 92.dp, height = 62.dp) else Modifier.size(64.dp))
                     .clip(if (accentControls) RoundedCornerShape(31.dp) else CircleShape)
@@ -182,12 +182,12 @@ internal fun ModernLyricsDock(
             ) {
                 PlaybackIcon(state, Modifier.size(if (accentControls) 38.dp else 48.dp), if (accentControls) OnPlayerAccent else MaterialTheme.colorScheme.onSurface)
             }
-            IconButton(onClick = onNext, modifier = Modifier.size(56.dp)) { Icon(Icons.Filled.SkipNext, "Следующий", modifier = Modifier.size(40.dp)) }
+            IconButton(onClick = onNext, modifier = Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, "Следующий", modifier = Modifier.size(40.dp)) }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            DockIcon(Icons.Filled.Lyrics, "Текст", active = true) {}
-            DockIcon(Icons.Filled.Image, "Обложка", active = false, onClick = onCover)
-            DockIcon(Icons.Filled.QueueMusic, "Очередь", active = false, onClick = onQueue)
+            DockIcon(Icons.Rounded.Lyrics, "Текст", active = true) {}
+            DockIcon(Icons.Rounded.Image, "Обложка", active = false, onClick = onCover)
+            DockIcon(Icons.Rounded.QueueMusic, "Очередь", active = false, onClick = onQueue)
         }
     }
 }

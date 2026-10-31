@@ -27,18 +27,17 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Lyrics
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -99,12 +98,12 @@ internal fun LoginScreen(
             modifier = Modifier.size(84.dp),
         )
         Spacer(Modifier.height(18.dp))
-        Text("Aria", fontSize = 44.sp, fontWeight = FontWeight.Black)
+        Text("Aria", fontSize = 40.sp, letterSpacing = (-1).sp, fontWeight = FontWeight.SemiBold)
         Text("Клиент Яндекс Музыки с текстами песен", color = SoftText, fontSize = 15.sp)
         Spacer(Modifier.height(26.dp))
-        Feature(Icons.Filled.Lyrics, "Текст по словам", "Строка заливается, пока её поют, дальние строки размыты")
-        Feature(Icons.Filled.GraphicEq, "Моя волна, чарт и офлайн", "Сохранённое играет и без сети")
-        Feature(Icons.Filled.Palette, "Всё под себя", "Стили, цвета, жесты, эквалайзер")
+        Feature(Icons.Rounded.Lyrics, "Текст по словам", "Строка заливается, пока её поют, дальние строки размыты")
+        Feature(Icons.Rounded.GraphicEq, "Моя волна, чарт и офлайн", "Сохранённое играет и без сети")
+        Feature(Icons.Rounded.Palette, "Всё под себя", "Стили, цвета, жесты, эквалайзер")
         Spacer(Modifier.height(28.dp))
         Text("Вход по токену", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text(
@@ -128,10 +127,10 @@ internal fun LoginScreen(
                 Row {
                     if (raw.isNotEmpty()) {
                         IconButton(onClick = { visible = !visible }) {
-                            Icon(if (visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, if (visible) "Скрыть" else "Показать")
+                            Icon(if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, if (visible) "Скрыть" else "Показать")
                         }
                     } else {
-                        IconButton(onClick = ::paste) { Icon(Icons.Filled.ContentPaste, "Вставить") }
+                        IconButton(onClick = ::paste) { Icon(Icons.Rounded.ContentPaste, "Вставить") }
                     }
                 }
             },
@@ -165,7 +164,7 @@ internal fun LoginScreen(
             Text("Как получить токен", fontWeight = FontWeight.Bold, fontSize = 17.sp)
             GuideStep(1, "Откройте страницу входа Яндекса и войдите в свой аккаунт, как обычно.") {
                 FilledTonalButton(onClick = { open(TokenInput.OAUTH_URL) }, modifier = Modifier.padding(top = 8.dp)) {
-                    Icon(Icons.Filled.OpenInNew, null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.OpenInNew, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Открыть страницу входа")
                 }
@@ -177,7 +176,7 @@ internal fun LoginScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Не получается? Другие способы", color = Accent, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                Icon(if (showOther) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, tint = Accent)
+                Icon(if (showOther) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint = Accent)
             }
             if (showOther) {
                 Text(
@@ -191,7 +190,7 @@ internal fun LoginScreen(
                 GuideLink("Расширение для Firefox") { open(TokenInput.EXTENSION_FIREFOX) }
             }
             TextButton(onClick = { open(TokenInput.GUIDE_URL) }, modifier = Modifier.padding(top = 6.dp)) {
-                Icon(Icons.Filled.MenuBook, null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Rounded.MenuBook, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Подробная инструкция")
             }
@@ -199,7 +198,7 @@ internal fun LoginScreen(
         }
         }
         Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.Top) {
-            Icon(Icons.Filled.Lock, null, tint = SoftText, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+            Icon(Icons.Rounded.Lock, null, tint = SoftText, modifier = Modifier.size(16.dp).padding(top = 2.dp))
             Text(
                 "Токен хранится зашифрованно только на этом телефоне и отправляется только в Яндекс. Пароль Aria не видит и не спрашивает.",
                 color = SoftText,
@@ -270,6 +269,6 @@ private fun GuideLink(title: String, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(title, fontSize = 14.sp, modifier = Modifier.weight(1f))
-        Icon(Icons.Filled.OpenInNew, null, tint = SoftText, modifier = Modifier.size(18.dp))
+        Icon(Icons.Rounded.OpenInNew, null, tint = SoftText, modifier = Modifier.size(18.dp))
     }
 }

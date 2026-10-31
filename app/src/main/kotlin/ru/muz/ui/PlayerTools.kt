@@ -11,20 +11,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.FormatQuote
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.InsertLink
-import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.QueueMusic
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Equalizer
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.FormatQuote
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.InsertLink
+import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ModalBottomSheet
@@ -77,27 +77,27 @@ internal fun PlayerAction.title(): String = when (this) {
     PlayerAction.SPEED -> "Скорость"
     PlayerAction.SOUND -> "Звук и эквалайзер"
     PlayerAction.QUOTE -> "Карточка с цитатой"
-    PlayerAction.COPY_ARTIST -> "Скопировать имя артиста"
+    PlayerAction.COPY_ARTIST -> "Копировать исполнителей"
     PlayerAction.TRACK_WAVE -> "Волна по треку"
     PlayerAction.DISLIKE -> "Не рекомендовать"
     PlayerAction.PRIVATE -> "Приватный режим"
 }
 
 internal fun PlayerAction.icon(): ImageVector = when (this) {
-    PlayerAction.QUEUE -> Icons.Filled.QueueMusic
-    PlayerAction.DOWNLOAD -> Icons.Filled.Download
-    PlayerAction.LINK -> Icons.Filled.InsertLink
-    PlayerAction.SHARE_FILE -> Icons.Filled.Share
-    PlayerAction.SAVE_COVER -> Icons.Filled.Image
-    PlayerAction.OPEN_COVER -> Icons.Filled.OpenInNew
-    PlayerAction.SLEEP -> Icons.Filled.Bedtime
-    PlayerAction.SPEED -> Icons.Filled.Speed
-    PlayerAction.SOUND -> Icons.Filled.Equalizer
-    PlayerAction.QUOTE -> Icons.Filled.FormatQuote
-    PlayerAction.COPY_ARTIST -> Icons.Filled.ContentCopy
-    PlayerAction.TRACK_WAVE -> Icons.Filled.GraphicEq
-    PlayerAction.DISLIKE -> Icons.Filled.Block
-    PlayerAction.PRIVATE -> Icons.Filled.VisibilityOff
+    PlayerAction.QUEUE -> Icons.Rounded.QueueMusic
+    PlayerAction.DOWNLOAD -> Icons.Rounded.Download
+    PlayerAction.LINK -> Icons.Rounded.InsertLink
+    PlayerAction.SHARE_FILE -> Icons.Rounded.Share
+    PlayerAction.SAVE_COVER -> Icons.Rounded.Image
+    PlayerAction.OPEN_COVER -> Icons.Rounded.OpenInNew
+    PlayerAction.SLEEP -> Icons.Rounded.Bedtime
+    PlayerAction.SPEED -> Icons.Rounded.Speed
+    PlayerAction.SOUND -> Icons.Rounded.Equalizer
+    PlayerAction.QUOTE -> Icons.Rounded.FormatQuote
+    PlayerAction.COPY_ARTIST -> Icons.Rounded.ContentCopy
+    PlayerAction.TRACK_WAVE -> Icons.Rounded.GraphicEq
+    PlayerAction.DISLIKE -> Icons.Rounded.Block
+    PlayerAction.PRIVATE -> Icons.Rounded.VisibilityOff
 }
 
 @Composable
