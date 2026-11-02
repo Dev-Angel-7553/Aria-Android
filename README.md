@@ -8,6 +8,8 @@
 
 An unofficial Yandex Music client for Android. It started as a way to get a proper lyrics screen: the active line stays in place while the text fills in word by word as it is sung. Then it grew into everything else.
 
+**[Download the latest APK](https://github.com/Dev-Angel-7553/Aria-Android/releases/latest)** · Android 8.0+
+
 ## Features
 
 - home with My Wave and the chart, collection, search, playlists, albums, artists
