@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.42
+
+- The album cover moves between the mini-player and full player with a shared transition
+- Playback controls have larger touch targets, animated shapes and press feedback
+- The full player uses a coordinated palette from the album cover, with theme colors when no cover is available
+- The player background stops moving on pause and respects reduced motion; no particle effects
+- Settings open with a cleaner category list; player options are organized into five collapsible groups
+- Settings previews scroll with the page, and search opens the relevant player group without changing saved preferences
+
 ## 0.41
 
 - Four icon packs: Rounded, Outlined, Sharp and Two-tone, with previews in Appearance
