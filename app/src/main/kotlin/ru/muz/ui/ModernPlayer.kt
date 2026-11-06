@@ -54,7 +54,7 @@ import ru.muz.player.PlayerState
 import ru.muz.theme.ColorMath
 
 @Composable
-internal fun MovingCoverBackground(tint: Color, strength: Float, modifier: Modifier = Modifier, pulse: Float = 0f) {
+internal fun MovingCoverBackground(tint: Color, strength: Float, modifier: Modifier = Modifier, pulse: Float = 0f, playing: Boolean = true) {
     val base = AppBackground
     val dark = base.luminance() < 0.4f
     val argb = tint.toArgb()
@@ -63,20 +63,25 @@ internal fun MovingCoverBackground(tint: Color, strength: Float, modifier: Modif
     val third = Color(ColorMath.fromHsl(hsl[0] - 24f, (hsl[1] * 0.75f).coerceIn(0f, 1f), (hsl[2] * 1.05f).coerceIn(0.1f, 0.9f)))
     val ground = Color(ColorMath.blend(base.toArgb(), argb, if (dark) 0.34f * strength else 0.22f * strength))
     val reduce = LocalReduceMotion.current
-    val transition = rememberInfiniteTransition(label = "cover-bg")
-    val phase by transition.animateFloat(
-        0f,
-        1f,
-        infiniteRepeatable(tween(if (reduce) 1_000_000 else 22_000, easing = LinearEasing), RepeatMode.Restart),
-        label = "cover-bg-phase",
-    )
+    val phase = androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    androidx.compose.runtime.LaunchedEffect(reduce, playing) {
+        if (!reduce && playing) {
+            var previous = 0L
+            while (true) {
+                androidx.compose.runtime.withFrameNanos { now ->
+                    if (previous != 0L) phase.floatValue = (phase.floatValue + (now - previous).coerceAtMost(50_000_000L) / 22_000_000_000f) % 1f
+                    previous = now
+                }
+            }
+        }
+    }
     val energy = rememberAudioEnergy(pulse > 0f && !reduce)
     Canvas(modifier.fillMaxSize()) {
         val beat = energy.value * pulse
         drawRect(ground)
         val w = size.width
         val h = size.height
-        val t = phase * 2f * PI.toFloat()
+        val t = phase.floatValue * 2f * PI.toFloat()
         val blobs = listOf(
             Triple(tint, Offset(w * (0.25f + 0.18f * cos(t)), h * (0.18f + 0.1f * sin(t * 2f))), 0.95f),
             Triple(second, Offset(w * (0.8f + 0.15f * sin(t + 1.3f)), h * (0.45f + 0.14f * cos(t + 0.4f))), 0.85f),
@@ -119,7 +124,7 @@ internal fun ModernLyricsHeader(
             Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 2.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PlayerCrossfade(state.coverUrl, Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)).clickable(onClick = onCover)) { url ->
+            PlayerCrossfade(state.coverUrl, Modifier.size(52.dp).playerArtworkTransition(state.mediaId).clip(RoundedCornerShape(10.dp)).clickable(onClick = onCover)) { url ->
                 Artwork(url, Modifier.fillMaxSize(), 10.dp)
             }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
@@ -167,23 +172,7 @@ internal fun ModernLyricsDock(
     }
     Column(panel) {
         PlaybackTimeline(state, onSeek, remaining = true, label = label)
-        Row(
-            Modifier.fillMaxWidth().height(76.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onPrevious, modifier = Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipPrevious, "Предыдущий", modifier = Modifier.size(40.dp)) }
-            Box(
-                Modifier.then(if (accentControls) Modifier.size(width = 92.dp, height = 62.dp) else Modifier.size(64.dp))
-                    .clip(if (accentControls) RoundedCornerShape(31.dp) else CircleShape)
-                    .then(if (accentControls) Modifier.background(PlayerAccent) else Modifier)
-                    .clickable(onClick = onPlayPause),
-                contentAlignment = Alignment.Center,
-            ) {
-                PlaybackIcon(state, Modifier.size(if (accentControls) 38.dp else 48.dp), if (accentControls) OnPlayerAccent else MaterialTheme.colorScheme.onSurface)
-            }
-            IconButton(onClick = onNext, modifier = Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, "Следующий", modifier = Modifier.size(40.dp)) }
-        }
+        PlayerTransport(state, onPlayPause, onPrevious, onNext, accented = accentControls)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             DockIcon(Icons.Rounded.Lyrics, "Текст", active = true) {}
             DockIcon(Icons.Rounded.Image, "Обложка", active = false, onClick = onCover)

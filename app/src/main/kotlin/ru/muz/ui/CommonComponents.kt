@@ -60,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -152,7 +153,7 @@ internal fun ThinSeekBar(
         if (active) 1f else 0f, tween(animationDuration(160)), label = "seek-grow",
     )
     val wave by androidx.compose.animation.core.animateFloatAsState(
-        if (style == ru.muz.settings.SeekStyle.WAVY && animated && !active) 1f else 0f,
+        if (style == ru.muz.settings.SeekStyle.WAVY && animated && !active && !reduce) 1f else 0f,
         tween(animationDuration(420)), label = "seek-wave",
     )
     val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
@@ -390,7 +391,7 @@ internal fun CompactPlayer(
             Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PlayerCrossfade(state.coverUrl, Modifier.size(48.dp)) { url -> Artwork(url, Modifier.fillMaxSize(), 10.dp) }
+            PlayerCrossfade(state.coverUrl, Modifier.size(48.dp).playerArtworkTransition(state.mediaId)) { url -> Artwork(url, Modifier.fillMaxSize(), 10.dp) }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(
                     state.title,
@@ -411,8 +412,12 @@ internal fun CompactPlayer(
                     Icon(Icons.Rounded.SkipPrevious, "Предыдущий")
                 }
             }
-            IconButton(onClick = onPlayPause) {
-                PlaybackIcon(state, Modifier.size(26.dp), MaterialTheme.colorScheme.onSurface)
+            val miniAccent = tint?.let { Color(ru.muz.theme.ColorMath.playerAccent(it.toArgb(), AppBackground.toArgb())) } ?: PlayerAccent
+            androidx.compose.runtime.CompositionLocalProvider(
+                LocalPlayerAccent provides miniAccent,
+                LocalOnPlayerAccent provides Color(ru.muz.theme.ColorMath.contentColorFor(miniAccent.toArgb())),
+            ) {
+                PlayerPlayButton(state, onPlayPause, Modifier.size(48.dp), compact = true)
             }
             IconButton(onClick = onNext) {
                 Icon(Icons.Rounded.SkipNext, "Следующий")

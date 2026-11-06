@@ -1139,7 +1139,8 @@ fun MusicApp(
     ) {
         Box(Modifier.fillMaxSize()) {
             Surface(Modifier.fillMaxSize(), color = background) {
-                when {
+                PlayerScene(showPlayer && !showSettings && api != null) { playerVisible ->
+                    when {
                     api == null -> LoginScreen(busy, message, ::connect, settings.language) { updateSettings(settings.copy(language = it)) }
 
                     showSettings -> SettingsScreen(
@@ -1198,7 +1199,7 @@ fun MusicApp(
                         },
                     )
 
-                    showPlayer -> FullPlayerScreen(
+                    playerVisible -> FullPlayerScreen(
                         state = player,
                         tools = PlayerTools(
                             actions = settings.playerActions,
@@ -1418,6 +1419,7 @@ fun MusicApp(
                             }
                         },
                     )
+                    }
                 }
             }
             importState?.let { state ->

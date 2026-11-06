@@ -170,6 +170,7 @@ internal fun SettingsScreen(
 ) {
     var page by remember { mutableStateOf(SettingsPage.ROOT) }
     var query by remember { mutableStateOf("") }
+    var playerGroup by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     var showStorage by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
@@ -179,13 +180,6 @@ internal fun SettingsScreen(
     val glassStyle = LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS
     val header: @Composable () -> Unit = {
         SettingsHeader(page.title) { if (page == SettingsPage.ROOT) onBack() else page = SettingsPage.ROOT }
-        when (page) {
-            SettingsPage.APPEARANCE -> AppearancePreview()
-            SettingsPage.LISTS -> ListPreview(settings)
-            SettingsPage.PLAYER -> MiniPlayerPreview(settings)
-            SettingsPage.LYRICS -> LyricsPreview(settings)
-            else -> Unit
-        }
     }
     GlassScaffold(
         topBar = {
@@ -222,17 +216,18 @@ internal fun SettingsScreen(
                     Column(Modifier.fillMaxWidth().background(AppBackground)) { header() }
                 }
             }
+            item(key = "preview:${page.name}") {
+                when (page) {
+                    SettingsPage.APPEARANCE -> AppearancePreview()
+                    SettingsPage.LISTS -> ListPreview(settings)
+                    SettingsPage.PLAYER -> MiniPlayerPreview(settings)
+                    SettingsPage.LYRICS -> LyricsPreview(settings)
+                    else -> Unit
+                }
+            }
             when (page) {
                 SettingsPage.ROOT -> {
                     item { AccountCard(account, settings.reportListening) { page = SettingsPage.ACCOUNT } }
-                    if (query.isBlank()) {
-                        item { SettingSwitch("Повышенный контраст", "Чёткий текст и непрозрачные панели в Glass", settings.highContrast) { onChange(settings.copy(highContrast = it)) } }
-    item { SettingsTitle("Набор иконок") }
-    item { IconPackPicker(settings, onChange) }
-    item { SettingsTitle("Стиль") }
-                        item { StylePicker(settings, onChange) }
-                        item { QuickToggles(settings, onChange) }
-                    }
                     if (availableUpdate != null) {
                         item {
                             SettingsNavRow(Icons.Rounded.SystemUpdate, "Доступна Aria ${availableUpdate.version}", "Нажмите, чтобы обновить") {
@@ -250,6 +245,13 @@ internal fun SettingsScreen(
                             item {
                                 SettingsNavRow(entry.page.icon(), entry.title, entry.page.title) {
                                     query = ""
+                                    if (entry.page == SettingsPage.PLAYER) playerGroup = when (entry.title) {
+                                        "Цвет обложки в фоне", "Акцент от обложки", "Размер обложки" -> "colors"
+                                        "Компоновка плеера" -> "layout"
+                                        "Полоска прогресса", "Фон в такт музыке" -> "progress"
+                                        "Кнопки управления", "Форма кнопки воспроизведения" -> "buttons"
+                                        else -> "behavior"
+                                    }
                                     page = entry.page
                                 }
                             }
@@ -339,7 +341,7 @@ internal fun SettingsScreen(
                 SettingsPage.ANIMATION -> animationSettings(settings, onChange)
                 SettingsPage.LISTS -> listSettings(settings, onChange)
                 SettingsPage.HOME -> homeSettings(settings, onChange)
-                SettingsPage.PLAYER -> playerSettings(settings, onChange)
+                SettingsPage.PLAYER -> playerSettings(settings, onChange, playerGroup) { playerGroup = if (playerGroup == it) null else it }
                 SettingsPage.LYRICS -> lyricsSettings(settings, onChange)
                 SettingsPage.PLAYBACK -> {
                     item { SettingsActionRow(Icons.Rounded.DeleteSweep, "Память приложения", "Музыка, обложки и временные файлы", true) { showStorage = true } }
@@ -416,6 +418,9 @@ private fun LazyListScope.animationSettings(settings: AppSettings, onChange: (Ap
 private fun LazyListScope.appearanceSettings(settings: AppSettings, onChange: (AppSettings) -> Unit) {
     item { SettingsTitle("Язык") }
     item { LanguagePicker(settings.language) { onChange(settings.copy(language = it)) } }
+    item { SettingSwitch("Повышенный контраст", "Непрозрачные панели и чёткий текст", settings.highContrast) { onChange(settings.copy(highContrast = it)) } }
+    item { SettingsTitle("Набор иконок") }
+    item { IconPackPicker(settings, onChange) }
     item { SettingsTitle("Стиль") }
     item { StylePicker(settings, onChange) }
     item {
@@ -558,106 +563,114 @@ private fun LazyListScope.listSettings(settings: AppSettings, onChange: (AppSett
     }
 }
 
-private fun LazyListScope.playerSettings(settings: AppSettings, onChange: (AppSettings) -> Unit) {
-    item { SettingsTitle("Поведение") }
-    item { SettingSwitch("Открывать плеер при выборе", "Показывает полный экран нового трека", settings.openPlayerOnTrack) { onChange(settings.copy(openPlayerOnTrack = it)) } }
-    item { SettingSwitch("Свайпы мини-плеера", "Влево — следующий, вправо — предыдущий, вверх — открыть плеер, вниз — спрятать до следующего трека", settings.swipeMiniPlayer) { onChange(settings.copy(swipeMiniPlayer = it)) } }
-    item { SettingSwitch("Прогресс мини-плеера", "Тонкая полоса под треком", settings.showMiniPlayerProgress) { onChange(settings.copy(showMiniPlayerProgress = it)) } }
-    item { SettingSwitch("Цвет обложки в мини-плеере", "Мини-плеер слегка окрашивается под трек", settings.miniCoverTint) { onChange(settings.copy(miniCoverTint = it)) } }
-    item { SettingSwitch("Жесты полного плеера", "Влево/вправо — трек, вверх — очередь, вниз — свернуть", settings.fullPlayerSwipe) { onChange(settings.copy(fullPlayerSwipe = it)) } }
-    item { SettingSwitch("Не выключать экран", "Пока приложение открыто", settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) } }
-    item { SettingSwitch("Двойной тап по обложке", "Действие можно выбрать ниже", settings.doubleTapLike) { onChange(settings.copy(doubleTapLike = it)) } }
-    item {
-        AnimatedVisibility(settings.doubleTapLike) {
-            Column {
-                ru.muz.settings.DoubleTapAction.entries.forEach { action ->
-                    SettingRadio(
-                        when (action) {
-                            ru.muz.settings.DoubleTapAction.LIKE -> "«Мне нравится»"
-                            ru.muz.settings.DoubleTapAction.PLAY_PAUSE -> "Пауза и продолжить"
-                            ru.muz.settings.DoubleTapAction.NEXT -> "Следующий трек"
-                        },
-                        settings.doubleTapAction == action,
-                    ) { onChange(settings.copy(doubleTapAction = action)) }
-                }
-            }
-        }
-    }
-    item { SettingSwitch("Вибрация", "Лёгкий отклик на «Мне нравится»", settings.haptics) { onChange(settings.copy(haptics = it)) } }
-    item { SettingsTitle("Полоска прогресса") }
-    ru.muz.settings.SeekStyle.entries.forEach { style ->
+private fun LazyListScope.playerSettings(
+    settings: AppSettings, onChange: (AppSettings) -> Unit,
+    expanded: String?, onExpand: (String) -> Unit,
+) {
+    settingsGroup("behavior", "Жесты и поведение", "Свайпы, двойное нажатие, экран и вибрация", expanded, onExpand) {
+        item { SettingSwitch("Открывать плеер при выборе", "Показывает полный экран нового трека", settings.openPlayerOnTrack) { onChange(settings.copy(openPlayerOnTrack = it)) } }
+        item { SettingSwitch("Свайпы мини-плеера", "Вбок — сменить трек, вверх — раскрыть, вниз — скрыть", settings.swipeMiniPlayer) { onChange(settings.copy(swipeMiniPlayer = it)) } }
+        item { SettingSwitch("Прогресс мини-плеера", "Тонкая полоса под треком", settings.showMiniPlayerProgress) { onChange(settings.copy(showMiniPlayerProgress = it)) } }
+        item { SettingSwitch("Цвет обложки в мини-плеере", "Мини-плеер слегка окрашивается под трек", settings.miniCoverTint) { onChange(settings.copy(miniCoverTint = it)) } }
+        item { SettingSwitch("Жесты полного плеера", "Влево/вправо — трек, вверх — очередь, вниз — свернуть", settings.fullPlayerSwipe) { onChange(settings.copy(fullPlayerSwipe = it)) } }
+        item { SettingSwitch("Не выключать экран", "Пока приложение открыто", settings.keepScreenOn) { onChange(settings.copy(keepScreenOn = it)) } }
+        item { SettingSwitch("Двойной тап по обложке", "Действие можно выбрать ниже", settings.doubleTapLike) { onChange(settings.copy(doubleTapLike = it)) } }
         item {
-            SettingRadio(
-                when (style) {
-                    ru.muz.settings.SeekStyle.LINE -> "Линия с бегунком"
-                    ru.muz.settings.SeekStyle.WAVY -> "Волна, пока играет"
-                    ru.muz.settings.SeekStyle.CAPSULE -> "Капсула, как в iOS"
-                    ru.muz.settings.SeekStyle.HAIRLINE -> "Тонкая с точкой"
-                },
-                settings.seekStyle == style,
-            ) { onChange(settings.copy(seekStyle = style)) }
-        }
-    }
-    item { SettingSwitch("Фон в такт музыке", "Пятна цвета обложки пульсируют вместе с битом", settings.pulseBackground) { onChange(settings.copy(pulseBackground = it)) } }
-    item {
-        AnimatedVisibility(settings.pulseBackground) {
-            SettingSlider("Сила пульсации", settings.pulseStrength, 10..100, 10, { "$it%" }) { onChange(settings.copy(pulseStrength = it)) }
-        }
-    }
-    item { SettingSwitch("Цвет кнопок от обложки", "Кнопка паузы в плеере с текстом окрашивается под трек", settings.accentControls) { onChange(settings.copy(accentControls = it)) } }
-    item { SettingsTitle("Цвет и обложка") }
-    item { SettingSwitch("Цвет обложки в фоне", "Мягкий градиент цвета обложки сверху экрана", settings.coverColorBackground) { onChange(settings.copy(coverColorBackground = it)) } }
-    item {
-        AnimatedVisibility(!settings.coverColorBackground) {
-            SettingSwitch("Лёгкий цветной фон", "Тот же градиент, но вдвое слабее", settings.playerBlurBackground) { onChange(settings.copy(playerBlurBackground = it)) }
-        }
-    }
-    item { SettingSwitch("Акцент от обложки", "Кнопки и ползунок берут цвет обложки", settings.coverAccent) { onChange(settings.copy(coverAccent = it)) } }
-    item { SettingSlider("Размер обложки", settings.playerArtworkPercent, 70..110, 5, { "$it%" }) { onChange(settings.copy(playerArtworkPercent = it)) } }
-    item { SettingsTitle("Кнопки") }
-    item {
-        Text(
-            "Под ползунком помещается до 5 кнопок, остальные будут в меню «Ещё».",
-            color = SoftText,
-            fontSize = 13.sp,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-        )
-    }
-    item {
-        ReorderList(
-            enabled = settings.playerActions,
-            all = PlayerAction.entries,
-            label = { it.title() },
-            icon = { it.icon() },
-            maxEnabled = 5,
-            minEnabled = 0,
-        ) { onChange(settings.copy(playerActions = it)) }
-    }
-    item {
-        Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-            Text("Форма кнопки воспроизведения", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp))
-            Row(Modifier.padding(horizontal = 20.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                PlayShape.entries.forEach { shape ->
-                    Box(
-                        Modifier.size(52.dp).clip(playShape(shape))
-                            .background(if (settings.playShape == shape) Accent else MaterialTheme.colorScheme.surfaceContainerHighest)
-                            .clickable { onChange(settings.copy(playShape = shape)) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Rounded.PlayArrow,
-                            null,
-                            tint = if (settings.playShape == shape) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                        )
+            AnimatedVisibility(settings.doubleTapLike) {
+                Column {
+                    ru.muz.settings.DoubleTapAction.entries.forEach { action ->
+                        SettingRadio(
+                            when (action) {
+                                ru.muz.settings.DoubleTapAction.LIKE -> "«Мне нравится»"
+                                ru.muz.settings.DoubleTapAction.PLAY_PAUSE -> "Пауза и продолжить"
+                                ru.muz.settings.DoubleTapAction.NEXT -> "Следующий трек"
+                            },
+                            settings.doubleTapAction == action,
+                        ) { onChange(settings.copy(doubleTapAction = action)) }
                     }
                 }
             }
         }
+        item { SettingSwitch("Вибрация", "Лёгкий отклик на «Мне нравится»", settings.haptics) { onChange(settings.copy(haptics = it)) } }
     }
-    item { SettingSwitch("«Предыдущий» в мини-плеере", "Кнопка назад рядом с паузой", settings.miniShowPrevious) { onChange(settings.copy(miniShowPrevious = it)) } }
-    item { SettingsTitle("Компоновка") }
-    PlayerLayout.entries.forEach { layout ->
-        item { SettingRadio(if (layout == PlayerLayout.COVER_FIRST) "Сначала обложка" else "Сначала управление", settings.playerLayout == layout) { onChange(settings.copy(playerLayout = layout)) } }
+    settingsGroup("progress", "Прогресс и движение", "Вид ползунка и пульсация фона", expanded, onExpand) {
+        ru.muz.settings.SeekStyle.entries.forEach { style ->
+            item {
+                SettingRadio(
+                    when (style) {
+                        ru.muz.settings.SeekStyle.LINE -> "Линия с бегунком"
+                        ru.muz.settings.SeekStyle.WAVY -> "Волна, пока играет"
+                        ru.muz.settings.SeekStyle.CAPSULE -> "Капсула, как в iOS"
+                        ru.muz.settings.SeekStyle.HAIRLINE -> "Тонкая с точкой"
+                    },
+                    settings.seekStyle == style,
+                ) { onChange(settings.copy(seekStyle = style)) }
+            }
+        }
+        item { SettingSwitch("Фон в такт музыке", "Пятна цвета обложки пульсируют вместе с битом", settings.pulseBackground) { onChange(settings.copy(pulseBackground = it)) } }
+        item {
+            AnimatedVisibility(settings.pulseBackground) {
+                SettingSlider("Сила пульсации", settings.pulseStrength, 10..100, 10, { "$it%" }) { onChange(settings.copy(pulseStrength = it)) }
+            }
+        }
+        item { SettingSwitch("Цвет кнопок от обложки", "Акцентное управление на экране текста", settings.accentControls) { onChange(settings.copy(accentControls = it)) } }
+    }
+    settingsGroup("colors", "Цвет и обложка", "Палитра, фон и размер обложки", expanded, onExpand) {
+        item { SettingSwitch("Цвет обложки в фоне", "Мягкий градиент цвета обложки сверху экрана", settings.coverColorBackground) { onChange(settings.copy(coverColorBackground = it)) } }
+        item {
+            AnimatedVisibility(!settings.coverColorBackground) {
+                SettingSwitch("Лёгкий цветной фон", "Тот же градиент, но вдвое слабее", settings.playerBlurBackground) { onChange(settings.copy(playerBlurBackground = it)) }
+            }
+        }
+        item { SettingSwitch("Акцент от обложки", "Кнопки и ползунок берут цвет обложки", settings.coverAccent) { onChange(settings.copy(coverAccent = it)) } }
+        item { SettingSlider("Размер обложки", settings.playerArtworkPercent, 70..110, 5, { "$it%" }) { onChange(settings.copy(playerArtworkPercent = it)) } }
+    }
+    settingsGroup("buttons", "Кнопки управления", "Действия, порядок и форма", expanded, onExpand) {
+        item {
+            Text(
+                "Под ползунком помещается до 5 кнопок, остальные будут в меню «Ещё».",
+                color = SoftText,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+        }
+        item {
+            ReorderList(
+                enabled = settings.playerActions,
+                all = PlayerAction.entries,
+                label = { it.title() },
+                icon = { it.icon() },
+                maxEnabled = 5,
+                minEnabled = 0,
+            ) { onChange(settings.copy(playerActions = it)) }
+        }
+        item {
+            Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                Text("Форма кнопки воспроизведения", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp))
+                Row(Modifier.padding(horizontal = 20.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    PlayShape.entries.forEach { shape ->
+                        Box(
+                            Modifier.size(52.dp).clip(playShape(shape))
+                                .background(if (settings.playShape == shape) Accent else MaterialTheme.colorScheme.surfaceContainerHighest)
+                                .clickable { onChange(settings.copy(playShape = shape)) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Rounded.PlayArrow,
+                                null,
+                                tint = if (settings.playShape == shape) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item { SettingSwitch("«Предыдущий» в мини-плеере", "Кнопка назад рядом с паузой", settings.miniShowPrevious) { onChange(settings.copy(miniShowPrevious = it)) } }
+    }
+    settingsGroup("layout", "Расположение", "Обложка или управление сверху", expanded, onExpand) {
+        PlayerLayout.entries.forEach { layout ->
+            item { SettingRadio(if (layout == PlayerLayout.COVER_FIRST) "Сначала обложка" else "Сначала управление", settings.playerLayout == layout) { onChange(settings.copy(playerLayout = layout)) } }
+        }
     }
     item {
         SectionReset("Сбросить плеер") { defaults ->
@@ -797,6 +810,30 @@ private fun LazyListScope.lyricsSettings(settings: AppSettings, onChange: (AppSe
     }
 }
 
+private fun LazyListScope.settingsGroup(
+    id: String, title: String, summary: String, expanded: String?, onExpand: (String) -> Unit,
+    content: LazyListScope.() -> Unit,
+) {
+    val open = expanded == id
+    item(key = "player-group:$id") {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .clickable(role = Role.Button, onClickLabel = tr(if (open) "Свернуть" else "Развернуть")) { onExpand(id) }
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                Text(title, fontWeight = FontWeight.SemiBold)
+                Text(summary, color = SoftText, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp))
+            }
+            Icon(if (open) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                if (open) "Свернуть" else "Развернуть", tint = SoftText)
+        }
+    }
+    if (open) content()
+}
 @Composable
 private fun LyricsFineTuning(settings: AppSettings, onChange: (AppSettings) -> Unit) {
     Column {
@@ -1349,6 +1386,9 @@ private val SETTINGS_INDEX = listOf(
     SettingsEntry("Открывать плеер при выборе", SettingsPage.PLAYER),
     SettingsEntry("Свайпы мини-плеера", SettingsPage.PLAYER, "жесты"),
     SettingsEntry("Прогресс мини-плеера", SettingsPage.PLAYER),
+    SettingsEntry("Полоска прогресса", SettingsPage.PLAYER, "волна линия капсула ползунок"),
+    SettingsEntry("Фон в такт музыке", SettingsPage.PLAYER, "пульсация"),
+    SettingsEntry("Кнопки управления", SettingsPage.PLAYER, "действия форма порядок"),
     SettingsEntry("Жесты полного плеера", SettingsPage.PLAYER, "свайпы"),
     SettingsEntry("Не выключать экран", SettingsPage.PLAYER, "экран"),
     SettingsEntry("Цвет обложки в фоне", SettingsPage.PLAYER, "градиент фон"),
@@ -1413,7 +1453,7 @@ private fun SettingsPage.icon(): ImageVector = when (this) {
 private fun SettingsHeader(title: String, onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Назад") }
-        Text(title, fontSize = 23.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(title, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -1423,8 +1463,8 @@ private fun SettingsNavRow(icon: ImageVector, title: String, value: String, onCl
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = SoftText, modifier = Modifier.size(24.dp))
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(13.dp)).background(Accent.copy(alpha = 0.09f)), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = Accent, modifier = Modifier.size(24.dp))
         }
         Column(Modifier.weight(1f).padding(start = 16.dp)) {
             Text(title, fontWeight = FontWeight.SemiBold)
@@ -1680,30 +1720,6 @@ private fun MiniApp(style: ru.muz.settings.AppStyle) {
         }
     }
 }
-
-@Composable
-private fun QuickToggles(settings: AppSettings, onChange: (AppSettings) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        QuickTile(Icons.Rounded.VisibilityOff, "Приватно", settings.privateSession, Modifier.weight(1f)) { onChange(settings.copy(privateSession = !settings.privateSession)) }
-        QuickTile(Icons.Rounded.DataSaverOn, "Экономия", settings.dataSaver, Modifier.weight(1f)) { onChange(settings.copy(dataSaver = !settings.dataSaver)) }
-        QuickTile(Icons.Rounded.MotionPhotosOff, "Без анимаций", settings.reduceMotion, Modifier.weight(1f)) { onChange(settings.copy(reduceMotion = !settings.reduceMotion)) }
-    }
-}
-
-@Composable
-private fun QuickTile(icon: ImageVector, title: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    val background by androidx.compose.animation.animateColorAsState(if (on) Accent else scheme.surfaceContainerHigh, label = "quick-bg")
-    val content by androidx.compose.animation.animateColorAsState(if (on) scheme.onPrimary else scheme.onSurface, label = "quick-fg")
-    Column(
-        modifier.pressScale().clip(RoundedCornerShape(20.dp)).background(background).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 12.dp),
-    ) {
-        Icon(icon, null, tint = content, modifier = Modifier.size(22.dp))
-        Text(title, color = content, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.padding(top = 8.dp))
-        Text(if (on) "Вкл" else "Выкл", color = content.copy(alpha = 0.7f), fontSize = 11.sp)
-    }
-}
-
 
 @Composable
 internal fun LanguagePicker(selected: String, onSelect: (String) -> Unit) {

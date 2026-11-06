@@ -182,12 +182,7 @@ internal fun FullPlayerScreen(
         val url = state.coverUrl ?: return@LaunchedEffect
         coverTint = coverTintOf(context, url)
     }
-    val screenBackground = AppBackground
-    val coverAccentColor = remember(coverTint, screenBackground) {
-        Color(ColorMath.playerAccent(coverTint.toArgb(), screenBackground.toArgb()))
-    }
     val animatedTint by animateColorAsState(coverTint, tween(playerTransitionDuration(400)), label = "cover-tint")
-    val animatedAccent by animateColorAsState(coverAccentColor, tween(playerTransitionDuration(400)), label = "cover-accent")
     val backdrop = if (LocalHighContrast.current) Modifier.background(AppBackground) else if (settings.coverColorBackground || settings.playerBlurBackground) {
         Modifier.background(
             Brush.verticalGradient(
@@ -224,15 +219,23 @@ internal fun FullPlayerScreen(
     val playerGlass = rememberGlassBackdrop()
     val glassDock = if (glassStyle && modern) playerGlass else null
     val coverBackground = !LocalHighContrast.current && (settings.coverColorBackground || glassStyle)
+    val useCoverPalette = settings.coverAccent && state.coverUrl != null && !LocalHighContrast.current
+    val baseScheme = MaterialTheme.colorScheme
+    val playerScheme = remember(animatedTint, baseScheme, useCoverPalette) {
+        if (useCoverPalette) staticScheme(animatedTint.toArgb(), androidx.core.graphics.ColorUtils.calculateLuminance(baseScheme.background.toArgb()) < 0.5)
+        else baseScheme
+    }
+    MaterialTheme(colorScheme = playerScheme) {
     androidx.compose.runtime.CompositionLocalProvider(
-        LocalPlayerAccent provides if (settings.coverAccent && !LocalHighContrast.current) animatedAccent else null,
-        LocalOnPlayerAccent provides if (settings.coverAccent && !LocalHighContrast.current) Color(ColorMath.contentColorFor(animatedAccent.toArgb())) else null,
+        LocalPlayerAccent provides if (useCoverPalette) playerScheme.primary else null,
+        LocalOnPlayerAccent provides if (useCoverPalette) playerScheme.onPrimary else null,
     ) {
       Box(Modifier.fillMaxSize()) {
       Box(Modifier.fillMaxSize().glassSource(glassDock)) {
         if (coverBackground) {
             MovingCoverBackground(
                 animatedTint,
+                playing = state.isPlaying,
                 strength = if (showLyrics && modern) 1f else 0.62f,
                 pulse = if (settings.pulseBackground && state.isPlaying) settings.pulseStrength / 100f else 0f,
             )
@@ -515,6 +518,7 @@ internal fun FullPlayerScreen(
                 }
             }
         }
+    }
     }
 }
 
@@ -804,6 +808,10 @@ private fun PlayerArtwork(
     showHeart: Boolean = true,
 ) {
     val reduceMotion = LocalReduceMotion.current
+    val artworkScale by androidx.compose.animation.core.animateFloatAsState(
+        if (state.isPlaying || state.playWhenReady) 1f else 0.955f,
+        tween(playerTransitionDuration(420), easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "artwork-playback-scale",
+    )
     var verticalDrag by remember(state.mediaId) { mutableFloatStateOf(0f) }
     var hearts by remember { mutableStateOf(0) }
     val heart = remember { androidx.compose.animation.core.Animatable(0f) }
@@ -851,8 +859,13 @@ private fun PlayerArtwork(
         contentAlignment = Alignment.Center,
     ) {
         PlayerCrossfade(state.coverUrl,
-            Modifier.fillMaxWidth((artworkPercent / 100f).coerceIn(0.7f, 1f)).aspectRatio(1f).then(doubleTap),
-        ) { url -> Artwork(url, Modifier.fillMaxSize(), 30.dp) }
+            Modifier.fillMaxWidth((artworkPercent / 100f).coerceIn(0.7f, 1f)).aspectRatio(1f).playerArtworkTransition(state.mediaId).then(doubleTap),
+        ) { url -> Artwork(url, Modifier.fillMaxSize().graphicsLayer {
+            scaleX = artworkScale; scaleY = artworkScale
+            shadowElevation = 18.dp.toPx()
+            shape = RoundedCornerShape(26.dp)
+            clip = true
+        }, 26.dp) }
         if (heart.value in 0.001f..0.999f) {
             val k = heart.value
             Icon(
@@ -922,6 +935,7 @@ private fun PlayerDetails(
         }
         PlaybackErrorBanner(state.error)
         PlaybackTimeline(state, onSeek)
+        PlayerTransport(state, onPlayPause, onPrevious, onNext, onShuffle, onRepeat)
         if (transferBusy) MuzWavyProgress(Modifier.fillMaxWidth().padding(top = 6.dp))
         if (transferMessage.isNotBlank()) {
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -992,30 +1006,6 @@ private fun PlayerDetails(
         }
         if (showSpeed) {
             SpeedSheet(state.playbackSpeed, tools.skipSilence, tools.onSpeed, tools.onSkipSilence, tools.speedChangesPitch, tools.onSpeedChangesPitch) { showSpeed = false }
-        }
-        Row(
-            Modifier.fillMaxWidth().height(84.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onShuffle) {
-                Icon(Icons.Rounded.Shuffle, "Перемешать", tint = if (state.shuffle) PlayerAccent else SoftText)
-            }
-            IconButton(onClick = onPrevious) { Icon(Icons.Rounded.SkipPrevious, "Предыдущий", modifier = Modifier.size(34.dp)) }
-            Box(
-                Modifier.size(64.dp).clip(playShape(LocalPlayShape.current)).background(PlayerAccent).clickable(onClick = onPlayPause),
-                contentAlignment = Alignment.Center,
-            ) {
-                PlaybackIcon(state, Modifier.size(38.dp), OnPlayerAccent)
-            }
-            IconButton(onClick = onNext) { Icon(Icons.Rounded.SkipNext, "Следующий", modifier = Modifier.size(34.dp)) }
-            IconButton(onClick = onRepeat) {
-                Icon(
-                    if (state.repeat == PlayerRepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                    "Повтор",
-                    tint = if (state.repeat != PlayerRepeatMode.OFF) PlayerAccent else SoftText,
-                )
-            }
         }
     }
 }

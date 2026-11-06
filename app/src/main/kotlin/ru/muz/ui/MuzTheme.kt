@@ -208,7 +208,7 @@ private fun typography(font: AppFont): Typography {
     )
 }
 
-private fun staticScheme(accent: Int, dark: Boolean): ColorScheme {
+internal fun staticScheme(accent: Int, dark: Boolean): ColorScheme {
     val p = AppPalette.generate(accent, dark)
     fun c(value: Int) = Color(value)
     return if (dark) {
