@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.43
+
+- Connect Last.fm with your own application API key and shared secret, then authorize access in your browser
+- Connect ListenBrainz with a personal token; credentials are stored encrypted on the device and excluded from settings exports
+- Submit now playing and qualified listens independently of Yandex listening reports, with persistent offline queues, retries and account-specific disconnect controls
+- Private mode pauses external submissions and excludes private plays from the queue
+- Lyrics try LRCMux after Yandex and LRCLIB, validate the recording metadata, and offer browser search when no text is found
+- Connection settings and fallback search messages include English translations
+
 ## 0.42
 
 - The album cover moves between the mini-player and full player with a shared transition
