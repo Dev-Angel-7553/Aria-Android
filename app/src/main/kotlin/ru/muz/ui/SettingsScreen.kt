@@ -132,6 +132,7 @@ private enum class SettingsPage(val title: String) {
     LYRICS("Текст песни"),
     PLAYBACK("Звук и офлайн"),
     ACCOUNT("Аккаунт"),
+    SCROBBLING("Подключения"),
     EXPORT("Импорт и экспорт"),
     ABOUT("О приложении"),
 }
@@ -299,6 +300,7 @@ internal fun SettingsScreen(
 
                             ) { page = SettingsPage.PLAYBACK }
                         }
+                        item { SettingsNavRow(Icons.Rounded.Sync, "Подключения", "Last.fm · ListenBrainz · скробблинг") { page = SettingsPage.SCROBBLING } }
                         item { SettingsTitle("Библиотека") }
                         item {
                             SettingsNavRow(
@@ -351,6 +353,7 @@ internal fun SettingsScreen(
                     settings, onChange, appVersion, availableUpdate, updateChecking, updateProgress,
                     onCheckUpdates, onInstallUpdate,
                 )
+                SettingsPage.SCROBBLING -> item { ScrobbleConnections(settings.privateSession) }
                 SettingsPage.ACCOUNT -> accountSettings(
                     account, settings, onChange, { confirmLogout = true }, onSyncNow, syncBusy,
                 )
@@ -879,7 +882,7 @@ private fun LazyListScope.playbackSettings(
     item { SettingsTitle("Звук") }
     item { SoundControls(settings, onChange, Modifier.padding(vertical = 6.dp)) }
     item { SettingsTitle("Рекомендации") }
-    item { SettingSwitch("Приватный режим", "Прослушивания не уходят в Яндекс и не влияют на «Мою волну». Локальная статистика считается", settings.privateSession) { onChange(settings.copy(privateSession = it)) } }
+    item { SettingSwitch("Приватный режим", "Прослушивания не отправляются в Яндекс, Last.fm и ListenBrainz. Локальная статистика сохраняется", settings.privateSession) { onChange(settings.copy(privateSession = it)) } }
     item { SettingSwitch("Без откровенных треков", "Пропускать треки с пометкой E в волне и при запуске списков", settings.hideExplicit) { onChange(settings.copy(hideExplicit = it)) } }
     item { SettingsTitle("Кэш и офлайн") }
     item {
@@ -1368,6 +1371,7 @@ private fun SettingsSearchField(query: String, onQuery: (String) -> Unit) {
 private class SettingsEntry(val title: String, val page: SettingsPage, val keywords: String = "")
 
 private val SETTINGS_INDEX = listOf(
+    SettingsEntry("Подключения", SettingsPage.SCROBBLING, "last.fm lastfm listenbrainz скробблинг scrobble аккаунты"),
     SettingsEntry("Тема", SettingsPage.APPEARANCE, "тёмная светлая amoled чёрная системная"),
     SettingsEntry("Monet / динамические цвета", SettingsPage.APPEARANCE, "обои цвет"),
     SettingsEntry("Цвета под песню", SettingsPage.APPEARANCE, "обложка трек оттенок акцент"),
@@ -1443,6 +1447,7 @@ private fun SettingsPage.icon(): ImageVector = when (this) {
     SettingsPage.PLAYER -> Icons.Rounded.PlayCircle
     SettingsPage.LYRICS -> Icons.Rounded.Lyrics
     SettingsPage.PLAYBACK -> Icons.Rounded.Headphones
+    SettingsPage.SCROBBLING -> Icons.Rounded.Sync
     SettingsPage.ACCOUNT -> Icons.Rounded.AccountCircle
     SettingsPage.EXPORT -> Icons.Rounded.ImportExport
     SettingsPage.ABOUT -> Icons.Rounded.Info

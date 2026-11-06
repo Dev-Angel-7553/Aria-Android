@@ -32,6 +32,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         playback = PlaybackController(this)
         val startPrefs = AppPreferences(this).load()
+        ru.muz.scrobble.ScrobbleWorker.schedule(this)
         ru.muz.i18n.I18n.loadSync(this, startPrefs.language)
         LibrarySyncScheduler.schedule(this, startPrefs.syncIntervalMinutes)
         if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -43,6 +44,7 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(settings) {
                 delay(400)
                 preferences.save(settings)
+                if (!settings.privateSession) ru.muz.scrobble.ScrobbleWorker.schedule(this@MainActivity)
                 if (settings.syncIntervalMinutes != scheduledSync) {
                     scheduledSync = settings.syncIntervalMinutes
                     LibrarySyncScheduler.schedule(this@MainActivity, settings.syncIntervalMinutes)

@@ -11,6 +11,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import ru.muz.auth.TokenStore
 import ru.muz.settings.AppPreferences
 import ru.muz.stats.ListeningStats
@@ -22,8 +23,14 @@ internal class ListenTracker(context: Context, private val player: Player) : Pla
     private val app = context.applicationContext
     private val session = ListenSession()
     private val stats = ListeningStats.shared(app)
+    private val scrobbleSession = ru.muz.scrobble.ScrobbleSession()
+    private var scrobbleDestinations = emptyList<Pair<ru.muz.scrobble.ScrobbleService, String>>()
     private val main = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    @Volatile private var scrobbles: ru.muz.scrobble.ScrobbleManager? = null
+    private val scrobbleReady = io.async {
+        runCatching { ru.muz.scrobble.ScrobbleManager.shared(app) }.getOrNull().also { scrobbles = it }
+    }
     private var ticker: Job? = null
     private var currentId = ""
     private var title = ""
@@ -57,7 +64,10 @@ internal class ListenTracker(context: Context, private val player: Player) : Pla
     private fun open(item: MediaItem?, force: Boolean) {
         val id = item?.let(MediaExtras::trackId).orEmpty()
         if (id == currentId && !force) return
+        scrobbles?.stopNowPlaying()
         currentId = id
+        scrobbleDestinations = emptyList()
+        scrobbleSession.start(null)
         if (id.isBlank() || item == null) {
             send(session.finish())
             return
@@ -68,6 +78,9 @@ internal class ListenTracker(context: Context, private val player: Player) : Pla
         artist = metadata.artist?.toString().orEmpty()
         val duration = extras?.getLong(MediaExtras.DURATION, 0L)?.takeIf { it > 0 }
             ?: player.duration.takeIf { it > 0 } ?: 0L
+        val credits = ArtistMetadata.decode(extras?.getString(MediaExtras.ARTISTS).orEmpty()).map { it.name }
+        scrobbleSession.start(ru.muz.scrobble.ScrobbleTrack(id, title, credits.firstOrNull() ?: artist, duration,
+            metadata.albumTitle?.toString().orEmpty(), credits))
         val source = MediaExtras.source(extras)
         send(
             session.start(
@@ -88,12 +101,22 @@ internal class ListenTracker(context: Context, private val player: Player) : Pla
             var last = SystemClock.elapsedRealtime()
             while (isActive) {
                 delay(1_000)
+                scrobbleReady.await()
                 val now = SystemClock.elapsedRealtime()
                 val delta = (now - last).coerceIn(0, 5_000)
                 last = now
                 if (currentId.isBlank()) continue
                 stats.addListening(delta, currentId, title, artist)
                 send(session.tick(delta, player.currentPosition, player.duration.coerceAtLeast(0)))
+                val privateSession = AppPreferences(app).load().privateSession
+                if (privateSession) scrobbles?.stopNowPlaying()
+                scrobbleDestinations = scrobbles?.activeDestinations(scrobbleDestinations).orEmpty()
+                for (event in scrobbleSession.tick(delta, player.duration.coerceAtLeast(0), System.currentTimeMillis() / 1000, privateSession)) {
+                    when (event) {
+                        is ru.muz.scrobble.ScrobbleEvent.NowPlaying -> scrobbleDestinations = scrobbles?.nowPlaying(event.play).orEmpty()
+                        is ru.muz.scrobble.ScrobbleEvent.Submit -> scrobbles?.submit(event.play, scrobbleDestinations)
+                    }
+                }
             }
         }
     }
