@@ -57,7 +57,21 @@ class LyricsRepository(
             if (withContext(Dispatchers.IO) { knownMissing(track.id) }) error("Текст для этого трека не найден")
         }
         onStage("Ищем текст в Яндексе и LRCLIB…")
-        when (val found = shared(track, refresh).await()) {
+        val primary = shared(track, refresh).await()
+        val found = if (primary is Found.Text) primary else {
+            onStage("Обычные источники не помогли. Ищем текст в интернете…")
+            val fallback = withTimeoutOrNull(12_000) {
+                try { Result.success(InternetLyrics(http).find(track)) }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (error: Exception) { Result.failure(error) }
+            }
+            when {
+                fallback?.getOrNull() != null -> Found.Text(fallback.getOrThrow()!!).also { store(track.id, it.value) }
+                primary == Found.Missing && fallback?.isSuccess == true -> Found.Missing.also { storeMissing(track.id) }
+                else -> Found.Failed
+            }
+        }
+        when (found) {
             is Found.Text -> parse(found.value)?.also { remember(track.id, it) } ?: error("Текст для этого трека пуст")
             Found.Missing -> error("Текст для этого трека не найден")
             Found.Failed -> error("Не получилось загрузить текст, проверьте интернет")
@@ -127,7 +141,7 @@ class LyricsRepository(
         val text = lrc?.getOrNull()
         when {
             text != null -> Found.Text(text).also { store(track.id, text) }
-            lrc != null && lrc.isSuccess -> Found.Missing.also { storeMissing(track.id) }
+            lrc != null && lrc.isSuccess -> Found.Missing
             else -> Found.Failed
         }
     }
@@ -143,7 +157,7 @@ class LyricsRepository(
     }.getOrNull()
 
     private fun knownMissing(id: String): Boolean {
-        val file = fileFor(id, "none") ?: return false
+        val file = fileFor(id, "none2") ?: return false
         return file.isFile && System.currentTimeMillis() - file.lastModified() < MISSING_TTL_MS
     }
 
@@ -151,7 +165,7 @@ class LyricsRepository(
         runCatching {
             val folder = dir ?: return
             folder.mkdirs()
-            fileFor(id, "none")?.delete()
+            fileFor(id, "none2")?.delete()
             fileFor(id, "lrc")?.writeText(text)
             trim(folder)
         }
@@ -160,7 +174,7 @@ class LyricsRepository(
     private fun storeMissing(id: String) {
         runCatching {
             dir?.mkdirs()
-            fileFor(id, "none")?.writeText("")
+            fileFor(id, "none2")?.writeText("")
         }
     }
 

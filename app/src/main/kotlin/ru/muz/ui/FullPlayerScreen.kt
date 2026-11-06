@@ -177,6 +177,12 @@ internal fun FullPlayerScreen(
         }
     } else Modifier
     val context = LocalContext.current
+    val searchLyricsOnline = {
+        val query = "${state.artist} ${state.title} текст песни lyrics"
+        val uri = android.net.Uri.parse("https://www.google.com/search").buildUpon().appendQueryParameter("q", query).build()
+        runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri)) }
+        Unit
+    }
     var coverTint by remember(state.coverUrl) { mutableStateOf(fallbackCoverTint(state.coverUrl)) }
     LaunchedEffect(state.coverUrl) {
         val url = state.coverUrl ?: return@LaunchedEffect
@@ -283,10 +289,11 @@ internal fun FullPlayerScreen(
                             Column(Modifier.fillMaxSize()) {
                                 when {
                                     page == 0 -> LyricsLoading(lyricsStatus, Modifier.weight(1f))
-                                    page == 1 -> LyricsError(lyricsError, onRetryLyrics, onToggleView, Modifier.weight(1f))
+                                    page == 1 -> LyricsError(lyricsError, onRetryLyrics, onToggleView, searchLyricsOnline, Modifier.weight(1f))
                                     page == 2 -> LyricsEmpty(
                                         onRetry = onRetryLyrics,
                                         onOpenPlayer = onToggleView,
+                                        onSearchOnline = searchLyricsOnline,
                                         modifier = Modifier.weight(1f),
                                     )
                                     else -> LyricsScreen(
@@ -587,6 +594,7 @@ private fun LyricsError(
     message: String,
     onRetry: () -> Unit,
     onOpenPlayer: () -> Unit,
+    onSearchOnline: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -599,18 +607,19 @@ private fun LyricsError(
                 Button(onClick = onRetry) { Text("Искать ещё раз") }
                 androidx.compose.material3.TextButton(onClick = onOpenPlayer) { Text("Открыть плеер") }
             }
+            androidx.compose.material3.TextButton(onClick = onSearchOnline) { Text("Поиск в браузере") }
         }
     }
 }
 
 @Composable
-private fun LyricsEmpty(onRetry: () -> Unit, onOpenPlayer: () -> Unit, modifier: Modifier = Modifier) {
+private fun LyricsEmpty(onRetry: () -> Unit, onOpenPlayer: () -> Unit, onSearchOnline: () -> Unit, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Column(Modifier.padding(horizontal = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             NoLyricsArt()
             Text("Текст не найден", fontWeight = FontWeight.Bold, fontSize = 20.sp, modifier = Modifier.padding(top = 12.dp))
             Text(
-                "Ни в тегах, ни в сети текста для этого трека нет. Можно искать ещё раз или просто слушать.",
+                "В доступных источниках текст не найден. Можно повторить поиск или открыть результаты в браузере.",
                 color = SoftText,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 8.dp),
@@ -619,6 +628,7 @@ private fun LyricsEmpty(onRetry: () -> Unit, onOpenPlayer: () -> Unit, modifier:
                 Button(onClick = onRetry) { Text("Искать ещё раз") }
                 androidx.compose.material3.TextButton(onClick = onOpenPlayer) { Text("Открыть плеер") }
             }
+            androidx.compose.material3.TextButton(onClick = onSearchOnline) { Text("Поиск в браузере") }
         }
     }
 }
@@ -749,7 +759,7 @@ private fun StandardPlayer(
             val artworkModifier = if (scrollable) Modifier.height(160.dp) else Modifier.weight(1f)
             if (privateLabel.isNotBlank()) {
                 Text(
-                    "Приватный режим: прослушивания не уходят в Яндекс",
+                    "Приватный режим: прослушивания не отправляются в музыкальные профили",
                     color = SoftText,
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center,
