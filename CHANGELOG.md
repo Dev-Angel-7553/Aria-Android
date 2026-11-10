@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.44
+
+- Settings are rebuilt into compact grouped cards with short hints; animations live in Appearance, and Home and Lists share one page
+- Long radio lists became chip choices, the player page is flat instead of collapsible groups, and settings pages slide in and out
+- Screens slide between the home tabs, playlists and settings, and the home screen keeps its scroll position when you come back
+- Player buttons, cards and tool buttons share one springy press response; mini player, dock and cover swipes follow the finger
+- The mini player no longer sits under the navigation bar on playlist and settings screens, and settings lost the doubled top gap
+- Snackbars no longer cover download and update panels
+- Long titles, tab labels and statistics numbers shrink to fit instead of being cut off
+- Playlist covers stay square, the player cover fits short screens, and the player tool row never cuts off its last button
+- The lyrics menu scrolls on small screens, and lyrics fallback buttons wrap instead of overflowing
+- The listening chart grows again when you switch periods
+- More of the interface is translated into English
+
 ## 0.43
 
 - Connect Last.fm with your own application API key and shared secret, then authorize access in your browser
