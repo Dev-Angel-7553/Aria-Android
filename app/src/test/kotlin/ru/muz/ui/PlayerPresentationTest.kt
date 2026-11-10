@@ -64,7 +64,7 @@ class PlayerPresentationTest {
             MuzTheme(AppSettings(animatePlayerTransitions = true)) {
                 PlayerScene(expanded) { full ->
                     Box(Modifier.fillMaxSize(), contentAlignment = if (full) Alignment.Center else Alignment.BottomStart) {
-                        Box(Modifier.size(if (full) 240.dp else 48.dp).playerArtworkTransition("track")) {
+                        Box(Modifier.size(if (full) 240.dp else 48.dp).playerArtworkTransition("track", null)) {
                             Artwork(null, Modifier.fillMaxSize(), 20.dp)
                         }
                         TextButton(onClick = { expanded = !expanded }, modifier = Modifier.align(Alignment.TopCenter)) {

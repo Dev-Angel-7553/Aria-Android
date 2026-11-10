@@ -135,7 +135,7 @@ internal fun SettingsScreen(
         bottomBar = {
             Column {
                 PlaybackErrorBanner(player.error)
-                AnimatedVisibility(player.title.isNotBlank() && MiniPlayerState.hiddenId != player.mediaId) {
+                AnimatedVisibility(player.title.isNotBlank() && MiniPlayerState.hiddenId != player.mediaId, enter = barEnter(), exit = barExit()) {
                     CompactPlayer(
                         player, onMiniClick, onPlayPause, onNext, onPrevious,
                         swipeMiniPlayer, showMiniPlayerProgress,
@@ -346,9 +346,13 @@ private fun LazyListScope.appearanceSettings(settings: AppSettings, onChange: (A
         }
     }
     item(key = "icons") {
-        SettingsCard("Значки и навигация") {
+        SettingsCard("Значки и навигация", footer = "Solar — иконки 480 Design, лицензия CC BY 4.0") {
             IconPackPicker(settings, onChange)
-            SettingSwitch("Подписи под значками", "Текст в нижней панели", settings.showNavigationLabels) { onChange(settings.copy(showNavigationLabels = it)) }
+            ChoiceRow("Панель навигации", ru.muz.settings.NavStyle.entries, settings.navStyle, ::navStyleName) { onChange(settings.copy(navStyle = it)) }
+            AnimatedVisibility(settings.navStyle == ru.muz.settings.NavStyle.BOTTOM, enter = revealIn(), exit = revealOut()) {
+                SettingSwitch("Подписи под значками", "Текст в нижней панели", settings.showNavigationLabels) { onChange(settings.copy(showNavigationLabels = it)) }
+            }
+            SettingSwitch("Меню по удержанию вкладки", "Подержите вкладку — появятся быстрые действия", settings.tabHoldMenu) { onChange(settings.copy(tabHoldMenu = it)) }
         }
     }
     item(key = "motion") {
@@ -385,6 +389,8 @@ private fun LazyListScope.appearanceSettings(settings: AppSettings, onChange: (A
                     cornerRadiusPercent = defaults.cornerRadiusPercent,
                     artworkCornerPercent = defaults.artworkCornerPercent,
                     showNavigationLabels = defaults.showNavigationLabels,
+                    navStyle = defaults.navStyle,
+                    tabHoldMenu = defaults.tabHoldMenu,
                     animationSpeedPercent = defaults.animationSpeedPercent,
                     reduceMotion = defaults.reduceMotion,
                     animatePlayerTransitions = defaults.animatePlayerTransitions,
@@ -987,7 +993,8 @@ private val SETTINGS_INDEX = listOf(
     SettingsEntry("Цвет акцента", SettingsPage.APPEARANCE, "жёлтый синий розовый зелёный оранжевый свой hex палитра"),
     SettingsEntry("Скругление", SettingsPage.APPEARANCE, "углы форма обложки интерфейс"),
     SettingsEntry("Подписи под значками", SettingsPage.APPEARANCE, "навигация нижняя панель"),
-    SettingsEntry("Набор иконок", SettingsPage.APPEARANCE, "контурные угловатые двухцветные значки"),
+    SettingsEntry("Панель навигации", SettingsPage.APPEARANCE, "вкладки сверху снизу боковое меню папки telegram удержание"),
+    SettingsEntry("Набор иконок", SettingsPage.APPEARANCE, "контурные угловатые двухцветные значки solar"),
     SettingsEntry("Повышенный контраст", SettingsPage.APPEARANCE, "доступность читаемость"),
     SettingsEntry("Шрифт", SettingsPage.APPEARANCE, "гарнитура засечки моноширинный размер текста"),
     SettingsEntry("Анимации", SettingsPage.APPEARANCE, "скорость уменьшить движение переходы загрузка"),

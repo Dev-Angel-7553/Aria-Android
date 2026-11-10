@@ -56,6 +56,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.getValue
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -262,20 +263,31 @@ internal fun FullPlayerScreen(
                 }
             },
         ) {
-            if (showLyrics && modern) {
-                ModernLyricsHeader(
-                    state = state,
-                    liked = liked,
-                    sleepLabel = sleepLabel,
-                    onBack = onBack,
-                    onCover = onToggleView,
-                    onArtist = onArtist,
-                    onLike = like,
-                    onMore = { lyricsMenu = true },
-                    onCancelSleep = { tools.onSleep(0) },
-                )
-            } else {
-                PlayerHeader(showLyrics, state, onBack, onToggleView, onArtist, sleepLabel) { tools.onSleep(0) }
+            val headerMs = playerTransitionDuration(260)
+            androidx.compose.animation.AnimatedContent(
+                targetState = showLyrics && modern,
+                transitionSpec = {
+                    (androidx.compose.animation.fadeIn(tween(headerMs, delayMillis = headerMs / 3)) togetherWith
+                        androidx.compose.animation.fadeOut(tween(headerMs / 2)))
+                        .using(androidx.compose.animation.SizeTransform(clip = false) { _, _ -> tween(headerMs, easing = EmphasizedEasing) })
+                },
+                label = "player-header",
+            ) { modernHeader ->
+                if (modernHeader) {
+                    ModernLyricsHeader(
+                        state = state,
+                        liked = liked,
+                        sleepLabel = sleepLabel,
+                        onBack = onBack,
+                        onCover = onToggleView,
+                        onArtist = onArtist,
+                        onLike = like,
+                        onMore = { lyricsMenu = true },
+                        onCancelSleep = { tools.onSleep(0) },
+                    )
+                } else {
+                    PlayerHeader(showLyrics, state, onBack, onToggleView, onArtist, sleepLabel) { tools.onSleep(0) }
+                }
             }
             PlayerCrossfade(showLyrics, Modifier.weight(1f)) { lyricsVisible ->
                 Column(Modifier.fillMaxSize()) {
@@ -870,7 +882,7 @@ private fun PlayerArtwork(
         val wanted = maxWidth * (artworkPercent / 100f).coerceIn(0.7f, 1f)
         val side = if (maxHeight.value.isFinite() && maxHeight > 0.dp) minOf(wanted, maxHeight - 12.dp).coerceAtLeast(96.dp) else wanted
         PlayerCrossfade(state.coverUrl,
-            Modifier.size(side).playerArtworkTransition(state.mediaId).then(doubleTap),
+            Modifier.size(side).playerArtworkTransition(state.mediaId, state.coverUrl).then(doubleTap),
         ) { url -> Artwork(url, Modifier.fillMaxSize().graphicsLayer {
             scaleX = artworkScale; scaleY = artworkScale
             shadowElevation = 18.dp.toPx()

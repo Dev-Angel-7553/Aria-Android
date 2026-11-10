@@ -45,10 +45,12 @@ internal fun PlayerScene(expanded: Boolean, content: @Composable (Boolean) -> Un
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-internal fun Modifier.playerArtworkTransition(mediaId: String): Modifier {
+internal fun Modifier.playerArtworkTransition(mediaId: String, coverUrl: String?): Modifier {
     val shared = LocalPlayerSharedScope.current ?: return this
     val visibility = LocalPlayerVisibilityScope.current ?: return this
-    if (!LocalPlayerTransitions.current || LocalReduceMotion.current || mediaId.isBlank()) return this
+    if (!LocalPlayerTransitions.current || LocalReduceMotion.current || mediaId.isBlank() || coverUrl.isNullOrBlank()) return this
+    val loader = coil.Coil.imageLoader(androidx.compose.ui.platform.LocalContext.current)
+    if (loader.memoryCache?.get(coil.memory.MemoryCache.Key(coverUrl)) == null) return this
     val duration = playerTransitionDuration(480)
     return with(shared) {
         sharedElement(

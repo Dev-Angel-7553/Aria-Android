@@ -62,6 +62,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
@@ -310,9 +311,10 @@ internal fun ScreenHeader(
     action: (@Composable () -> Unit)? = null,
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
+        Modifier.fillMaxWidth().padding(start = if (LocalNavMenu.current != null) 6.dp else 20.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        NavMenuButton()
         Column(Modifier.weight(1f).padding(end = 4.dp)) {
             FitText(title, fontSize = 28.sp, minFontSize = 20.sp, lineHeight = 34.sp, letterSpacing = (-0.6).sp, fontWeight = FontWeight.SemiBold)
             if (!subtitle.isNullOrBlank()) {
@@ -437,7 +439,7 @@ internal fun CompactPlayer(
             Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PlayerCrossfade(state.coverUrl, Modifier.size(48.dp).playerArtworkTransition(state.mediaId)) { url -> Artwork(url, Modifier.fillMaxSize(), 10.dp) }
+            PlayerCrossfade(state.coverUrl, Modifier.size(48.dp).playerArtworkTransition(state.mediaId, state.coverUrl)) { url -> Artwork(url, Modifier.fillMaxSize(), 10.dp) }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(
                     state.title,
@@ -814,4 +816,17 @@ private fun rememberMiniTint(url: String?): androidx.compose.ui.graphics.Color? 
     }
     val shown by androidx.compose.animation.animateColorAsState(tint ?: androidx.compose.ui.graphics.Color.Transparent, tween(animationDuration(600)), label = "mini-tint")
     return if (tint == null) null else shown
+}
+
+@Composable
+internal fun DialogSystemBars() {
+    val view = androidx.compose.ui.platform.LocalView.current
+    val light = MaterialTheme.colorScheme.background.luminance() > 0.5f
+    androidx.compose.runtime.SideEffect {
+        val window = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window ?: return@SideEffect
+        androidx.core.view.WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = light
+            isAppearanceLightNavigationBars = light
+        }
+    }
 }

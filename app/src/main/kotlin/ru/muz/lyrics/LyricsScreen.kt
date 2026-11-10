@@ -147,9 +147,10 @@ fun LyricsScreen(
                 )
             }
         }
-        if (!following && lyrics.synced && settings.autoScroll) {
-            FollowLyricsButton(Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(12.dp)) { following = true }
-        }
+        FollowLyricsButton(
+            visible = !following && lyrics.synced && settings.autoScroll,
+            modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(bottom = 16.dp),
+        ) { following = true }
     }
 }
 

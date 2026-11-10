@@ -1334,6 +1334,9 @@ fun MusicApp(
 
                     else -> screenStates.SaveableStateProvider("main") { MainShell(
                         haptics = settings.haptics,
+                        navStyle = settings.navStyle,
+                        tabHoldMenu = settings.tabHoldMenu,
+                        onNavStyle = { updateSettings(settings.copy(navStyle = it)) },
                         tab = tab,
                         onTab = { tab = it },
                         player = player,

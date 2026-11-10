@@ -124,7 +124,7 @@ internal fun ModernLyricsHeader(
             Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 2.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PlayerCrossfade(state.coverUrl, Modifier.size(52.dp).playerArtworkTransition(state.mediaId).clip(RoundedCornerShape(10.dp)).clickable(onClick = onCover)) { url ->
+            PlayerCrossfade(state.coverUrl, Modifier.size(52.dp).playerArtworkTransition(state.mediaId, state.coverUrl).clip(RoundedCornerShape(10.dp)).clickable(onClick = onCover)) { url ->
                 Artwork(url, Modifier.fillMaxSize(), 10.dp)
             }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {

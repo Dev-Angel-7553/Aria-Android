@@ -119,7 +119,10 @@ internal fun StatisticsScreen(
         contentPadding = PaddingValues(top = 20.dp, bottom = 32.dp + padding.calculateBottomPadding()),
     ) {
         item {
-            Text("Статистика", fontSize = 26.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 20.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = if (LocalNavMenu.current != null) 6.dp else 20.dp, end = 20.dp)) {
+                NavMenuButton()
+                Text("Статистика", fontSize = 26.sp, fontWeight = FontWeight.Black)
+            }
             Text(
                 if (data.hasData || stats.hasData) "Считается только то, что реально играло" else "История появится после первого трека",
                 color = SoftText,
