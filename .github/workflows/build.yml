@@ -47,6 +47,9 @@ jobs:
           grep -E '^e: |FAILED|error:|Exception|expected:<|at ru\.muz' build.log | head -60 | while IFS= read -r line; do
             echo "::error::${line}"
           done
+          find app/build/test-results -name '*.xml' -print0 2>/dev/null | xargs -0 -r grep -h -A3 '<failure' | head -40 | tr -d '\r' | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
 
       - name: Rename APK
         run: |
