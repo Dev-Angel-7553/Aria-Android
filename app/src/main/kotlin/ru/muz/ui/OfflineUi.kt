@@ -32,7 +32,7 @@ internal val LocalPlayableIds = compositionLocalOf<Set<String>?> { null }
 internal fun StatusBanner(offline: Boolean, noPlus: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     AnimatedVisibility(
         visible = offline || noPlus,
-        modifier = modifier.statusBarsPadding().padding(top = 6.dp),
+        modifier = modifier.statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 6.dp),
         enter = slideInVertically { -it } + fadeIn(),
         exit = slideOutVertically { -it } + fadeOut(),
     ) {
@@ -55,6 +55,8 @@ internal fun StatusBanner(offline: Boolean, noPlus: Boolean, modifier: Modifier 
                 color = scheme.inverseOnSurface,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.padding(start = 8.dp),
             )
         }

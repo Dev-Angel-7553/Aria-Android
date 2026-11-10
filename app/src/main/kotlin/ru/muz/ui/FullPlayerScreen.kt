@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -406,6 +408,7 @@ internal fun FullPlayerScreen(
     }
     if (lyricsMenu) {
         AriaSheet(onDismissRequest = { lyricsMenu = false }) {
+          Column(Modifier.verticalScroll(rememberScrollState())) {
             PlayerSheetAction(Icons.Rounded.Image, "Обложка и управление") { lyricsMenu = false; onToggleView() }
             PlayerSheetAction(Icons.Rounded.QueueMusic, "Очередь") { lyricsMenu = false; showQueue = true }
             PlayerSheetAction(Icons.Rounded.FormatQuote, "Карточка с цитатой") { lyricsMenu = false; onQuote() }
@@ -423,6 +426,7 @@ internal fun FullPlayerScreen(
             PlayerSheetAction(PlayerAction.PRIVATE.icon(), if (tools.privateSession) "Выключить приватный режим" else "Приватный режим") { lyricsMenu = false; tools.onPrivate(!tools.privateSession) }
             PlayerSheetAction(Icons.Rounded.Person, "К исполнителю") { lyricsMenu = false; onArtist() }
             androidx.compose.foundation.layout.Spacer(Modifier.height(24.dp))
+          }
         }
     }
     if (menuSleep) SleepTimerSheet(tools.sleepEndsAt, tools.onSleep) { menuSleep = false }
@@ -470,7 +474,7 @@ internal fun FullPlayerScreen(
                     onValueChange = { queryText = it },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    placeholder = { Text("Поиск по очереди") },
+                    placeholder = { Text("Поиск по очереди", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     leadingIcon = { Icon(Icons.Rounded.Search, null) },
                     shape = RoundedCornerShape(28.dp),
                 )
@@ -496,7 +500,12 @@ internal fun FullPlayerScreen(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            Text(track.artist, color = SoftText, fontSize = 13.sp, maxLines = 1)
+                            Text(track.artist, color = SoftText, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        if (index == state.queueIndex) {
+                            NowPlayingBars(state.isPlaying, Modifier.size(width = 18.dp, height = 16.dp))
+                        } else {
+                            Text(formatDuration(track.durationMs), color = SoftText, fontSize = 12.sp, maxLines = 1)
                         }
                         var actions by remember(index, track.id) { mutableStateOf(false) }
                         Box {
@@ -515,11 +524,6 @@ internal fun FullPlayerScreen(
                                 androidx.compose.material3.DropdownMenuItem(text = { Text("Удалить из очереди") },
                                     onClick = { actions = false; onRemoveQueueTrack(index) })
                             }
-                        }
-                        if (index == state.queueIndex) {
-                            NowPlayingBars(state.isPlaying, Modifier.size(width = 18.dp, height = 16.dp))
-                        } else {
-                            Text(formatDuration(track.durationMs), color = SoftText, fontSize = 12.sp)
                         }
                     }
                 }
@@ -545,14 +549,15 @@ private fun PlayerHeader(
     ) {
         IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Свернуть") }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(if (showLyrics) "Текст песни" else "Сейчас играет", fontWeight = FontWeight.Bold)
+            Text(if (showLyrics) "Текст песни" else "Сейчас играет", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (sleepLabel != null) {
                 Text(
                     "$sleepLabel · отменить",
                     color = PlayerAccent,
                     fontSize = 12.sp,
                     maxLines = 1,
-                    modifier = Modifier.clickable(onClick = onCancelSleep),
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onCancelSleep).padding(horizontal = 6.dp, vertical = 2.dp),
                 )
             } else if (showLyrics) {
                 Text(
@@ -583,7 +588,8 @@ private fun LyricsLoading(status: String, modifier: Modifier = Modifier) {
             Text(
                 status.ifBlank { "Проверяем Яндекс Музыку…" },
                 color = SoftText,
-                modifier = Modifier.padding(top = 18.dp),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 18.dp, start = 30.dp, end = 30.dp),
             )
         }
     }
@@ -603,11 +609,7 @@ private fun LyricsError(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(message, color = SoftText, textAlign = TextAlign.Center)
-            Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onRetry) { Text("Искать ещё раз") }
-                androidx.compose.material3.TextButton(onClick = onOpenPlayer) { Text("Открыть плеер") }
-            }
-            androidx.compose.material3.TextButton(onClick = onSearchOnline) { Text("Поиск в браузере") }
+            LyricsFallbackActions(onRetry, onOpenPlayer, onSearchOnline, Modifier.padding(top = 18.dp))
         }
     }
 }
@@ -624,11 +626,7 @@ private fun LyricsEmpty(onRetry: () -> Unit, onOpenPlayer: () -> Unit, onSearchO
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 8.dp),
             )
-            Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onRetry) { Text("Искать ещё раз") }
-                androidx.compose.material3.TextButton(onClick = onOpenPlayer) { Text("Открыть плеер") }
-            }
-            androidx.compose.material3.TextButton(onClick = onSearchOnline) { Text("Поиск в браузере") }
+            LyricsFallbackActions(onRetry, onOpenPlayer, onSearchOnline, Modifier.padding(top = 16.dp))
         }
     }
 }
@@ -860,7 +858,8 @@ private fun PlayerArtwork(
             )
         }
     } else Modifier
-    Box(
+    val corner = 26.dp * LocalArtworkCornerScale.current * LocalCornerRadiusScale.current
+    androidx.compose.foundation.layout.BoxWithConstraints(
         modifier.fillMaxWidth().offset(y = artworkOffset).graphicsLayer {
             alpha = if (reduceMotion) 1f else 1f - (abs(verticalDrag) / 850f).coerceIn(0f, 0.16f)
             scaleX = if (reduceMotion) 1f else 1f - (abs(verticalDrag) / 6000f).coerceIn(0f, 0.035f)
@@ -868,12 +867,14 @@ private fun PlayerArtwork(
         }.then(gesture),
         contentAlignment = Alignment.Center,
     ) {
+        val wanted = maxWidth * (artworkPercent / 100f).coerceIn(0.7f, 1f)
+        val side = if (maxHeight.value.isFinite() && maxHeight > 0.dp) minOf(wanted, maxHeight - 12.dp).coerceAtLeast(96.dp) else wanted
         PlayerCrossfade(state.coverUrl,
-            Modifier.fillMaxWidth((artworkPercent / 100f).coerceIn(0.7f, 1f)).aspectRatio(1f).playerArtworkTransition(state.mediaId).then(doubleTap),
+            Modifier.size(side).playerArtworkTransition(state.mediaId).then(doubleTap),
         ) { url -> Artwork(url, Modifier.fillMaxSize().graphicsLayer {
             scaleX = artworkScale; scaleY = artworkScale
             shadowElevation = 18.dp.toPx()
-            shape = RoundedCornerShape(26.dp)
+            shape = RoundedCornerShape(corner)
             clip = true
         }, 26.dp) }
         if (heart.value in 0.001f..0.999f) {
@@ -985,19 +986,17 @@ private fun PlayerDetails(
         }
         val inRow = tools.actions.take(5)
         Row(
-            Modifier.fillMaxWidth().height(48.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            Modifier.fillMaxWidth().height(52.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             inRow.forEach { action ->
                 val active = (action == PlayerAction.SLEEP && tools.sleepEndsAt != 0L) ||
                     (action == PlayerAction.PRIVATE && tools.privateSession) ||
                     (action == PlayerAction.SPEED && kotlin.math.abs(state.playbackSpeed - 1f) > 0.01f) ||
                     (action == PlayerAction.SOUND && tools.sound != null && tools.sound.eqBands.any { it != 0 })
-                IconButton(onClick = { run(action) }, enabled = enabled(action)) {
-                    Icon(action.icon(), action.title(), tint = if (active) PlayerAccent else LocalContentColor.current)
-                }
+                PlayerToolButton(action.icon(), action.title(), active, enabled(action), Modifier.weight(1f)) { run(action) }
             }
-            IconButton(onClick = { moreActions = true }) { Icon(Icons.Rounded.MoreHoriz, "Ещё") }
+            PlayerToolButton(Icons.Rounded.MoreHoriz, "Ещё", false, true, Modifier.weight(1f)) { moreActions = true }
         }
         if (moreActions) {
             AriaSheet(onDismissRequest = { moreActions = false }) {
@@ -1028,4 +1027,74 @@ private fun PlayerSheetAction(
     onClick: () -> Unit,
 ) {
     SheetAction(icon, title, onClick, enabled)
+}
+
+@Composable
+private fun PlayerToolButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    active: Boolean,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        if (pressed && !LocalReduceMotion.current) 0.86f else 1f,
+        PressSpring,
+        label = "tool-press",
+    )
+    val background by animateColorAsState(
+        if (active) PlayerAccent.copy(alpha = 0.16f) else Color.Transparent,
+        tween(animationDuration(200)),
+        label = "tool-active",
+    )
+    Box(modifier.fillMaxHeight(), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(44.dp)
+                .graphicsLayer { scaleX = scale; scaleY = scale }
+                .clip(CircleShape)
+                .background(background)
+                .clickable(
+                    interactionSource = interaction,
+                    indication = androidx.compose.material3.ripple(bounded = true),
+                    enabled = enabled,
+                    role = androidx.compose.ui.semantics.Role.Button,
+                    onClickLabel = tr(title),
+                    onClick = onClick,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                title,
+                tint = when {
+                    !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    active -> PlayerAccent
+                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f)
+                },
+                modifier = Modifier.size(22.dp),
+            )
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun LyricsFallbackActions(
+    onRetry: () -> Unit,
+    onOpenPlayer: () -> Unit,
+    onSearchOnline: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    androidx.compose.foundation.layout.FlowRow(
+        modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Button(onClick = onRetry) { Text("Искать ещё раз", maxLines = 1) }
+        androidx.compose.material3.OutlinedButton(onClick = onSearchOnline) { Text("Поиск в браузере", maxLines = 1) }
+        androidx.compose.material3.TextButton(onClick = onOpenPlayer) { Text("Открыть плеер", maxLines = 1) }
+    }
 }

@@ -280,13 +280,13 @@ private fun TabItem(item: MainTab, active: Boolean, label: Boolean, glass: Boole
             },
         )
         if (label) {
-            Text(
+            FitText(
                 item.title,
-                color = tint,
                 fontSize = if (glass) 11.sp else 12.sp,
+                minFontSize = 9.sp,
+                color = tint,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-                maxLines = 1,
-                modifier = Modifier.padding(top = if (glass) 2.dp else 6.dp),
+                modifier = Modifier.padding(top = if (glass) 2.dp else 6.dp, start = 2.dp, end = 2.dp),
             )
         }
     }

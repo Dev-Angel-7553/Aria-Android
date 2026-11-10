@@ -1124,7 +1124,7 @@ fun MusicApp(
     LaunchedEffect(restrictedMode, player.mediaId, cacheRevision) {
         cachedIds = if (restrictedMode) withContext(Dispatchers.IO) { AudioCache.cachedTrackIds(context) } else null
     }
-    val hasMini = player.title.isNotBlank()
+    val hasMini = player.title.isNotBlank() && MiniPlayerState.hiddenId != player.mediaId
     val snackbarBottom = when {
         api == null -> 16.dp
         showPlayer -> 150.dp
@@ -1449,20 +1449,15 @@ fun MusicApp(
                 },
                 onDismiss = { plusNotice = false },
             )
-            if (transferBusy || offlineBusy || updateProgress != null) {
-                androidx.compose.foundation.layout.Column(
-                    Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = snackbarBottom),
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
-                ) {
-                    if (transferBusy) TransferPanel(transferMessage, transferProgress) { transferControl?.cancel(); transferJob?.cancel() }
-                    if (offlineBusy) TransferPanel("Сохраняем для офлайна…", offlineProgress) { offlineJob?.cancel() }
-                    if (updateProgress != null) TransferPanel("Скачиваем обновление…", updateProgress) { updateControl?.cancel(); updateJob?.cancel() }
-                }
-            }
-            SnackbarHost(
-                snackbar,
+            androidx.compose.foundation.layout.Column(
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = snackbarBottom),
-            )
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+            ) {
+                SnackbarHost(snackbar)
+                if (transferBusy) TransferPanel(transferMessage, transferProgress) { transferControl?.cancel(); transferJob?.cancel() }
+                if (offlineBusy) TransferPanel("Сохраняем для офлайна…", offlineProgress) { offlineJob?.cancel() }
+                if (updateProgress != null) TransferPanel("Скачиваем обновление…", updateProgress) { updateControl?.cancel(); updateJob?.cancel() }
+            }
         }
         if (showWaveSettings) {
             WaveSettingsSheet(settings, onApply = { mood, diversity, language ->
