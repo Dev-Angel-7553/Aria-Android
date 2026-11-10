@@ -86,25 +86,20 @@ class PlayerPresentationTest {
     }
 
     @Test
-    fun playerSettingsGroupsPreserveValuesAndSearchStillFindsOptions() {
+    fun playerSettingsKeepValuesAndSearchOpensThePage() {
         var settings by mutableStateOf(AppSettings(reduceMotion = true, appStyle = AppStyle.CLASSIC))
         rule.setContent { MuzTheme(settings) {
             SettingsScreen(settings, null, PlayerState(), true, true, { settings = it }, {}, {}, {}, {}, {}, {})
         } }
         rule.onNodeWithText("Плеер").performScrollTo().performClick()
-        rule.onNodeWithText("Жесты и поведение").performScrollTo().performClick()
-        rule.onNodeWithText("Свайпы мини-плеера").performScrollTo().performClick()
+        rule.onNodeWithText("Свайпы").performScrollTo().performClick()
         assertFalse(settings.swipeMiniPlayer)
-        rule.onNodeWithText("Жесты и поведение").performScrollTo().performClick()
-        rule.onNodeWithText("Свайпы мини-плеера").assertDoesNotExist()
-        rule.onNodeWithText("Цвет и обложка").performScrollTo().performClick()
         rule.onNodeWithText("Акцент от обложки").performScrollTo().assertIsDisplayed()
-        assertFalse(settings.swipeMiniPlayer)
         rule.onNodeWithContentDescription("Назад").performClick()
         rule.onNode(hasSetTextAction()).performScrollTo().performTextInput("обложк")
-        rule.onNodeWithText("Акцент от обложки").performScrollTo().performClick()
+        rule.onNodeWithText("Цвет обложки в фоне").performScrollTo().performClick()
         rule.onNodeWithText("Акцент от обложки").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText("Свайпы мини-плеера").assertDoesNotExist()
+        assertFalse(settings.swipeMiniPlayer)
     }
 
     @Test
