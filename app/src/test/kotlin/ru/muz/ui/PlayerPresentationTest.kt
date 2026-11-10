@@ -92,13 +92,16 @@ class PlayerPresentationTest {
             SettingsScreen(settings, null, PlayerState(), true, true, { settings = it }, {}, {}, {}, {}, {}, {})
         } }
         rule.onNodeWithText("Плеер").performScrollTo().performClick()
-        rule.onNodeWithText("Свайпы").performScrollTo().performClick()
+        rule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Свайпы"))
+        rule.onNodeWithText("Свайпы").performClick()
         assertFalse(settings.swipeMiniPlayer)
-        rule.onNodeWithText("Акцент от обложки").performScrollTo().assertIsDisplayed()
+        rule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Акцент от обложки"))
+        rule.onNodeWithText("Акцент от обложки").assertIsDisplayed()
         rule.onNodeWithContentDescription("Назад").performClick()
         rule.onNode(hasSetTextAction()).performScrollTo().performTextInput("обложк")
         rule.onNodeWithText("Цвет обложки в фоне").performScrollTo().performClick()
-        rule.onNodeWithText("Акцент от обложки").performScrollTo().assertIsDisplayed()
+        rule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Акцент от обложки"))
+        rule.onNodeWithText("Акцент от обложки").assertIsDisplayed()
         assertFalse(settings.swipeMiniPlayer)
     }
 
