@@ -94,6 +94,10 @@ In the playlist menu or in Settings → Account and data → Export. The file ha
 
 Kotlin, Jetpack Compose, Material 3, Media3 (ExoPlayer + MediaSession), OkHttp, kotlinx.serialization, Coil, WorkManager.
 
+## Credits
+
+Solar icon packs by [480 Design](https://www.figma.com/community/file/1166831539721848736), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Paths come from [@solar-icons/static](https://solar-icons.dev/).
+
 ## Disclaimer
 
 The project is not affiliated with Yandex. The Yandex Music API is unofficial and may change at any moment. You need your own Yandex Plus subscription to use it.

@@ -4,7 +4,9 @@ import android.content.Context
 import ru.muz.lyrics.KaraokeDirection
 import ru.muz.lyrics.KaraokeFillStyle
 
-enum class IconPack { ROUNDED, OUTLINED, SHARP, TWO_TONE }
+enum class IconPack { ROUNDED, OUTLINED, SHARP, TWO_TONE, SOLAR_LINEAR, SOLAR_BOLD, SOLAR_BROKEN, SOLAR_DUOTONE }
+
+enum class NavStyle { BOTTOM, TOP, DRAWER }
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 enum class AccentStyle { YELLOW, ORANGE, PINK, BLUE, GREEN, CUSTOM }
@@ -27,6 +29,8 @@ data class AppSettings(
     val accentStyle: AccentStyle = AccentStyle.YELLOW,
     val compactLists: Boolean = false,
     val showNavigationLabels: Boolean = true,
+    val navStyle: NavStyle = NavStyle.BOTTOM,
+    val tabHoldMenu: Boolean = true,
     val artworkCornerPercent: Int = 100,
     val cornerRadiusPercent: Int = 100,
     val listScalePercent: Int = 100,
@@ -132,6 +136,8 @@ class AppPreferences(context: Context) {
             accentStyle = enumValue(prefs.getString("accent_style", null), AccentStyle.YELLOW),
             compactLists = prefs.getBoolean("compact_lists", false),
             showNavigationLabels = prefs.getBoolean("navigation_labels", true),
+            navStyle = enumValue(prefs.getString("nav_style", null), NavStyle.BOTTOM),
+            tabHoldMenu = prefs.getBoolean("tab_hold_menu", true),
             artworkCornerPercent = prefs.getInt("artwork_corners", 100).coerceIn(0, 160),
             cornerRadiusPercent = prefs.getInt("corner_radius", 100).coerceIn(0, 160),
             listScalePercent = prefs.getInt("list_scale", 100).coerceIn(80, 125),
@@ -230,6 +236,8 @@ class AppPreferences(context: Context) {
             .putString("accent_style", value.accentStyle.name)
             .putBoolean("compact_lists", value.compactLists)
             .putBoolean("navigation_labels", value.showNavigationLabels)
+            .putString("nav_style", value.navStyle.name)
+            .putBoolean("tab_hold_menu", value.tabHoldMenu)
             .putInt("artwork_corners", value.artworkCornerPercent)
             .putInt("corner_radius", value.cornerRadiusPercent)
             .putInt("list_scale", value.listScalePercent)

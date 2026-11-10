@@ -311,9 +311,10 @@ internal fun ScreenHeader(
     action: (@Composable () -> Unit)? = null,
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
+        Modifier.fillMaxWidth().padding(start = if (LocalNavMenu.current != null) 6.dp else 20.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        NavMenuButton()
         Column(Modifier.weight(1f).padding(end = 4.dp)) {
             FitText(title, fontSize = 28.sp, minFontSize = 20.sp, lineHeight = 34.sp, letterSpacing = (-0.6).sp, fontWeight = FontWeight.SemiBold)
             if (!subtitle.isNullOrBlank()) {

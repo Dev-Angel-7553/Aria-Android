@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.input.pointer.pointerInput
@@ -74,6 +75,8 @@ import androidx.graphics.shapes.toPath
 import kotlin.math.abs
 import ru.muz.settings.AppStyle
 
+internal const val TAB_HOLD_MS = 420L
+
 val LocalAppStyle = staticCompositionLocalOf { AppStyle.CLASSIC }
 val LocalGlassStrength = staticCompositionLocalOf { 0.6f }
 
@@ -104,11 +107,14 @@ internal fun AriaTabBar(
     backdrop: GlassBackdrop?,
     haptics: Boolean,
     insets: Boolean = true,
+    onHold: ((MainTab) -> Unit)? = null,
 ) {
     val style = LocalAppStyle.current
     val glass = style == AppStyle.GLASS
     val reduce = LocalReduceMotion.current
     val index = tabs.indexOf(selected).coerceAtLeast(0)
+    var holding by remember { mutableStateOf<Int?>(null) }
+    val hold by androidx.compose.runtime.rememberUpdatedState(onHold)
     val lead = remember { Animatable(index.toFloat()) }
     val trail = remember { Animatable(index.toFloat()) }
     var drag by remember { mutableStateOf<Float?>(null) }
@@ -206,6 +212,42 @@ internal fun AriaTabBar(
                     val startX = down.position.x
                     var moved = false
                     var last = startX
+                    val pressed = (startX / tabPx).toInt().coerceIn(0, count - 1)
+                    val holdAction = hold
+                    if (holdAction != null) {
+                        holding = pressed
+                        var released = false
+                        val waited = withTimeoutOrNull(TAB_HOLD_MS) {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id }
+                                if (change == null || !change.pressed) {
+                                    released = true
+                                    break
+                                }
+                                last = change.position.x
+                                if (abs(last - startX) > viewConfiguration.touchSlop) break
+                            }
+                        }
+                        holding = null
+                        if (waited == null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            holdAction(tabs[pressed])
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                change.consume()
+                                if (!change.pressed) break
+                            }
+                            return@awaitEachGesture
+                        }
+                        if (released) {
+                            val tab = tabs[pressed]
+                            if (tab != currentSelected && haptics) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            select(tab)
+                            return@awaitEachGesture
+                        }
+                    }
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -235,11 +277,12 @@ internal fun AriaTabBar(
                 val focus = drag?.let { (1f - abs(it - i)).coerceIn(0f, 1f) }
                 val active = if (focus != null) focus > 0.5f else item == selected
                 val chosen = item == selected
-                TabItem(item, active, showLabels, glass, Modifier.weight(1f).fillMaxHeight().semantics {
+                TabItem(item, active, showLabels, glass, holding == i, Modifier.weight(1f).fillMaxHeight().semantics {
                     role = Role.Tab
                     this.selected = chosen
                     contentDescription = item.title
                     onClick(label = item.title) { onTab(item); true }
+                    if (onHold != null) onLongClick(label = tr("Быстрые действия")) { onHold(item); true }
                 })
             }
         }
@@ -247,10 +290,15 @@ internal fun AriaTabBar(
 }
 
 @Composable
-private fun TabItem(item: MainTab, active: Boolean, label: Boolean, glass: Boolean, modifier: Modifier) {
+private fun TabItem(item: MainTab, active: Boolean, label: Boolean, glass: Boolean, holding: Boolean, modifier: Modifier) {
     val style = LocalAppStyle.current
     val scheme = MaterialTheme.colorScheme
     val reduce = LocalReduceMotion.current
+    val squeeze by animateFloatAsState(
+        if (holding && !reduce) 0.82f else 1f,
+        if (holding) tween(TAB_HOLD_MS.toInt(), easing = androidx.compose.animation.core.LinearOutSlowInEasing) else spring(dampingRatio = 0.45f, stiffness = 600f),
+        label = "tab-hold",
+    )
     val pop = remember { Animatable(1f) }
     LaunchedEffect(active) {
         if (active && !reduce) {
@@ -270,13 +318,14 @@ private fun TabItem(item: MainTab, active: Boolean, label: Boolean, glass: Boole
         label = "tab-tint",
     )
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        val pack = LocalIconPack.current
         Icon(
-            AriaIcons.forTab(item, active),
+            (if (pack.solar) SolarIcons.forTab(item, active, pack) else null) ?: AriaIcons.forTab(item, active),
             null,
             tint = tint,
             modifier = Modifier.size(24.dp).graphicsLayer {
-                scaleX = pop.value
-                scaleY = pop.value
+                scaleX = pop.value * squeeze
+                scaleY = pop.value * squeeze
             },
         )
         if (label) {

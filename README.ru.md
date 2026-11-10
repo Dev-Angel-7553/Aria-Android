@@ -106,6 +106,10 @@ APK появится в `app/build/outputs/apk/debug/`. Тесты: `./gradlew t
 Kotlin, Jetpack Compose, Material 3, Media3 (ExoPlayer + MediaSession), OkHttp,
 kotlinx.serialization, Coil, WorkManager.
 
+## Благодарности
+
+Наборы иконок Solar — [480 Design](https://www.figma.com/community/file/1166831539721848736), лицензия [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Пути взяты из пакета [@solar-icons/static](https://solar-icons.dev/).
+
 ## Дисклеймер
 
 Проект не связан с Яндексом. API Яндекс Музыки неофициальное и может поменяться в любой момент.

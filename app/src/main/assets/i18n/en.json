@@ -1,5 +1,5 @@
 {
- "version": 7,
+ "version": 9,
  "code": "en",
  "name": "English",
  "strings": {
@@ -46,7 +46,7 @@
   "Любой": "Any",
   "Русский": "Russian",
   "Иностранный": "Foreign",
-  "Настроить «Мою волну»": "Set up My Wave",
+  "Настроить «Мою волну»": "Tune My Wave",
   "Настройки сохраняются в аккаунте и работают и в официальном приложении": "Settings are saved to your account and also work in the official app",
   "Настроение": "Mood",
   "Характер": "Character",
@@ -689,8 +689,8 @@
   "Название": "Title",
   "Длительность": "Duration",
   "Ваши треки и плейлисты": "Your tracks and playlists",
-  "Импорт плейлиста из CSV": "Import a playlist from CSV",
-  "Обновить коллекцию": "Refresh the collection",
+  "Импорт плейлиста из CSV": "Import playlist from CSV",
+  "Обновить коллекцию": "Refresh collection",
   "Обновляем коллекцию": "Updating the collection",
   "Попробовать снова": "Try again",
   "Исполнители · {0}": "Artists · {0}",
@@ -1051,6 +1051,21 @@
   "Доступ отозван. Подключите аккаунт заново": "Access was revoked. Connect the account again",
   "Подсветка строк": "Line highlight",
   "Звучит {0}–{1}, строки подсвечиваются в такт": "Plays {0}–{1}, lines light up in time",
-  "Нет кадров для видео": "No frames for the video"
+  "Нет кадров для видео": "No frames for the video",
+  "Быстрые действия": "Quick actions",
+  "Меню": "Menu",
+  "Панель навигации": "Navigation bar",
+  "Снизу": "Bottom",
+  "Сверху, как папки": "Top, like folders",
+  "Боковое меню": "Side menu",
+  "Настроить вкладки": "Customize tabs",
+  "Обновить рекомендации": "Refresh recommendations",
+  "Меню по удержанию вкладки": "Menu on tab hold",
+  "Подержите вкладку — появятся быстрые действия": "Hold a tab to see quick actions",
+  "Solar — иконки 480 Design, лицензия CC BY 4.0": "Solar icons by 480 Design, CC BY 4.0 license",
+  "Solar · Линии": "Solar · Linear",
+  "Solar · Заливка": "Solar · Bold",
+  "Solar · Штрих": "Solar · Broken",
+  "Solar · Два тона": "Solar · Duotone"
  }
 }

@@ -29,6 +29,10 @@ internal fun IconPackPicker(settings: AppSettings, onChange: (AppSettings) -> Un
                 IconPack.OUTLINED -> "Контурные"
                 IconPack.SHARP -> "Угловатые"
                 IconPack.TWO_TONE -> "Двухцветные"
+                IconPack.SOLAR_LINEAR -> "Solar · Линии"
+                IconPack.SOLAR_BOLD -> "Solar · Заливка"
+                IconPack.SOLAR_BROKEN -> "Solar · Штрих"
+                IconPack.SOLAR_DUOTONE -> "Solar · Два тона"
             }
             Surface(onClick = { onChange(settings.copy(iconPack = pack)) }, shape = RoundedCornerShape(20.dp),
                 color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,

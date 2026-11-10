@@ -21,6 +21,11 @@ internal fun Icon(imageVector: ImageVector, contentDescription: String?, modifie
 
 internal fun packIcon(original: ImageVector, pack: IconPack): ImageVector {
     if (pack == IconPack.ROUNDED) return original
+    if (pack.solar) {
+        if (original.name.startsWith("Solar.")) return original
+        val parts = original.name.split('.')
+        return SolarIcons.forMaterial(parts.last(), pack, outlinedHint = parts.firstOrNull() == "Outlined") ?: original
+    }
     return when (original.name.substringAfterLast('.')) {
         "AccountCircle" -> when (pack) { IconPack.OUTLINED -> Icons.Outlined.AccountCircle; IconPack.SHARP -> Icons.Sharp.AccountCircle; IconPack.TWO_TONE -> Icons.TwoTone.AccountCircle; else -> original }
         "ArrowBack" -> when (pack) { IconPack.OUTLINED -> Icons.Outlined.ArrowBack; IconPack.SHARP -> Icons.Sharp.ArrowBack; IconPack.TWO_TONE -> Icons.TwoTone.ArrowBack; else -> original }

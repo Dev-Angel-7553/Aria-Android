@@ -57,6 +57,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.AssistChip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -133,13 +135,45 @@ internal fun MainShell(
     onAlbum: (YandexClient.Album) -> Unit,
     onArtist: (YandexClient.Artist) -> Unit,
     haptics: Boolean = true,
+    navStyle: ru.muz.settings.NavStyle = ru.muz.settings.NavStyle.BOTTOM,
+    tabHoldMenu: Boolean = true,
+    onNavStyle: (ru.muz.settings.NavStyle) -> Unit = {},
+    onCustomizeTabs: () -> Unit = onSettings,
 ) {
     val backdrop = rememberGlassBackdrop()
     val glass = LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS
+    var heldTab by remember { mutableStateOf<MainTab?>(null) }
+    val onHold: ((MainTab) -> Unit)? = if (tabHoldMenu) ({ heldTab = it }) else null
+    val drawer = androidx.compose.material3.rememberDrawerState(androidx.compose.material3.DrawerValue.Closed)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val drawerMode = navStyle == ru.muz.settings.NavStyle.DRAWER
+    androidx.compose.material3.ModalNavigationDrawer(
+        drawerState = drawer,
+        gesturesEnabled = drawerMode,
+        drawerContent = {
+            if (drawerMode) {
+                AriaDrawer(
+                    tabs = tabs,
+                    selected = tab,
+                    account = account,
+                    onTab = { scope.launch { drawer.close() }; onTab(it) },
+                    onSettings = { scope.launch { drawer.close() }; onSettings() },
+                )
+            }
+        },
+    ) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalNavMenu provides if (drawerMode) ({ scope.launch { drawer.open() }; Unit }) else null,
+    ) {
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        topBar = {
+            if (navStyle == ru.muz.settings.NavStyle.TOP) {
+                AriaTopTabs(tabs, tab, onTab, onHold, haptics, if (glass) backdrop else null)
+            }
+        },
         bottomBar = {
-            Column {
+            Column(if (navStyle == ru.muz.settings.NavStyle.BOTTOM) Modifier else Modifier.navigationBarsPadding()) {
                 PlaybackErrorBanner(player.error)
                 AnimatedVisibility(player.title.isNotBlank() && MiniPlayerState.hiddenId != player.mediaId, enter = barEnter(), exit = barExit()) {
                     CompactPlayer(
@@ -148,7 +182,9 @@ internal fun MainShell(
                         backdrop = if (glass) backdrop else null,
                     )
                 }
-                AriaTabBar(tabs, tab, onTab, showNavigationLabels, if (glass) backdrop else null, haptics)
+                if (navStyle == ru.muz.settings.NavStyle.BOTTOM) {
+                    AriaTabBar(tabs, tab, onTab, showNavigationLabels, if (glass) backdrop else null, haptics, onHold = onHold)
+                }
             }
         },
     ) { padding ->
@@ -194,6 +230,20 @@ internal fun MainShell(
         }
         }
         }
+    }
+    }
+    }
+    heldTab?.let { held ->
+        TabHoldSheet(
+            tab = held,
+            actions = listOf(
+                TabQuickAction(AriaIcons.forTab(held, true), "Открыть") { onTab(held) },
+            ) + defaultTabActions(held, onTab, onRefresh, onWaveSettings, onImportCsv, onOpenLiked),
+            navStyle = navStyle,
+            onNavStyle = onNavStyle,
+            onCustomize = onCustomizeTabs,
+            onDismiss = { heldTab = null },
+        )
     }
 }
 
