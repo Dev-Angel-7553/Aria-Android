@@ -96,7 +96,7 @@ Kotlin, Jetpack Compose, Material 3, Media3 (ExoPlayer + MediaSession), OkHttp, 
 
 ## Credits
 
-Solar icon packs by [480 Design](https://www.figma.com/community/file/1166831539721848736), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Paths come from [@solar-icons/static](https://solar-icons.dev/).
+Solar icon packs by 480 Design, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Paths come from [@solar-icons/static](https://solar-icons.dev/).
 
 ## Disclaimer
 

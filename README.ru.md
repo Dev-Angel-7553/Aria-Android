@@ -108,7 +108,7 @@ kotlinx.serialization, Coil, WorkManager.
 
 ## Благодарности
 
-Наборы иконок Solar — [480 Design](https://www.figma.com/community/file/1166831539721848736), лицензия [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Пути взяты из пакета [@solar-icons/static](https://solar-icons.dev/).
+Наборы иконок Solar — 480 Design, лицензия [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Пути взяты из пакета [@solar-icons/static](https://solar-icons.dev/).
 
 ## Дисклеймер
 
