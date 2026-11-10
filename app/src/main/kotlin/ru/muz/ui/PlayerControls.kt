@@ -12,7 +12,10 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.indication
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
@@ -86,15 +89,34 @@ internal fun PlayerPlayButton(state: PlayerState, onClick: () -> Unit, modifier:
         if (motion) spring(dampingRatio = 0.82f, stiffness = 400f) else tween(0), label = "play-radius",
     )
     val description = when { state.isBuffering -> "Загрузка"; playing -> "Пауза"; else -> "Играть" }
-    Box(
-        modifier.height(if (compact) 48.dp else 68.dp)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(if (LocalPlayShape.current == ru.muz.settings.PlayShape.CIRCLE) RoundedCornerShape(radius) else playShape(LocalPlayShape.current))
-            .background(if (accented) PlayerAccent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f))
-            .clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClickLabel = tr(description), onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        PlaybackIcon(state, Modifier.size(if (compact) 25.dp else 36.dp), if (accented) OnPlayerAccent else MaterialTheme.colorScheme.onSurface)
+    val shape = LocalPlayShape.current
+    val height = if (compact) 48.dp else 68.dp
+    val cookie = shape == ru.muz.settings.PlayShape.COOKIE
+    val spin = if (cookie && playing && motion) {
+        val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "cookie-spin")
+        val angle by transition.animateFloat(
+            0f, 360f,
+            androidx.compose.animation.core.infiniteRepeatable(tween(animationDuration(18_000), easing = androidx.compose.animation.core.LinearEasing)),
+            label = "cookie-angle",
+        )
+        angle
+    } else 0f
+    Box(modifier.height(height), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.then(if (cookie) Modifier.size(height + 4.dp) else Modifier.fillMaxSize())
+                .graphicsLayer { scaleX = scale; scaleY = scale }
+                .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClickLabel = tr(description), onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                Modifier.matchParentSize()
+                    .graphicsLayer { rotationZ = spin }
+                    .clip(if (shape == ru.muz.settings.PlayShape.CIRCLE) RoundedCornerShape(radius) else playShape(shape))
+                    .background(if (accented) PlayerAccent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f))
+                    .indication(interaction, androidx.compose.material3.ripple()),
+            )
+            PlaybackIcon(state, Modifier.size(if (compact) 25.dp else 36.dp), if (accented) OnPlayerAccent else MaterialTheme.colorScheme.onSurface)
+        }
     }
 }
 

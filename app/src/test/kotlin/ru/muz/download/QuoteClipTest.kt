@@ -47,4 +47,20 @@ class QuoteClipTest {
     fun labelFormatsMinutes() {
         assertEquals("1:05", QuoteClip.label(65_400))
     }
+
+    @Test
+    fun segmentsFollowLineStartsAndFillTheClip() {
+        val range = QuoteClip.Range(9_600, 20_000)
+        val parts = QuoteClip.segments(listOf(10_000, 13_000, 16_500), 0, range)
+        assertEquals(listOf(0 to 3_400L, 1 to 3_500L, 2 to 3_500L), parts)
+        assertEquals(range.lengthMs, parts.sumOf { it.second })
+    }
+
+    @Test
+    fun segmentsStopAtClipEndAndMergeTinyParts() {
+        val range = QuoteClip.Range(0, 15_000)
+        val parts = QuoteClip.segments(listOf(0, 50, 9_000, 40_000), 0, range)
+        assertEquals(range.lengthMs, parts.sumOf { it.second })
+        assertEquals(listOf(1, 2), parts.map { it.first })
+    }
 }

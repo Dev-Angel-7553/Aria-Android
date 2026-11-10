@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FormatAlignCenter
 import androidx.compose.material.icons.rounded.FormatAlignLeft
@@ -219,6 +220,9 @@ internal fun QuoteEditor(
     var output by remember { mutableStateOf(QuoteOutput.IMAGE) }
     var clipMode by remember { mutableStateOf(if (music.synced) ClipMode.LINES else ClipMode.SHORT) }
     var attachLink by remember { mutableStateOf(!music.link.isNullOrBlank()) }
+    var highlightLines by remember { mutableStateOf(true) }
+    var renderHighlight by remember { mutableStateOf<Int?>(null) }
+    var previewHighlight by remember { mutableStateOf<Int?>(null) }
     var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableIntStateOf(-1) }
     var job by remember { mutableStateOf<Job?>(null) }
@@ -236,6 +240,17 @@ internal fun QuoteEditor(
         }
     }
     val shareText = music.link?.takeIf { attachLink && it.isNotBlank() }?.let { "$artist — $title\n$it" }
+    val animatedVideo = output == QuoteOutput.VIDEO && music.synced && highlightLines && ordered.size > 1
+    LaunchedEffect(animatedVideo, ordered.size, busy) {
+        previewHighlight = null
+        if (!animatedVideo || busy) return@LaunchedEffect
+        var index = 0
+        while (true) {
+            previewHighlight = index
+            kotlinx.coroutines.delay(1_100)
+            index = (index + 1) % ordered.size
+        }
+    }
 
     fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
 
@@ -266,10 +281,29 @@ internal fun QuoteEditor(
                 } else {
                     progress = 0
                     val url = music.resolveAudio?.invoke()?.getOrNull() ?: error("Не удалось получить трек. Нужен интернет")
-                    val frame = withContext(Dispatchers.IO) {
-                        TrackTransfer.sharedFile(context, "aria_quote_frame.png").apply { writeBytes(png) }
+                    val parts = if (animatedVideo) QuoteClip.segments(ordered.map { lines[it].startMs }, music.offsetMs, clip) else emptyList()
+                    val frames = if (parts.size > 1) {
+                        try {
+                            parts.mapIndexed { number, (line, length) ->
+                                renderHighlight = line
+                                androidx.compose.runtime.withFrameNanos { }
+                                androidx.compose.runtime.withFrameNanos { }
+                                val bytes = renderPng()
+                                withContext(Dispatchers.IO) {
+                                    TrackTransfer.sharedFile(context, "aria_quote_frame_$number.png").apply { writeBytes(bytes) }
+                                } to length
+                            }
+                        } finally {
+                            renderHighlight = null
+                        }
+                    } else {
+                        listOf(
+                            withContext(Dispatchers.IO) {
+                                TrackTransfer.sharedFile(context, "aria_quote_frame.png").apply { writeBytes(png) }
+                            } to clip.lengthMs,
+                        )
                     }
-                    val video = QuoteVideo.render(context, frame, url, clip, TrackTransfer.sharedFile(context, "$name.mp4")) { progress = it }
+                    val video = QuoteVideo.render(context, frames, url, clip, TrackTransfer.sharedFile(context, "$name.mp4")) { progress = it }
                     if (share) {
                         TrackTransfer.shareFile(context, video, "video/mp4", "Поделиться видео", shareText)
                     } else {
@@ -289,6 +323,7 @@ internal fun QuoteEditor(
     }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        DialogSystemBars()
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -330,7 +365,7 @@ internal fun QuoteEditor(
                                     drawLayer(layer)
                                 },
                         ) {
-                            QuoteCardContent(quote, title, artist, coverUrl, coverColor, look)
+                            QuoteCardContent(quote, title, artist, coverUrl, coverColor, look, renderHighlight ?: previewHighlight)
                         }
                         if (busy && progress >= 0) {
                             Column(
@@ -369,9 +404,12 @@ internal fun QuoteEditor(
                                 synced = music.synced,
                                 hasLink = !music.link.isNullOrBlank(),
                                 attachLink = attachLink,
+                                highlight = highlightLines,
+                                canHighlight = music.synced && ordered.size > 1,
                                 onOutput = { output = it },
                                 onClipMode = { clipMode = it },
                                 onAttachLink = { attachLink = it },
+                                onHighlight = { highlightLines = it },
                             )
                         }
                     }
@@ -635,9 +673,12 @@ private fun MusicOptions(
     synced: Boolean,
     hasLink: Boolean,
     attachLink: Boolean,
+    highlight: Boolean,
+    canHighlight: Boolean,
     onOutput: (QuoteOutput) -> Unit,
     onClipMode: (ClipMode) -> Unit,
     onAttachLink: (Boolean) -> Unit,
+    onHighlight: (Boolean) -> Unit,
 ) {
     Column(Modifier.fillMaxSize().padding(top = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -663,6 +704,9 @@ private fun MusicOptions(
                     FilterChip(selected = mode == clipMode, onClick = { onClipMode(mode) }, label = { Text(mode.title) })
                 }
             }
+            if (output == QuoteOutput.VIDEO && canHighlight) {
+                item { OptionChip("Подсветка строк", Icons.Rounded.Lyrics, highlight) { onHighlight(!highlight) } }
+            }
             if (hasLink) {
                 item { OptionChip("Ссылка на трек", Icons.Rounded.InsertLink, attachLink) { onAttachLink(!attachLink) } }
             }
@@ -671,6 +715,7 @@ private fun MusicOptions(
             when {
                 output == QuoteOutput.IMAGE && hasLink -> "Ссылка на трек уйдёт вместе с картинкой, если приложение её принимает"
                 output == QuoteOutput.IMAGE -> "Выберите видео, чтобы к карточке приложился кусок песни"
+                synced && highlight && canHighlight -> "Звучит ${QuoteClip.label(clip.startMs)}–${QuoteClip.label(clip.endMs)}, строки подсвечиваются в такт"
                 synced -> "Звучит ${QuoteClip.label(clip.startMs)}–${QuoteClip.label(clip.endMs)}, ровно на выбранных строках"
                 else -> "У текста нет таймингов, фрагмент берётся с текущего места трека: ${QuoteClip.label(clip.startMs)}"
             },
@@ -765,6 +810,7 @@ private fun QuoteCardContent(
     coverUrl: String?,
     coverColor: Color,
     look: CardLook,
+    highlight: Int? = null,
 ) {
     val accent = Accent
     val style = look.style
@@ -812,7 +858,8 @@ private fun QuoteCardContent(
                 )
             }
             FittedQuote(
-                text = quote.joinToString("\n"),
+                lines = quote,
+                highlight = highlight,
                 maxSize = (w * base * look.textScale).sp(),
                 color = ink,
                 centered = look.centered,
@@ -832,8 +879,8 @@ private fun QuoteCardContent(
                             Spacer(Modifier.width(w * 0.032f))
                         }
                         Column(Modifier.weight(1f)) {
-                            Text(title, color = ink, fontSize = small * 1.2f, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(artist, color = inkSoft, fontSize = small, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            androidx.compose.material3.Text(title, color = ink, fontSize = small * 1.2f, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            androidx.compose.material3.Text(artist, color = inkSoft, fontSize = small, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     } else {
                         Spacer(Modifier.weight(1f))
@@ -874,7 +921,8 @@ private fun BrandMark(ink: Color, inkSoft: Color, w: Dp) {
 
 @Composable
 private fun FittedQuote(
-    text: String,
+    lines: List<String>,
+    highlight: Int?,
     maxSize: TextUnit,
     color: Color,
     centered: Boolean,
@@ -885,6 +933,20 @@ private fun FittedQuote(
     val base = LocalTextStyle.current
     val align = if (centered) TextAlign.Center else TextAlign.Start
     val weight = if (bold) FontWeight.Bold else FontWeight.Medium
+    val text = lines.joinToString("\n")
+    val styled = androidx.compose.ui.text.buildAnnotatedString {
+        lines.forEachIndexed { index, line ->
+            val alpha = when {
+                highlight == null || index == highlight -> 1f
+                index < highlight -> 0.62f
+                else -> 0.36f
+            }
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = color.copy(alpha = color.alpha * alpha)))
+            append(line)
+            pop()
+            if (index < lines.lastIndex) append("\n")
+        }
+    }
     BoxWithConstraints(modifier, contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart) {
         val maxW = constraints.maxWidth
         val maxH = constraints.maxHeight
@@ -903,9 +965,8 @@ private fun FittedQuote(
             }
             size
         }
-        Text(
-            text,
-            color = color,
+        androidx.compose.material3.Text(
+            styled,
             style = base.merge(TextStyle(fontSize = fitted.sp, lineHeight = (fitted * 1.2f).sp, fontWeight = weight, textAlign = align)),
             modifier = Modifier.fillMaxWidth(),
         )

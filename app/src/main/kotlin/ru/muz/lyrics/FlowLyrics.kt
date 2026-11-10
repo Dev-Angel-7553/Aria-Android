@@ -68,8 +68,9 @@ internal fun FlowLyricsScreen(
     onLongPressLine: ((Int) -> Unit)? = null,
 ) {
     val items = remember(lyrics) { LyricsFlow.build(lyrics) }
-    val listState = rememberLazyListState()
     val active = if (lyrics.synced) LyricsFlow.activeAt(items, positionMs) else -1
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = active.coerceAtLeast(0))
+    var placed by remember(lyrics) { mutableStateOf(false) }
     val dragged by listState.interactionSource.collectIsDraggedAsState()
     var following by remember(lyrics) { mutableStateOf(true) }
     val manualScroll = remember(lyrics) {
@@ -101,8 +102,9 @@ internal fun FlowLyricsScreen(
             if (!lyrics.synced || !following || !settings.autoScroll || active < 0) return@LaunchedEffect
             withFrameMillis { }
             val info = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == active }
-            if (info == null || reduceMotion || duration <= 1) {
+            if (!placed || info == null || reduceMotion || duration <= 1) {
                 listState.scrollToItem(active, 0)
+                placed = true
                 return@LaunchedEffect
             }
             val distance = info.offset.toFloat()
@@ -198,9 +200,10 @@ internal fun FlowLyricsScreen(
                 }
             }
         }
-        if (!following && lyrics.synced && settings.autoScroll) {
-            FollowLyricsButton(Modifier.align(Alignment.BottomEnd).padding(12.dp)) { following = true }
-        }
+        FollowLyricsButton(
+            visible = !following && lyrics.synced && settings.autoScroll,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+        ) { following = true }
     }
 }
 

@@ -27,6 +27,35 @@ object QuoteClip {
         return fit(start, end, durationMs)
     }
 
+    fun segments(lineStarts: List<Long>, offsetMs: Int, range: Range, minMs: Long = 150): List<Pair<Int, Long>> {
+        if (lineStarts.isEmpty() || range.lengthMs <= 0) return emptyList()
+        val bounds = ArrayList<Long>(lineStarts.size + 1)
+        bounds += range.startMs
+        var floor = range.startMs
+        lineStarts.drop(1).forEach { start ->
+            floor = (start - offsetMs).coerceIn(floor, range.endMs)
+            bounds += floor
+        }
+        bounds += range.endMs
+        val out = mutableListOf<Pair<Int, Long>>()
+        for (index in lineStarts.indices) {
+            val length = bounds[index + 1] - bounds[index]
+            if (length <= 0) continue
+            if (length < minMs && out.isNotEmpty()) {
+                val last = out.removeAt(out.lastIndex)
+                out += last.first to last.second + length
+            } else {
+                out += index to length
+            }
+        }
+        if (out.size > 1 && out.first().second < minMs) {
+            val first = out.removeAt(0)
+            val next = out.removeAt(0)
+            out.add(0, next.first to first.second + next.second)
+        }
+        return out
+    }
+
     fun label(ms: Long): String {
         val seconds = (ms / 1000).coerceAtLeast(0)
         return "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"

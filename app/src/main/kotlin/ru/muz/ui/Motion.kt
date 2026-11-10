@@ -88,3 +88,17 @@ internal fun ScreenTransition(key: String, content: @Composable (String) -> Unit
         ) { content(current) }
     }
 }
+
+@Composable
+internal fun barEnter(): EnterTransition {
+    if (LocalReduceMotion.current) return fadeIn(tween(1))
+    return fadeIn(tween(animationDuration(220))) +
+        expandVertically(tween(animationDuration(300), easing = EmphasizedEasing), expandFrom = androidx.compose.ui.Alignment.Bottom, clip = false)
+}
+
+@Composable
+internal fun barExit(): ExitTransition {
+    if (LocalReduceMotion.current) return fadeOut(tween(1))
+    return fadeOut(tween(animationDuration(160))) +
+        shrinkVertically(tween(animationDuration(260), easing = EmphasizedEasing), shrinkTowards = androidx.compose.ui.Alignment.Bottom, clip = false)
+}

@@ -135,7 +135,7 @@ internal fun SettingsScreen(
         bottomBar = {
             Column {
                 PlaybackErrorBanner(player.error)
-                AnimatedVisibility(player.title.isNotBlank() && MiniPlayerState.hiddenId != player.mediaId) {
+                AnimatedVisibility(player.title.isNotBlank() && MiniPlayerState.hiddenId != player.mediaId, enter = barEnter(), exit = barExit()) {
                     CompactPlayer(
                         player, onMiniClick, onPlayPause, onNext, onPrevious,
                         swipeMiniPlayer, showMiniPlayerProgress,

@@ -1048,6 +1048,9 @@
   "Сервис отклонил прослушивание": "The service rejected the play",
   "Last.fm не засчитал прослушивание": "Last.fm did not count the play",
   "Last.fm отклонил прослушивание": "Last.fm rejected the play",
-  "Доступ отозван. Подключите аккаунт заново": "Access was revoked. Connect the account again"
+  "Доступ отозван. Подключите аккаунт заново": "Access was revoked. Connect the account again",
+  "Подсветка строк": "Line highlight",
+  "Звучит {0}–{1}, строки подсвечиваются в такт": "Plays {0}–{1}, lines light up in time",
+  "Нет кадров для видео": "No frames for the video"
  }
 }

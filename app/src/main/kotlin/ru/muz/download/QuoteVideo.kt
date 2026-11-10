@@ -26,7 +26,7 @@ object QuoteVideo {
     @OptIn(UnstableApi::class)
     suspend fun render(
         context: Context,
-        image: File,
+        frames: List<Pair<File, Long>>,
         audioUrl: String,
         clip: QuoteClip.Range,
         output: File,
@@ -34,13 +34,16 @@ object QuoteVideo {
     ): File = withContext(Dispatchers.Main) {
         output.parentFile?.mkdirs()
         output.delete()
-        val picture = EditedMediaItem.Builder(
-            MediaItem.Builder()
-                .setUri(Uri.fromFile(image))
-                .setMimeType(MimeTypes.IMAGE_PNG)
-                .setImageDurationMs(clip.lengthMs)
-                .build(),
-        ).setFrameRate(30).build()
+        require(frames.isNotEmpty()) { "Нет кадров для видео" }
+        val pictures = frames.map { (image, durationMs) ->
+            EditedMediaItem.Builder(
+                MediaItem.Builder()
+                    .setUri(Uri.fromFile(image))
+                    .setMimeType(MimeTypes.IMAGE_PNG)
+                    .setImageDurationMs(durationMs.coerceAtLeast(1))
+                    .build(),
+            ).setFrameRate(30).build()
+        }
         val sound = EditedMediaItem.Builder(
             MediaItem.Builder()
                 .setUri(audioUrl)
@@ -53,7 +56,7 @@ object QuoteVideo {
                 .build(),
         ).setRemoveVideo(true).build()
         val composition = Composition.Builder(
-            EditedMediaItemSequence(listOf(picture)),
+            EditedMediaItemSequence(pictures),
             EditedMediaItemSequence(listOf(sound)),
         ).build()
         val handler = Handler(Looper.getMainLooper())
