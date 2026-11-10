@@ -40,4 +40,16 @@ class AppUpdateTest {
         assertNull(AppUpdate.parseLatest("""{"tag_name":"v1","prerelease":true,"assets":[{"name":"a.apk","browser_download_url":"u"}]}"""))
         assertNull(AppUpdate.parseLatest("not json"))
     }
+
+    @Test
+    fun readsVersionFromReleasePageRedirect() {
+        val release = AppUpdate.fromReleasePage("https://github.com/Dev-Angel-7553/Aria-Android/releases/tag/v0.44")!!
+        assertEquals("0.44", release.version)
+        assertEquals("https://github.com/Dev-Angel-7553/Aria-Android/releases/download/v0.44/Aria-0.44.apk", release.apkUrl)
+        assertEquals(0L, release.apkSize)
+        assertNull(release.sha256)
+        assertEquals("0.45", AppUpdate.fromReleasePage("/Dev-Angel-7553/Aria-Android/releases/tag/v0.45?x=1")!!.version)
+        assertNull(AppUpdate.fromReleasePage("https://github.com/Dev-Angel-7553/Aria-Android/releases"))
+        assertNull(AppUpdate.fromReleasePage(""))
+    }
 }

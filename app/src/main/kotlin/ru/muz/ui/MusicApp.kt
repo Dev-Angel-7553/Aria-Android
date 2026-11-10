@@ -250,7 +250,12 @@ fun MusicApp(
                     availableUpdate = newer
                     if (manual) toast(if (newer != null) "Доступна Aria ${newer.version}" else "У вас последняя версия")
                 },
-                onFailure = { if (manual) toast("Не удалось проверить обновления") },
+                onFailure = { error ->
+                    if (manual) toast(
+                        if (error is ru.muz.update.UpdateCheckException) "Не удалось проверить обновления: ${error.message.orEmpty()}"
+                        else "Не удалось проверить обновления",
+                    )
+                },
             )
             updateChecking = false
         }

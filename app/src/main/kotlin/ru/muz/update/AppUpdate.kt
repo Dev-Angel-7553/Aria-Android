@@ -17,6 +17,22 @@ data class AppRelease(
 
 object AppUpdate {
     const val LATEST_URL = "https://api.github.com/repos/Dev-Angel-7553/Aria-Android/releases/latest"
+    const val LATEST_PAGE_URL = "https://github.com/Dev-Angel-7553/Aria-Android/releases/latest"
+    private const val DOWNLOAD_URL = "https://github.com/Dev-Angel-7553/Aria-Android/releases/download"
+
+    fun fromReleasePage(location: String): AppRelease? {
+        val tag = location.substringAfter("/releases/tag/", "").substringBefore('?').substringBefore('#').trim('/')
+        if (tag.isBlank() || tag.contains('/')) return null
+        val version = tag.removePrefix("v").removePrefix("V")
+        if (parts(version).all { it == 0 }) return null
+        return AppRelease(
+            version = version,
+            apkUrl = "$DOWNLOAD_URL/$tag/Aria-$version.apk",
+            apkSize = 0L,
+            notes = "",
+            pageUrl = if (location.startsWith("http")) location else "https://github.com$location",
+        )
+    }
 
     private val json = Json { ignoreUnknownKeys = true }
 

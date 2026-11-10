@@ -1,5 +1,5 @@
 {
- "version": 7,
+ "version": 8,
  "code": "en",
  "name": "English",
  "strings": {
@@ -778,7 +778,7 @@
   "окт": "Oct",
   "ноя": "Nov",
   "дек": "Dec",
-  "GitHub ответил {0}": "GitHub answered {0}",
+  "GitHub ответил {0}": "GitHub responded {0}",
   "Не удалось скачать обновление ({0})": "Could not download the update ({0})",
   "Пустой ответ": "Empty response",
   "название": "title",
@@ -1048,6 +1048,12 @@
   "Сервис отклонил прослушивание": "The service rejected the play",
   "Last.fm не засчитал прослушивание": "Last.fm did not count the play",
   "Last.fm отклонил прослушивание": "Last.fm rejected the play",
-  "Доступ отозван. Подключите аккаунт заново": "Access was revoked. Connect the account again"
+  "Доступ отозван. Подключите аккаунт заново": "Access was revoked. Connect the account again",
+  "Не удалось проверить обновления: {0}": "Could not check for updates: {0}",
+  "GitHub временно ограничил запросы, попробуйте через час": "GitHub is limiting requests for now, try again in an hour",
+  "GitHub сейчас недоступен": "GitHub is unavailable right now",
+  "нет связи с GitHub": "no connection to GitHub",
+  "GitHub не ответил вовремя": "GitHub did not respond in time",
+  "ответ GitHub не распознан": "could not read the GitHub response"
  }
 }

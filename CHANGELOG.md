@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.45
+
+- Update checks fall back to the GitHub releases page when the GitHub API refuses or limits requests
+- A failed manual update check says why: request limit, no connection, timeout or GitHub being down
+
 ## 0.44
 
 - Settings are rebuilt into compact grouped cards with short hints; animations live in Appearance, and Home and Lists share one page

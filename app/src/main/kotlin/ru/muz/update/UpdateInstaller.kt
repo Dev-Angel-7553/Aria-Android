@@ -14,6 +14,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
+class UpdateCheckException(message: String) : Exception(message)
+
 object UpdateInstaller {
     private val http = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -26,22 +28,65 @@ object UpdateInstaller {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
             .getOrNull().orEmpty()
 
+    private val probe = http.newBuilder()
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .build()
+
     suspend fun latest(): Result<AppRelease?> = runCatching {
         withContext(Dispatchers.IO) {
-            val request = Request.Builder()
-                .url(AppUpdate.LATEST_URL)
-                .header("Accept", "application/vnd.github+json")
-                .header("User-Agent", "Aria")
-                .build()
-            http.newCall(request).execute().use { response ->
-                when {
-                    response.code == 404 -> null
-                    !response.isSuccessful -> error("GitHub ответил ${response.code}")
-                    else -> AppUpdate.parseLatest(response.body?.string().orEmpty())
-                }
+            val api = runCatching { latestFromApi() }
+            api.getOrNull()?.let { return@withContext it }
+            val page = runCatching { latestFromPage() }
+            page.getOrNull()?.let { return@withContext it }
+            if (api.isSuccess && page.isSuccess) return@withContext null
+            throw UpdateCheckException(reason(api.exceptionOrNull() ?: page.exceptionOrNull()))
+        }
+    }
+
+    private fun latestFromApi(): AppRelease? {
+        val request = Request.Builder()
+            .url(AppUpdate.LATEST_URL)
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "Aria")
+            .build()
+        return http.newCall(request).execute().use { response ->
+            when {
+                response.code == 404 -> null
+                !response.isSuccessful -> throw HttpStatusException(response.code)
+                else -> AppUpdate.parseLatest(response.body?.string().orEmpty())
             }
         }
     }
+
+    private fun latestFromPage(): AppRelease? {
+        val request = Request.Builder()
+            .url(AppUpdate.LATEST_PAGE_URL)
+            .header("User-Agent", "Aria")
+            .build()
+        val location = probe.newCall(request).execute().use { response ->
+            when {
+                response.code == 404 -> return null
+                response.isRedirect -> response.header("Location").orEmpty()
+                else -> throw HttpStatusException(response.code)
+            }
+        }
+        return AppUpdate.fromReleasePage(location)
+    }
+
+    private fun reason(error: Throwable?): String = when (error) {
+        is HttpStatusException -> when (error.code) {
+            403, 429 -> "GitHub временно ограничил запросы, попробуйте через час"
+            in 500..599 -> "GitHub сейчас недоступен"
+            else -> "GitHub ответил ${error.code}"
+        }
+        is java.net.UnknownHostException -> "нет связи с GitHub"
+        is java.net.SocketTimeoutException -> "GitHub не ответил вовремя"
+        is java.io.IOException -> "нет связи с GitHub"
+        else -> "ответ GitHub не распознан"
+    }
+
+    private class HttpStatusException(val code: Int) : java.io.IOException("HTTP $code")
 
     suspend fun download(
         context: Context,
