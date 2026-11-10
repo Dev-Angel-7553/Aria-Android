@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.45
+
+- Four Solar icon packs: Linear, Bold, Broken and Duotone, with filled icons for the active tab
+- Pick the navigation bar: bottom, folder-style tabs on top like Telegram, or a side menu
+- Hold a tab to open quick actions: the icon squeezes during the hold, then a menu offers shortcuts and the bar style
+- Quote videos light up each selected line in time with the song, with a live preview in the editor
+- Lyric lines and track names on quote cards are never translated, and card and stats dialogs use readable status bar icons
+- The jump-to-current-line button no longer hides under the lyrics controls and fades in smoothly
+- Modern lyrics open on the current line without jumping, and the player header crossfades between views
+- The cookie play button keeps its shape instead of stretching and slowly turns while playing
+- The cover only flies between the mini and full player once it has loaded, so no grey placeholder crosses the screen
+- The mini player keeps its shadow while it appears
+
 ## 0.44
 
 - Settings are rebuilt into compact grouped cards with short hints; animations live in Appearance, and Home and Lists share one page
