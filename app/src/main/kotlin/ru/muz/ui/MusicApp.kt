@@ -95,6 +95,7 @@ fun MusicApp(
     var cacheRevision by remember { mutableStateOf(0) }
     var cachedIds by remember { mutableStateOf<Set<String>?>(null) }
     val screenStates = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    val navMemory = remember { NavMemory() }
     val player by playback.state.collectAsState()
     LaunchedEffect(settings.eqBands, settings.crossfadeSeconds) {
         ru.muz.player.AudioEffects.apply(settings.eqBands, settings.crossfadeSeconds)
@@ -1124,7 +1125,7 @@ fun MusicApp(
     LaunchedEffect(restrictedMode, player.mediaId, cacheRevision) {
         cachedIds = if (restrictedMode) withContext(Dispatchers.IO) { AudioCache.cachedTrackIds(context) } else null
     }
-    val hasMini = player.title.isNotBlank()
+    val hasMini = player.title.isNotBlank() && MiniPlayerState.hiddenId != player.mediaId
     val snackbarBottom = when {
         api == null -> 16.dp
         showPlayer -> 150.dp
@@ -1140,10 +1141,25 @@ fun MusicApp(
         Box(Modifier.fillMaxSize()) {
             Surface(Modifier.fillMaxSize(), color = background) {
                 PlayerScene(showPlayer && !showSettings && api != null) { playerVisible ->
+                    val navKey = when {
+                        api == null -> "login"
+                        showSettings -> "settings"
+                        playerVisible -> "player"
+                        selectedPlaylist != null -> "playlist:${selectedPlaylist!!.id}"
+                        else -> "main"
+                    }
+                    androidx.compose.runtime.SideEffect {
+                        selectedPlaylist?.let { current ->
+                            navMemory.playlist = current
+                            navMemory.title = selectedCollectionTitle
+                            navMemory.tracks = selectedTracks
+                        }
+                    }
+                    ScreenTransition(navKey) { key ->
                     when {
-                    api == null -> LoginScreen(busy, message, ::connect, settings.language) { updateSettings(settings.copy(language = it)) }
+                    key == "login" -> LoginScreen(busy, message, ::connect, settings.language) { updateSettings(settings.copy(language = it)) }
 
-                    showSettings -> SettingsScreen(
+                    key == "settings" -> SettingsScreen(
                         settings = settings,
                         account = account,
                         player = player,
@@ -1199,7 +1215,7 @@ fun MusicApp(
                         },
                     )
 
-                    playerVisible -> FullPlayerScreen(
+                    key == "player" -> FullPlayerScreen(
                         state = player,
                         tools = PlayerTools(
                             actions = settings.playerActions,
@@ -1280,9 +1296,12 @@ fun MusicApp(
                         onCopyArtist = { copyArtist(player.artist) },
                     )
 
-                    selectedPlaylist != null -> screenStates.SaveableStateProvider("playlist:${selectedPlaylist!!.id}") { PlaylistScreen(
-                        playlist = selectedPlaylist!!.copy(title = selectedCollectionTitle ?: selectedPlaylist!!.title),
-                        tracks = selectedTracks,
+                    key.startsWith("playlist:") -> {
+                      val live = selectedPlaylist?.takeIf { "playlist:${it.id}" == key }
+                      val shown = live ?: navMemory.playlist?.takeIf { "playlist:${it.id}" == key }
+                      if (shown != null) screenStates.SaveableStateProvider(key) { PlaylistScreen(
+                        playlist = shown.copy(title = (if (live != null) selectedCollectionTitle else navMemory.title) ?: shown.title),
+                        tracks = if (live != null) selectedTracks else navMemory.tracks,
                         busy = busy || artistLoading,
                         compact = settings.compactLists,
                         listScalePercent = settings.listScalePercent,
@@ -1293,27 +1312,27 @@ fun MusicApp(
                         onBack = {
                             selectedPlaylist = null
                             selectedCollectionTitle = null
-                            selectedTracks = emptyList()
                         },
-                        onPlay = { tracks, index -> playTracks(tracks, index, sourceFor(selectedPlaylist!!)) },
+                        onPlay = { tracks, index -> playTracks(tracks, index, sourceFor(shown)) },
                         onMiniClick = { showPlayer = true },
                         onPlayPause = playback::togglePlayPause,
                         onNext = playback::skipNext,
                         onPrevious = playback::skipPrevious,
                         onTrackMore = { actionTrack = it },
                         onPlaylistMore = { actionPlaylist = it },
-                        albumLiked = selectedPlaylist!!.id.removePrefix("album:") in likedAlbums.map { it.id },
-                        onToggleAlbumLike = { toggleAlbumLike(selectedPlaylist!!) },
+                        albumLiked = shown.id.removePrefix("album:") in likedAlbums.map { it.id },
+                        onToggleAlbumLike = { toggleAlbumLike(shown) },
                         exportBusy = exportBusy,
                         onExportCsv = { share ->
-                            val playlist = selectedPlaylist!!
+                            val playlist = shown
                             exportCsv(listOf(playlist), selectedCollectionTitle ?: playlist.title, share)
                         },
                         offlineBusy = offlineBusy,
-                        onSaveOffline = { saveOffline(selectedPlaylist!!) },
+                        onSaveOffline = { saveOffline(shown) },
                     ) }
+                    }
 
-                    else -> MainShell(
+                    else -> screenStates.SaveableStateProvider("main") { MainShell(
                         haptics = settings.haptics,
                         tab = tab,
                         onTab = { tab = it },
@@ -1418,7 +1437,8 @@ fun MusicApp(
                                 busy = false
                             }
                         },
-                    )
+                    ) }
+                    }
                     }
                 }
             }
@@ -1449,20 +1469,15 @@ fun MusicApp(
                 },
                 onDismiss = { plusNotice = false },
             )
-            if (transferBusy || offlineBusy || updateProgress != null) {
-                androidx.compose.foundation.layout.Column(
-                    Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = snackbarBottom),
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
-                ) {
-                    if (transferBusy) TransferPanel(transferMessage, transferProgress) { transferControl?.cancel(); transferJob?.cancel() }
-                    if (offlineBusy) TransferPanel("Сохраняем для офлайна…", offlineProgress) { offlineJob?.cancel() }
-                    if (updateProgress != null) TransferPanel("Скачиваем обновление…", updateProgress) { updateControl?.cancel(); updateJob?.cancel() }
-                }
-            }
-            SnackbarHost(
-                snackbar,
+            androidx.compose.foundation.layout.Column(
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = snackbarBottom),
-            )
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+            ) {
+                SnackbarHost(snackbar)
+                if (transferBusy) TransferPanel(transferMessage, transferProgress) { transferControl?.cancel(); transferJob?.cancel() }
+                if (offlineBusy) TransferPanel("Сохраняем для офлайна…", offlineProgress) { offlineJob?.cancel() }
+                if (updateProgress != null) TransferPanel("Скачиваем обновление…", updateProgress) { updateControl?.cancel(); updateJob?.cancel() }
+            }
         }
         if (showWaveSettings) {
             WaveSettingsSheet(settings, onApply = { mood, diversity, language ->
@@ -1565,4 +1580,10 @@ fun MusicApp(
             )
         }
     }
+}
+
+private class NavMemory {
+    var playlist: YandexClient.Playlist? = null
+    var title: String? = null
+    var tracks: List<YandexClient.Track> = emptyList()
 }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -60,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
@@ -257,6 +259,50 @@ internal fun ThinSeekBar(
     }
 }
 
+internal val HyphenatedText: androidx.compose.ui.text.TextStyle
+    @Composable get() = androidx.compose.material3.LocalTextStyle.current.copy(
+        hyphens = androidx.compose.ui.text.style.Hyphens.Auto,
+        lineBreak = androidx.compose.ui.text.style.LineBreak.Paragraph,
+    )
+
+@Composable
+internal fun FitText(
+    text: String,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    minFontSize: androidx.compose.ui.unit.TextUnit,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    fontWeight: FontWeight? = null,
+    lineHeight: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
+    letterSpacing: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
+    textAlign: androidx.compose.ui.text.style.TextAlign? = null,
+) {
+    val tint = color.takeOrElse { androidx.compose.material3.LocalContentColor.current }
+    val style = androidx.compose.material3.LocalTextStyle.current.merge(
+        androidx.compose.ui.text.TextStyle(
+            color = tint,
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            lineHeight = lineHeight,
+            letterSpacing = letterSpacing,
+            textAlign = textAlign ?: androidx.compose.ui.text.style.TextAlign.Unspecified,
+        ),
+    )
+    androidx.compose.foundation.text.BasicText(
+        text = ru.muz.i18n.I18n.t(text),
+        modifier = modifier,
+        style = style,
+        overflow = TextOverflow.Ellipsis,
+        softWrap = false,
+        maxLines = 1,
+        autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(
+            minFontSize = minFontSize,
+            maxFontSize = fontSize,
+            stepSize = 0.5.sp,
+        ),
+    )
+}
+
 @Composable
 internal fun ScreenHeader(
     title: String,
@@ -264,13 +310,13 @@ internal fun ScreenHeader(
     action: (@Composable () -> Unit)? = null,
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.6).sp, fontWeight = FontWeight.SemiBold)
+        Column(Modifier.weight(1f).padding(end = 4.dp)) {
+            FitText(title, fontSize = 28.sp, minFontSize = 20.sp, lineHeight = 34.sp, letterSpacing = (-0.6).sp, fontWeight = FontWeight.SemiBold)
             if (!subtitle.isNullOrBlank()) {
-                Text(subtitle, color = SoftText, fontSize = 13.sp)
+                Text(subtitle, color = SoftText, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         action?.invoke()
@@ -334,12 +380,12 @@ internal fun CompactPlayer(
     var drag by remember(state.mediaId) { mutableFloatStateOf(0f) }
     val animatedOffset by animateDpAsState(
         targetValue = (if (reduceMotion) 0f else drag / 4f).coerceIn(-28f, 28f).dp,
-        animationSpec = tween(animationDuration(180)),
+        animationSpec = followFinger(drag != 0f),
         label = "mini-player-swipe",
     )
     val swipeScale by animateFloatAsState(
         targetValue = if (drag == 0f || reduceMotion) 1f else 0.985f,
-        animationSpec = tween(animationDuration(180)),
+        animationSpec = followFinger(false),
         label = "mini-player-scale",
     )
     var lift by remember(state.mediaId) { mutableFloatStateOf(0f) }
@@ -461,6 +507,8 @@ internal fun MyWaveCard(trackCount: Int = 0, subtitle: String = "", onTune: (() 
                 "Моя волна",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 subtitle.ifBlank { if (trackCount > 0) "${ru.muz.text.tracksLabel(trackCount)} по вашему вкусу" else "Персональный поток по вашей истории" },
@@ -617,7 +665,7 @@ internal fun ArtistCard(value: YandexClient.Artist, onClick: (YandexClient.Artis
     Column(Modifier.width(126.dp).clickable { onClick(value) }, horizontalAlignment = Alignment.CenterHorizontally) {
         Artwork(value.coverUrl, Modifier.size(126.dp), 63.dp)
         Text(value.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 9.dp))
-        Text(if (value.trackCount > 0) ru.muz.text.tracksLabel(value.trackCount) else "Исполнитель", color = SoftText, fontSize = 12.sp)
+        Text(if (value.trackCount > 0) ru.muz.text.tracksLabel(value.trackCount) else "Исполнитель", color = SoftText, fontSize = 12.sp, maxLines = 1)
     }
 }
 
@@ -644,6 +692,8 @@ internal fun PlaylistListRow(
                 "Плейлист • ${ru.muz.text.tracksLabel(value.trackCount)}",
                 color = SoftText,
                 fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         IconButton(onClick = { onMore(value) }) { Icon(Icons.Rounded.MoreVert, "Ещё", tint = SoftText) }
@@ -695,7 +745,7 @@ internal fun TrackRow(
         if (current) {
             NowPlayingBars(nowPlaying.isPlaying, Modifier.size(width = 18.dp, height = 16.dp))
         } else {
-            Text(formatDuration(value.durationMs), color = SoftText, fontSize = 12.sp)
+            Text(formatDuration(value.durationMs), color = SoftText, fontSize = 12.sp, maxLines = 1)
         }
         IconButton(onClick = { onMore(value) }) { Icon(Icons.Rounded.MoreVert, "Ещё", tint = SoftText) }
     }
@@ -704,10 +754,11 @@ internal fun TrackRow(
 @Composable
 internal fun ExplicitBadge(modifier: Modifier = Modifier) {
     Box(
-        modifier.size(15.dp).clip(RoundedCornerShape(3.dp)).background(SoftText.copy(alpha = 0.75f)),
+        modifier.defaultMinSize(minWidth = 15.dp, minHeight = 15.dp).clip(RoundedCornerShape(3.dp)).background(SoftText.copy(alpha = 0.75f))
+            .padding(horizontal = 3.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text("E", color = MaterialTheme.colorScheme.surface, fontSize = 10.sp, fontWeight = FontWeight.Black, lineHeight = 10.sp)
+        Text("E", color = MaterialTheme.colorScheme.surface, fontSize = 10.sp, fontWeight = FontWeight.Black, lineHeight = 10.sp, maxLines = 1)
     }
 }
 
@@ -726,8 +777,8 @@ internal fun CollectionHero(count: Int, onClick: () -> Unit) {
             Icon(Icons.Rounded.Favorite, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
         }
         Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-            Text("Мне нравится", fontSize = 19.sp, fontWeight = FontWeight.Black)
-            Text(ru.muz.text.tracksLabel(count), color = SoftText)
+            Text("Мне нравится", fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(ru.muz.text.tracksLabel(count), color = SoftText, maxLines = 1)
         }
         Icon(Icons.Rounded.ChevronRight, null, tint = Accent, modifier = Modifier.size(30.dp))
     }
@@ -761,6 +812,6 @@ private fun rememberMiniTint(url: String?): androidx.compose.ui.graphics.Color? 
     androidx.compose.runtime.LaunchedEffect(url) {
         if (url != null) tint = coverTintOf(context, url)
     }
-    val shown by androidx.compose.animation.animateColorAsState(tint ?: androidx.compose.ui.graphics.Color.Transparent, tween(600), label = "mini-tint")
+    val shown by androidx.compose.animation.animateColorAsState(tint ?: androidx.compose.ui.graphics.Color.Transparent, tween(animationDuration(600)), label = "mini-tint")
     return if (tint == null) null else shown
 }

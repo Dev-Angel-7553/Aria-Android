@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -238,14 +239,14 @@ private fun HeroCard(data: PeriodStats, onShare: () -> Unit) {
             .padding(20.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Вы слушали ${data.period.headline()}", color = SoftText, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            Text("Вы слушали ${data.period.headline()}", color = SoftText, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             if (data.hasData) {
                 Box(Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)).clickable(onClickLabel = tr("Поделиться итогами"), onClick = onShare), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.Share, "Поделиться итогами", modifier = Modifier.size(18.dp))
                 }
             }
         }
-        Text(formatListening(data.listenedMs), fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 2.dp))
+        FitText(formatListening(data.listenedMs), fontSize = 40.sp, minFontSize = 26.sp, lineHeight = 44.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 2.dp))
         val change = data.change
         if (change != null && data.period != StatsPeriod.ALL) {
             val up = change >= 0
@@ -275,9 +276,9 @@ private fun HeroCard(data: PeriodStats, onShare: () -> Unit) {
 
 @Composable
 private fun HeroValue(value: String, label: String, modifier: Modifier) {
-    Column(modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.45f)).padding(12.dp)) {
-        Text(value, fontWeight = FontWeight.Black, fontSize = 20.sp)
-        Text(label, color = SoftText, fontSize = 11.sp, maxLines = 2)
+    Column(modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.45f)).padding(horizontal = 10.dp, vertical = 12.dp)) {
+        FitText(value, fontSize = 20.sp, minFontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text(label, color = SoftText, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, style = HyphenatedText)
     }
 }
 
@@ -286,7 +287,13 @@ private fun BarsCard(data: PeriodStats) {
     val accent = Accent
     val soft = SoftText
     val max = data.bars.maxOf { it.listenedMs }.coerceAtLeast(1)
-    val grow by animateFloatAsState(1f, tween(animationDuration(600)), label = "bars")
+    val growth = remember { androidx.compose.animation.core.Animatable(0f) }
+    val growMs = animationDuration(600)
+    LaunchedEffect(data.period) {
+        growth.snapTo(0f)
+        growth.animateTo(1f, tween(growMs, easing = EmphasizedEasing))
+    }
+    val grow = growth.value
     var selected by remember(data.period) { mutableIntStateOf(data.bars.indexOfLast { it.current }) }
     val chosen = data.bars.getOrNull(selected)
     Column(
@@ -302,7 +309,7 @@ private fun BarsCard(data: PeriodStats) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
-            if (chosen != null) Text("${chosen.label}: ${formatListening(chosen.listenedMs)}", color = accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            if (chosen != null) Text("${chosen.label}: ${formatListening(chosen.listenedMs)}", color = accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
         Row(
             Modifier.fillMaxWidth().height(130.dp).padding(top = 14.dp),
@@ -346,17 +353,17 @@ private fun StreakRow(data: PeriodStats) {
         Tile(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.LocalFireDepartment, null, tint = Color(0xFFFF9A3D), modifier = Modifier.size(20.dp))
-                Text("${data.currentStreak}", fontWeight = FontWeight.Black, fontSize = 20.sp, modifier = Modifier.padding(start = 4.dp))
+                FitText("${data.currentStreak}", fontSize = 20.sp, minFontSize = 14.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 4.dp))
             }
-            Text("${plural(data.currentStreak, "день", "дня", "дней")} подряд", color = SoftText, fontSize = 11.sp)
+            Text("${plural(data.currentStreak, "день", "дня", "дней")} подряд", color = SoftText, fontSize = 11.sp, lineHeight = 14.sp, style = HyphenatedText)
         }
         Tile(Modifier.weight(1f)) {
-            Text("${data.bestStreak}", fontWeight = FontWeight.Black, fontSize = 20.sp)
-            Text("лучшая серия", color = SoftText, fontSize = 11.sp)
+            FitText("${data.bestStreak}", fontSize = 20.sp, minFontSize = 14.sp, fontWeight = FontWeight.Black)
+            Text("лучшая серия", color = SoftText, fontSize = 11.sp, lineHeight = 14.sp, style = HyphenatedText)
         }
         Tile(Modifier.weight(1f)) {
-            Text(formatListening(data.averageDayMs), fontWeight = FontWeight.Black, fontSize = 16.sp, maxLines = 1)
-            Text("в среднем за день", color = SoftText, fontSize = 11.sp)
+            FitText(formatListening(data.averageDayMs), fontSize = 20.sp, minFontSize = 12.sp, fontWeight = FontWeight.Black)
+            Text("в среднем за день", color = SoftText, fontSize = 11.sp, lineHeight = 14.sp, style = HyphenatedText)
         }
     }
     data.bestDay?.takeIf { it.listenedMs >= 60_000L }?.let { day ->
@@ -374,7 +381,7 @@ private val MONTHS_GEN = listOf("января", "февраля", "марта", 
 
 @Composable
 private fun Tile(modifier: Modifier, content: @Composable () -> Unit) {
-    Column(modifier.clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(14.dp)) { content() }
+    Column(modifier.clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = 12.dp, vertical = 14.dp)) { content() }
 }
 
 @Composable
@@ -410,8 +417,8 @@ private fun HoursCard(hours: List<Long>) {
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             parts.forEach { (name, ms) ->
                 Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (name == top.first) accent.copy(alpha = 0.18f) else Color.Transparent).padding(8.dp)) {
-                    Text("${(ms * 100 / total)}%", fontWeight = FontWeight.Black)
-                    Text(name, color = SoftText, fontSize = 11.sp)
+                    FitText("${(ms * 100 / total)}%", fontSize = 16.sp, minFontSize = 12.sp, fontWeight = FontWeight.Black)
+                    Text(name, color = SoftText, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

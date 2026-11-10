@@ -3,6 +3,7 @@ package ru.muz.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -25,7 +26,11 @@ internal fun GlassScaffold(
     Scaffold(
         containerColor = Color.Transparent,
         topBar = { CompositionLocalProvider(LocalGlassBackdrop provides active) { topBar() } },
-        bottomBar = { CompositionLocalProvider(LocalGlassBackdrop provides active) { bottomBar() } },
+        bottomBar = {
+            CompositionLocalProvider(LocalGlassBackdrop provides active) {
+                Box(Modifier.navigationBarsPadding()) { bottomBar() }
+            }
+        },
     ) { padding ->
         CompositionLocalProvider(LocalGlassBackdrop provides null) {
             Box(Modifier.fillMaxSize().glassSource(active)) {

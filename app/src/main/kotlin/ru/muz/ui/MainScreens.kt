@@ -2,6 +2,8 @@ package ru.muz.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -472,7 +474,7 @@ private fun SearchScreen(
     onAlbum: (YandexClient.Album) -> Unit,
     onArtist: (YandexClient.Artist) -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     var visibleCount by remember(results, listPageSize) { mutableStateOf(listPageSize) }
     val context = LocalContext.current
     val historyPrefs = remember { context.getSharedPreferences("search_history", android.content.Context.MODE_PRIVATE) }
@@ -696,7 +698,7 @@ internal fun PlaylistScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Назад") }
-                Text(screenLabel, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                Text(screenLabel, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Box {
                     IconButton(onClick = { exportMenu = true }, enabled = tracks.isNotEmpty()) {
                         Icon(Icons.Rounded.FileDownload, "Сохранить или экспортировать")
@@ -739,11 +741,13 @@ internal fun PlaylistScreen(
                 Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Artwork(playlist.coverUrl, Modifier.height(230.dp).fillMaxWidth(0.7f), 28.dp)
+                Artwork(playlist.coverUrl, Modifier.fillMaxWidth(0.7f).widthIn(max = 280.dp).aspectRatio(1f), 28.dp)
                 Text(
                     playlist.title,
                     fontSize = 25.sp,
+                    lineHeight = 30.sp,
                     fontWeight = FontWeight.SemiBold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.padding(top = 20.dp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -759,6 +763,7 @@ internal fun PlaylistScreen(
                         color = SoftText,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
@@ -849,7 +854,7 @@ private fun UpdateBanner(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.SystemUpdate, null, tint = scheme.onPrimaryContainer)
-            Text("Доступна Aria ${release.version}", fontWeight = FontWeight.Bold, color = scheme.onPrimaryContainer, modifier = Modifier.weight(1f).padding(start = 12.dp))
+            Text("Доступна Aria ${release.version}", fontWeight = FontWeight.Bold, color = scheme.onPrimaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 12.dp))
         }
         ReleaseNotes(release.notes, scheme.onPrimaryContainer, Modifier.padding(top = 8.dp))
         if (progress != null) {
