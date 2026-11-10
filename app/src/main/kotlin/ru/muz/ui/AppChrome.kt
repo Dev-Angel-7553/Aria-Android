@@ -339,7 +339,7 @@ internal fun Modifier.pressScale(amount: Float = 0.96f): Modifier {
     var pressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         if (pressed && !LocalReduceMotion.current) amount else 1f,
-        spring(dampingRatio = 0.55f, stiffness = 700f),
+        PressSpring,
         label = "press-scale",
     )
     return this

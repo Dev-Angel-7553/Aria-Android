@@ -380,12 +380,12 @@ internal fun CompactPlayer(
     var drag by remember(state.mediaId) { mutableFloatStateOf(0f) }
     val animatedOffset by animateDpAsState(
         targetValue = (if (reduceMotion) 0f else drag / 4f).coerceIn(-28f, 28f).dp,
-        animationSpec = tween(animationDuration(180)),
+        animationSpec = followFinger(drag != 0f),
         label = "mini-player-swipe",
     )
     val swipeScale by animateFloatAsState(
         targetValue = if (drag == 0f || reduceMotion) 1f else 0.985f,
-        animationSpec = tween(animationDuration(180)),
+        animationSpec = followFinger(false),
         label = "mini-player-scale",
     )
     var lift by remember(state.mediaId) { mutableFloatStateOf(0f) }

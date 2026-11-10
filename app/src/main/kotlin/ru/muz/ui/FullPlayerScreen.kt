@@ -159,7 +159,7 @@ internal fun FullPlayerScreen(
     var playerDrag by remember(state.mediaId) { mutableFloatStateOf(0f) }
     val playerOffset by animateDpAsState(
         targetValue = (if (reduceMotion) 0f else playerDrag / 5f).coerceIn(-34f, 34f).dp,
-        animationSpec = tween(animationDuration(180)),
+        animationSpec = followFinger(playerDrag != 0f),
         label = "full-player-swipe",
     )
     val playerSwipeModifier = if (settings.fullPlayerSwipe && !showLyrics) {
@@ -649,12 +649,12 @@ private fun LyricsDock(
     var verticalDrag by remember(state.mediaId) { mutableFloatStateOf(0f) }
     val dockOffset by animateDpAsState(
         targetValue = (if (reduceMotion) 0f else drag / 5f).coerceIn(-30f, 30f).dp,
-        animationSpec = tween(animationDuration(180)),
+        animationSpec = followFinger(drag != 0f),
         label = "lyrics-dock-swipe",
     )
     val dockVerticalOffset by animateDpAsState(
         targetValue = (if (reduceMotion) 0f else verticalDrag / 5f).coerceIn(-26f, 26f).dp,
-        animationSpec = tween(animationDuration(180)),
+        animationSpec = followFinger(verticalDrag != 0f),
         label = "lyrics-dock-vertical-swipe",
     )
     val swipe = if (swipeEnabled) {
@@ -839,7 +839,7 @@ private fun PlayerArtwork(
     } else Modifier
     val artworkOffset by animateDpAsState(
         targetValue = (if (reduceMotion) 0f else verticalDrag / 5f).coerceIn(-34f, 34f).dp,
-        animationSpec = tween(animationDuration(180)),
+        animationSpec = followFinger(verticalDrag != 0f),
         label = "artwork-vertical-swipe",
     )
     val gesture = if (settingsSwipe) {

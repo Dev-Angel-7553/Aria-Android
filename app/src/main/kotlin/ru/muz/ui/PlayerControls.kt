@@ -78,8 +78,8 @@ internal fun PlayerPlayButton(state: PlayerState, onClick: () -> Unit, modifier:
     val motion = LocalPlayerTransitions.current && !LocalReduceMotion.current
     val playing = state.isPlaying || state.playWhenReady
     val scale by animateFloatAsState(
-        if (pressed && motion) 0.93f else 1f,
-        if (motion) spring(dampingRatio = 0.7f, stiffness = 620f) else tween(0), label = "play-press",
+        if (pressed && motion) 0.92f else 1f,
+        if (motion) PressSpring else tween(0), label = "play-press",
     )
     val radius by animateDpAsState(
         if (playing) 20.dp else 32.dp,
@@ -91,7 +91,7 @@ internal fun PlayerPlayButton(state: PlayerState, onClick: () -> Unit, modifier:
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(if (LocalPlayShape.current == ru.muz.settings.PlayShape.CIRCLE) RoundedCornerShape(radius) else playShape(LocalPlayShape.current))
             .background(if (accented) PlayerAccent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f))
-            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClickLabel = tr(description), onClick = onClick),
+            .clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClickLabel = tr(description), onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         PlaybackIcon(state, Modifier.size(if (compact) 25.dp else 36.dp), if (accented) OnPlayerAccent else MaterialTheme.colorScheme.onSurface)
@@ -106,7 +106,8 @@ private fun TransportAction(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val duration = playerTransitionDuration(180)
-    val scale by animateFloatAsState(if (pressed) 0.9f else 1f, tween(duration), label = "transport-press")
+    val motion = LocalPlayerTransitions.current && !LocalReduceMotion.current
+    val scale by animateFloatAsState(if (pressed && motion) 0.88f else 1f, if (motion) PressSpring else tween(0), label = "transport-press")
     val corner by animateDpAsState(if (pressed) 16.dp else 24.dp, tween(duration), label = "transport-corner")
     val background by animateColorAsState(
         when { active -> PlayerAccent.copy(alpha = 0.16f); prominent -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.055f); else -> Color.Transparent },
@@ -117,7 +118,7 @@ private fun TransportAction(
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(RoundedCornerShape(corner)).background(background)
             .semantics { selected = active }
-            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick),
+            .clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, description, tint = if (active) PlayerAccent else MaterialTheme.colorScheme.onSurface.copy(alpha = if (prominent) 0.95f else 0.65f),
