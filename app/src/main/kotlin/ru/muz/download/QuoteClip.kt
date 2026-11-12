@@ -56,6 +56,23 @@ object QuoteClip {
         return out
     }
 
+    fun <S> sample(clip: Range, stepMs: Long, state: (Long) -> S): List<Pair<S, Long>> {
+        val out = mutableListOf<Pair<S, Long>>()
+        if (clip.lengthMs <= 0 || stepMs <= 0) return out
+        var at = 0L
+        while (at < clip.lengthMs) {
+            val length = minOf(stepMs, clip.lengthMs - at)
+            val value = state(clip.startMs + at)
+            if (out.isNotEmpty() && out.last().first == value) {
+                out[out.lastIndex] = value to out.last().second + length
+            } else {
+                out += value to length
+            }
+            at += length
+        }
+        return out
+    }
+
     fun label(ms: Long): String {
         val seconds = (ms / 1000).coerceAtLeast(0)
         return "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"

@@ -63,4 +63,13 @@ class QuoteClipTest {
         assertEquals(range.lengthMs, parts.sumOf { it.second })
         assertEquals(listOf(1, 2), parts.map { it.first })
     }
+
+    @Test
+    fun samplingMergesEqualFramesAndKeepsTheClipLength() {
+        val clip = QuoteClip.Range(1_000, 2_050)
+        val frames = QuoteClip.sample(clip, 100) { song -> if (song < 1_500) "a" else if (song < 1_700) "b" else "c" }
+        assertEquals(listOf("a" to 500L, "b" to 200L, "c" to 350L), frames)
+        assertEquals(clip.lengthMs, frames.sumOf { it.second })
+        assertEquals(emptyList<Pair<String, Long>>(), QuoteClip.sample(QuoteClip.Range(5, 5), 100) { "x" })
+    }
 }

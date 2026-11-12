@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.46
+
+- Upload your own MP3, AAC or FLAC files into your Yandex Music playlists: from a playlist, its menu, the add button in Collection or the Collection tab hold menu, with an option to create a new playlist on the way
+- Uploaded tracks are visible only to you, play like any other track and are marked as your files; the playlist refreshes by itself while Yandex processes them
+- Uploads show progress, can be cancelled, retry when the Yandex upload server times out, and explain limits and unsupported files
+- The modern player uses one layout for the cover and the lyrics: the same header, background and control panel, so switching views no longer changes the design
+- Switch between lyrics and cover from the control panel, which now also has shuffle and repeat
+- Quote videos can fill each line as it is sung, highlight the current line or reveal lines one by one, with a live preview in the editor
+- New quote card styles: Half, Polaroid and Neon
+- The cover view scrolls on small screens with large text
+
 ## 0.45
 
 - Four Solar icon packs: Linear, Bold, Broken and Duotone, with filled icons for the active tab

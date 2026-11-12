@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Image
@@ -39,6 +40,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -102,50 +106,77 @@ internal fun MovingCoverBackground(tint: Color, strength: Float, modifier: Modif
 private fun Color.luminance(): Float = (0.2126f * red + 0.7152f * green + 0.0722f * blue)
 
 @Composable
-internal fun ModernLyricsHeader(
-    state: PlayerState,
-    liked: Boolean,
+internal fun UnifiedPlayerHeader(
+    lyrics: Boolean,
     sleepLabel: String?,
     onBack: () -> Unit,
-    onCover: () -> Unit,
-    onArtist: () -> Unit,
-    onLike: () -> Unit,
     onMore: () -> Unit,
     onCancelSleep: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth()) {
         Box(
-            Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClickLabel = tr("Свернуть плеер"), onClick = onBack),
+            Modifier.fillMaxWidth().height(20.dp).clickable(onClickLabel = tr("Свернуть плеер"), onClick = onBack),
             contentAlignment = Alignment.Center,
         ) {
-            Box(Modifier.width(38.dp).height(5.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)))
+            Box(Modifier.width(38.dp).height(5.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)))
         }
         Row(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 2.dp, bottom = 4.dp),
+            Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PlayerCrossfade(state.coverUrl, Modifier.size(52.dp).playerArtworkTransition(state.mediaId, state.coverUrl).clip(RoundedCornerShape(10.dp)).clickable(onClick = onCover)) { url ->
-                Artwork(url, Modifier.fillMaxSize(), 10.dp)
-            }
-            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(state.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    sleepLabel?.let { "$it · отменить" } ?: state.artist,
-                    color = if (sleepLabel != null) PlayerAccent else SoftText,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.clickable(onClick = if (sleepLabel != null) onCancelSleep else onArtist),
-                )
-            }
-            IconButton(onClick = onLike) {
-                Icon(
-                    if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                    if (liked) "Убрать из «Мне нравится»" else "Мне нравится",
-                    tint = if (liked) PlayerAccent else MaterialTheme.colorScheme.onSurface,
-                )
+            IconButton(onClick = onBack) { Icon(Icons.Rounded.ExpandMore, "Свернуть") }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                PlayerCrossfade(lyrics) { showing ->
+                    Text(if (showing) "Текст песни" else "Сейчас играет", fontWeight = FontWeight.Bold, maxLines = 1)
+                }
+                androidx.compose.animation.AnimatedVisibility(sleepLabel != null) {
+                    Text(
+                        "${sleepLabel.orEmpty()} · отменить",
+                        color = PlayerAccent,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onCancelSleep).padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
             }
             IconButton(onClick = onMore) { Icon(Icons.Rounded.MoreHoriz, "Ещё") }
+        }
+    }
+}
+
+@Composable
+internal fun LyricsTrackStrip(
+    state: PlayerState,
+    liked: Boolean,
+    onCover: () -> Unit,
+    onArtist: () -> Unit,
+    onLike: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 2.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PlayerCrossfade(
+            state.coverUrl,
+            Modifier.size(52.dp).playerArtworkTransition(state.mediaId, state.coverUrl).clip(RoundedCornerShape(10.dp)).clickable(onClickLabel = tr("Обложка"), onClick = onCover),
+        ) { url -> Artwork(url, Modifier.fillMaxSize(), 10.dp) }
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            androidx.compose.material3.Text(state.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            androidx.compose.material3.Text(
+                state.artist,
+                color = SoftText,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.clickable(onClick = onArtist),
+            )
+        }
+        IconButton(onClick = onLike) {
+            Icon(
+                if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                if (liked) "Убрать из «Мне нравится»" else "Мне нравится",
+                tint = if (liked) PlayerAccent else MaterialTheme.colorScheme.onSurface,
+            )
         }
     }
 }
@@ -160,22 +191,27 @@ internal fun ModernLyricsDock(
     onSeek: (Long) -> Unit,
     onCover: () -> Unit,
     onQueue: () -> Unit,
+    lyricsActive: Boolean = true,
+    onLyrics: () -> Unit = {},
+    onShuffle: (() -> Unit)? = null,
+    onRepeat: (() -> Unit)? = null,
     accentControls: Boolean = false,
     backdrop: GlassBackdrop? = null,
 ) {
-    val panel = if (backdrop != null) {
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 10.dp)
-            .glass(backdrop, RoundedCornerShape(32.dp), corner = 32.dp)
-            .padding(horizontal = 14.dp, vertical = 8.dp)
-    } else {
-        Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 6.dp)
-    }
+    val shape = RoundedCornerShape(32.dp)
+    val panel = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 10.dp)
+        .then(
+            if (backdrop != null) Modifier.glass(backdrop, shape, corner = 32.dp)
+            else Modifier.shadow(10.dp, shape, ambientColor = Color.Black.copy(alpha = 0.18f), spotColor = Color.Black.copy(alpha = 0.22f))
+                .clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f)),
+        )
+        .padding(horizontal = 14.dp, vertical = 8.dp)
     Column(panel) {
         PlaybackTimeline(state, onSeek, remaining = true, label = label)
-        PlayerTransport(state, onPlayPause, onPrevious, onNext, accented = accentControls)
+        PlayerTransport(state, onPlayPause, onPrevious, onNext, onShuffle, onRepeat, accented = accentControls || !lyricsActive)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            DockIcon(Icons.Rounded.Lyrics, "Текст", active = true) {}
-            DockIcon(Icons.Rounded.Image, "Обложка", active = false, onClick = onCover)
+            DockIcon(Icons.Rounded.Lyrics, "Текст", active = lyricsActive, onClick = onLyrics)
+            DockIcon(Icons.Rounded.Image, "Обложка", active = !lyricsActive, onClick = onCover)
             DockIcon(Icons.Rounded.QueueMusic, "Очередь", active = false, onClick = onQueue)
         }
     }
@@ -183,13 +219,24 @@ internal fun ModernLyricsDock(
 
 @Composable
 private fun DockIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, active: Boolean, onClick: () -> Unit) {
+    val background by androidx.compose.animation.animateColorAsState(
+        if (active) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0f),
+        tween(playerTransitionDuration(220)),
+        label = "dock-icon",
+    )
+    val tint by androidx.compose.animation.animateColorAsState(
+        if (active) MaterialTheme.colorScheme.onSurface else SoftText,
+        tween(playerTransitionDuration(220)),
+        label = "dock-tint",
+    )
     Box(
         Modifier.size(44.dp).clip(CircleShape)
-            .background(if (active) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f) else Color.Transparent)
-            .clickable(onClick = onClick),
+            .background(background)
+            .semantics { selected = active }
+            .clickable(role = androidx.compose.ui.semantics.Role.Tab, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, title, tint = if (active) MaterialTheme.colorScheme.onSurface else SoftText, modifier = Modifier.size(22.dp))
+        Icon(icon, title, tint = tint, modifier = Modifier.size(22.dp))
     }
 }
 

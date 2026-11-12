@@ -34,6 +34,8 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ImportExport
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.LinearProgressIndicator
@@ -115,6 +117,7 @@ internal fun MainShell(
     tabs: List<MainTab> = MainTab.entries,
     homeSections: List<HomeSection> = HomeSection.entries,
     onImportCsv: () -> Unit = {},
+    onUploadMusic: () -> Unit = {},
     onSettings: () -> Unit,
     onPlaylist: (YandexClient.Playlist) -> Unit,
     onSearch: (String) -> Unit,
@@ -217,6 +220,7 @@ internal fun MainShell(
                 onPlaylistMore,
                 onAlbum,
                 onImportCsv,
+                onUploadMusic,
             )
             MainTab.SEARCH -> SearchScreen(
                 searchResults, compact, listScalePercent, listPageSize, keepSearchHistory, busy, padding, onSettings, onSearch,
@@ -238,7 +242,7 @@ internal fun MainShell(
             tab = held,
             actions = listOf(
                 TabQuickAction(AriaIcons.forTab(held, true), "Открыть") { onTab(held) },
-            ) + defaultTabActions(held, onTab, onRefresh, onWaveSettings, onImportCsv, onOpenLiked),
+            ) + defaultTabActions(held, onTab, onRefresh, onWaveSettings, onImportCsv, onOpenLiked, onUploadMusic),
             navStyle = navStyle,
             onNavStyle = onNavStyle,
             onCustomize = onCustomizeTabs,
@@ -365,8 +369,10 @@ private fun LibraryScreen(
     onPlaylistMore: (YandexClient.Playlist) -> Unit,
     onAlbum: (YandexClient.Album) -> Unit,
     onImportCsv: () -> Unit,
+    onUploadMusic: () -> Unit = {},
 ) {
     var filter by remember { mutableStateOf("Все") }
+    var addMenu by remember { mutableStateOf(false) }
     var sort by remember { mutableStateOf("Добавленные") }
     var selectedArtist by remember { mutableStateOf<String?>(null) }
     var visibleCount by remember(liked, filter, sort, selectedArtist, listPageSize) { mutableStateOf(listPageSize) }
@@ -394,8 +400,22 @@ private fun LibraryScreen(
         item {
             ScreenHeader("Коллекция", "Ваши треки и плейлисты") {
                 Row {
-                    IconButton(onClick = onImportCsv) {
-                        Icon(Icons.Rounded.FileUpload, "Импорт плейлиста из CSV")
+                    Box {
+                        IconButton(onClick = { addMenu = true }) {
+                            Icon(Icons.Rounded.Add, "Добавить музыку")
+                        }
+                        DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Загрузить свою музыку") },
+                                leadingIcon = { Icon(Icons.Rounded.FileUpload, null) },
+                                onClick = { addMenu = false; onUploadMusic() },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Импорт плейлиста из CSV") },
+                                leadingIcon = { Icon(Icons.Rounded.ImportExport, null) },
+                                onClick = { addMenu = false; onImportCsv() },
+                            )
+                        }
                     }
                     IconButton(onClick = onRefresh, enabled = !busy) {
                         Icon(Icons.Rounded.Refresh, "Обновить коллекцию")
@@ -704,6 +724,8 @@ internal fun PlaylistScreen(
     onExportCsv: (share: Boolean) -> Unit = {},
     offlineBusy: Boolean = false,
     onSaveOffline: () -> Unit = {},
+    onUpload: (() -> Unit)? = null,
+    uploadBusy: Boolean = false,
 ) {
     val focusManager = LocalFocusManager.current
     var exportMenu by remember { mutableStateOf(false) }
@@ -842,6 +864,11 @@ internal fun PlaylistScreen(
                     ) {
                         Icon(Icons.Rounded.Shuffle, "Перемешать")
                     }
+                    if (onUpload != null) {
+                        IconButton(onClick = onUpload, enabled = !uploadBusy) {
+                            Icon(Icons.Rounded.FileUpload, "Загрузить свои треки")
+                        }
+                    }
                 }
             }
         }
@@ -873,7 +900,15 @@ internal fun PlaylistScreen(
                 }
             }
         }
-        if (!busy && shown.isEmpty()) item { EmptyHint(if (query.isBlank()) "Здесь пока нет треков" else "Ничего не найдено") }
+        if (!busy && shown.isEmpty()) {
+            item {
+                if (query.isBlank() && onUpload != null) {
+                    UploadHint(onUpload, uploadBusy)
+                } else {
+                    EmptyHint(if (query.isBlank()) "Здесь пока нет треков" else "Ничего не найдено")
+                }
+            }
+        }
         itemsIndexed(visible, key = { index, track -> "$index:${track.id}" }) { index, track ->
             TrackRow(track, compact, listScalePercent, onMore = onTrackMore) { focusManager.clearFocus(); onPlay(shown, index) }
         }
@@ -953,6 +988,29 @@ internal fun ReleaseNotes(notes: String, color: androidx.compose.ui.graphics.Col
                 fontSize = 13.sp,
                 modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(8.dp)).clickable { expanded = !expanded }.padding(vertical = 4.dp, horizontal = 2.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun UploadHint(onUpload: () -> Unit, busy: Boolean) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(Icons.Rounded.FileUpload, null, tint = Accent, modifier = Modifier.size(36.dp))
+        Text("Плейлист пока пуст", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
+        Text(
+            "Добавьте свои треки с телефона: MP3, AAC или FLAC до 200 МБ. Их увидите только вы",
+            color = SoftText,
+            fontSize = 13.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Button(onClick = onUpload, enabled = !busy, modifier = Modifier.padding(top = 14.dp)) {
+            Icon(Icons.Rounded.FileUpload, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.padding(horizontal = 3.dp))
+            Text("Загрузить файлы")
         }
     }
 }

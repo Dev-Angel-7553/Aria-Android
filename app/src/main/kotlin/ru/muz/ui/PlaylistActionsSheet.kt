@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.rounded.InsertLink
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
@@ -43,12 +44,14 @@ internal fun PlaylistActionsSheet(
     onExportCsv: (share: Boolean) -> Unit = {},
     offlineBusy: Boolean = false,
     onSaveOffline: () -> Unit = {},
+    onUpload: (() -> Unit)? = null,
 ) {
     AriaSheet(onDismissRequest = onDismiss) {
         Column(Modifier.verticalScroll(rememberScrollState())) {
             SheetHeader(playlist.title, ru.muz.text.tracksLabel(playlist.trackCount), playlist.coverUrl)
             SheetAction(Icons.Rounded.Visibility, "Открыть", onOpen)
             SheetAction(Icons.Rounded.PlayArrow, "Слушать с начала", onPlay, !busy)
+            if (onUpload != null) SheetAction(Icons.Rounded.FileUpload, "Загрузить свои треки", onUpload, !busy)
             SheetDivider()
             SheetAction(Icons.Rounded.DownloadForOffline, if (offlineBusy) "Сохраняем для офлайна…" else "Сохранить для офлайна", onSaveOffline, !offlineBusy)
             SheetAction(Icons.Rounded.Download, if (busy) "Загрузка…" else "Скачать файлы в «Музыку»", onDownload, !busy)

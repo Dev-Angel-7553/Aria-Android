@@ -734,7 +734,7 @@ internal fun TrackRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (value.explicit) ExplicitBadge(Modifier.padding(end = 6.dp))
                 Text(
-                    listOf(value.artist, value.album)
+                    listOf(if (value.ugc) "Ваш файл" else "", value.artist, value.album)
                         .filter { it.isNotBlank() }
                         .joinToString(" • "),
                     color = SoftText,

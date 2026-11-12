@@ -56,6 +56,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
@@ -227,6 +228,8 @@ internal fun FullPlayerScreen(
     val glassStyle = LocalAppStyle.current == ru.muz.settings.AppStyle.GLASS
     val playerGlass = rememberGlassBackdrop()
     val glassDock = if (glassStyle && modern) playerGlass else null
+    var dockHeightPx by remember { mutableStateOf(0) }
+    val dockHeight = with(androidx.compose.ui.platform.LocalDensity.current) { dockHeightPx.toDp() }
     val coverBackground = !LocalHighContrast.current && (settings.coverColorBackground || glassStyle)
     val useCoverPalette = settings.coverAccent && state.coverUrl != null && !LocalHighContrast.current
     val baseScheme = MaterialTheme.colorScheme
@@ -245,7 +248,7 @@ internal fun FullPlayerScreen(
             MovingCoverBackground(
                 animatedTint,
                 playing = state.isPlaying,
-                strength = if (showLyrics && modern) 1f else 0.62f,
+                strength = if (modern) 0.85f else 0.62f,
                 pulse = if (settings.pulseBackground && state.isPlaying) settings.pulseStrength / 100f else 0f,
             )
         }
@@ -263,83 +266,96 @@ internal fun FullPlayerScreen(
                 }
             },
         ) {
-            val headerMs = playerTransitionDuration(260)
-            androidx.compose.animation.AnimatedContent(
-                targetState = showLyrics && modern,
-                transitionSpec = {
-                    (androidx.compose.animation.fadeIn(tween(headerMs, delayMillis = headerMs / 3)) togetherWith
-                        androidx.compose.animation.fadeOut(tween(headerMs / 2)))
-                        .using(androidx.compose.animation.SizeTransform(clip = false) { _, _ -> tween(headerMs, easing = EmphasizedEasing) })
-                },
-                label = "player-header",
-            ) { modernHeader ->
-                if (modernHeader) {
-                    ModernLyricsHeader(
-                        state = state,
-                        liked = liked,
-                        sleepLabel = sleepLabel,
-                        onBack = onBack,
-                        onCover = onToggleView,
-                        onArtist = onArtist,
-                        onLike = like,
-                        onMore = { lyricsMenu = true },
-                        onCancelSleep = { tools.onSleep(0) },
-                    )
-                } else {
-                    PlayerHeader(showLyrics, state, onBack, onToggleView, onArtist, sleepLabel) { tools.onSleep(0) }
+            val lyricsPages: @Composable (Modifier) -> Unit = { pageModifier ->
+                val lyricsPage = when {
+                    lyricsLoading -> 0
+                    lyricsError.isNotBlank() -> 1
+                    lyrics.lines.isEmpty() -> 2
+                    else -> 3
+                }
+                PlayerCrossfade(lyricsPage, pageModifier) { page ->
+                    Column(Modifier.fillMaxSize()) {
+                        when {
+                            page == 0 -> LyricsLoading(lyricsStatus, Modifier.weight(1f))
+                            page == 1 -> LyricsError(lyricsError, onRetryLyrics, onToggleView, searchLyricsOnline, Modifier.weight(1f))
+                            page == 2 -> LyricsEmpty(
+                                onRetry = onRetryLyrics,
+                                onOpenPlayer = onToggleView,
+                                onSearchOnline = searchLyricsOnline,
+                                modifier = Modifier.weight(1f),
+                            )
+                            else -> LyricsScreen(
+                                lyrics = lyrics,
+                                positionMs = (position + settings.lyricsOffsetMs).coerceAtLeast(0),
+                                discontinuity = state.discontinuity,
+                                onSeek = { onSeek((it - settings.lyricsOffsetMs).coerceAtLeast(0)) },
+                                onLongPressLine = { quoteStart = it },
+                                settings = lyricsSettingsFor(settings),
+                                modifier = Modifier.weight(1f),
+                                background = Color.Transparent,
+                            )
+                        }
+                    }
                 }
             }
-            PlayerCrossfade(showLyrics, Modifier.weight(1f)) { lyricsVisible ->
-                Column(Modifier.fillMaxSize()) {
+            if (modern) {
+                UnifiedPlayerHeader(
+                    lyrics = showLyrics,
+                    sleepLabel = sleepLabel,
+                    onBack = onBack,
+                    onMore = { lyricsMenu = true },
+                    onCancelSleep = { tools.onSleep(0) },
+                )
+                PlayerCrossfade(showLyrics, Modifier.weight(1f)) { lyricsVisible ->
                     if (lyricsVisible) {
-                        val lyricsPage = when {
-                            lyricsLoading -> 0
-                            lyricsError.isNotBlank() -> 1
-                            lyrics.lines.isEmpty() -> 2
-                            else -> 3
+                        Column(Modifier.fillMaxSize()) {
+                            LyricsTrackStrip(state, liked, onCover = onToggleView, onArtist = onArtist, onLike = like)
+                            lyricsPages(Modifier.weight(1f).fillMaxWidth())
                         }
-                      Box(Modifier.weight(1f).fillMaxWidth()) {
-                        PlayerCrossfade(lyricsPage, Modifier.fillMaxSize()) { page ->
-                            Column(Modifier.fillMaxSize()) {
-                                when {
-                                    page == 0 -> LyricsLoading(lyricsStatus, Modifier.weight(1f))
-                                    page == 1 -> LyricsError(lyricsError, onRetryLyrics, onToggleView, searchLyricsOnline, Modifier.weight(1f))
-                                    page == 2 -> LyricsEmpty(
-                                        onRetry = onRetryLyrics,
-                                        onOpenPlayer = onToggleView,
-                                        onSearchOnline = searchLyricsOnline,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    else -> LyricsScreen(
-                                        lyrics = lyrics,
-                                        positionMs = (position + settings.lyricsOffsetMs).coerceAtLeast(0),
-                                        discontinuity = state.discontinuity,
-                                        onSeek = { onSeek((it - settings.lyricsOffsetMs).coerceAtLeast(0)) },
-                                        onLongPressLine = { quoteStart = it },
-                                        settings = lyricsSettingsFor(settings),
-                                        modifier = Modifier.weight(1f),
-                                        background = Color.Transparent,
-                                    )
-                                }
-                            }
-                        }
-                        if (modern && glassDock == null) {
-                            DockOverlay(dockVisible, Modifier.align(Alignment.BottomCenter), onShow = { touches++ }) {
-                                ModernLyricsDock(
-                                    state = state,
-                                    label = if (settings.privateSession) "Приватно" else "",
-                                    onPlayPause = onPlayPause,
-                                    onPrevious = onPrevious,
-                                    onNext = onNext,
-                                    onSeek = onSeek,
-                                    onCover = onToggleView,
-                                    onQueue = { showQueue = true },
-                                    accentControls = settings.accentControls,
+                    } else androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().padding(bottom = dockHeight + 8.dp)) {
+                        val scrollable = maxHeight < 360.dp || androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
+                        Column(
+                            Modifier.fillMaxSize().then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                                .padding(horizontal = 20.dp),
+                        ) {
+                            if (settings.privateSession) {
+                                Text(
+                                    "Приватный режим: прослушивания не отправляются в музыкальные профили",
+                                    color = SoftText,
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
                                 )
                             }
+                            PlayerArtwork(
+                                settingsSwipe = settings.fullPlayerSwipe,
+                                state = state, artworkPercent = settings.playerArtworkPercent,
+                                onSwipeUp = { showQueue = true }, onSwipeDown = onBack,
+                                modifier = if (scrollable) Modifier.height(180.dp) else Modifier.weight(1f),
+                                onDoubleTap = if (settings.doubleTapLike) ({
+                                    when (settings.doubleTapAction) {
+                                        ru.muz.settings.DoubleTapAction.LIKE -> if (!liked) like()
+                                        ru.muz.settings.DoubleTapAction.PLAY_PAUSE -> onPlayPause()
+                                        ru.muz.settings.DoubleTapAction.NEXT -> onNext()
+                                    }
+                                }) else null,
+                                showHeart = settings.doubleTapAction == ru.muz.settings.DoubleTapAction.LIKE,
+                            )
+                            PlayerDetails(
+                                state, liked, onPlayPause, onPrevious, onNext, onSeek, like, onShuffle, onRepeat,
+                                { showQueue = true }, transferBusy, transferMessage, onCopyTransferLog, onDownload, onDownloadCover, onOpenCover,
+                                onShareLink, onShareFile, onArtist, onCopyArtist, tools, onQuote,
+                                compact = true,
+                            )
                         }
-                      }
-                        if (!modern) {
+                    }
+                }
+            } else {
+                PlayerHeader(showLyrics, state, onBack, onToggleView, onArtist, sleepLabel) { tools.onSleep(0) }
+                PlayerCrossfade(showLyrics, Modifier.weight(1f)) { lyricsVisible ->
+                    Column(Modifier.fillMaxSize()) {
+                        if (lyricsVisible) {
+                            lyricsPages(Modifier.weight(1f).fillMaxWidth())
                             LyricsDock(
                                 state = state,
                                 liked = liked,
@@ -352,46 +368,41 @@ internal fun FullPlayerScreen(
                                 onQueue = { showQueue = true },
                                 onDismiss = onBack,
                             )
+                        } else {
+                            StandardPlayer(
+                                state, liked, onPlayPause, onPrevious, onNext, onSeek, like, onShuffle, onRepeat,
+                                onQueue = { showQueue = true },
+                                transferBusy = transferBusy,
+                                transferMessage = transferMessage,
+                                onCopyTransferLog = onCopyTransferLog,
+                                onDownload = onDownload,
+                                onDownloadCover = onDownloadCover,
+                                onOpenCover = onOpenCover,
+                                onShareLink = onShareLink,
+                                onShareFile = onShareFile,
+                                onArtist = onArtist,
+                                onCopyArtist = onCopyArtist,
+                                tools = tools,
+                                onQuote = onQuote,
+                                artworkPercent = settings.playerArtworkPercent,
+                                layout = settings.playerLayout,
+                                onDismiss = onBack,
+                                gesturesEnabled = settings.fullPlayerSwipe,
+                                doubleTapLike = settings.doubleTapLike,
+                                doubleTapAction = settings.doubleTapAction,
+                                privateLabel = if (settings.privateSession) "Приватно" else "",
+                                modifier = Modifier.weight(1f),
+                            )
                         }
-                    } else {
-                        StandardPlayer(
-                            state, liked, onPlayPause, onPrevious, onNext, onSeek, like, onShuffle, onRepeat,
-                            onQueue = { showQueue = true },
-                            transferBusy = transferBusy,
-                            transferMessage = transferMessage,
-                            onCopyTransferLog = onCopyTransferLog,
-                            onDownload = onDownload,
-                            onDownloadCover = onDownloadCover,
-                            onOpenCover = onOpenCover,
-                            onShareLink = onShareLink,
-                            onShareFile = onShareFile,
-                            onArtist = onArtist,
-                            onCopyArtist = onCopyArtist,
-                            tools = tools,
-                            onQuote = onQuote,
-                            artworkPercent = settings.playerArtworkPercent,
-                            layout = settings.playerLayout,
-                            onDismiss = onBack,
-                            gesturesEnabled = settings.fullPlayerSwipe,
-                            doubleTapLike = settings.doubleTapLike,
-                            doubleTapAction = settings.doubleTapAction,
-                            privateLabel = if (settings.privateSession) "Приватно" else "",
-                            modifier = Modifier.weight(1f),
-                        )
                     }
                 }
             }
         }
       }
-        androidx.compose.animation.AnimatedVisibility(
-            glassDock != null && showLyrics,
-            modifier = Modifier.align(Alignment.BottomCenter),
-            enter = androidx.compose.animation.fadeIn(tween(playerTransitionDuration(320))),
-            exit = androidx.compose.animation.fadeOut(tween(playerTransitionDuration(200))),
-        ) {
+        if (modern) {
             DockOverlay(
-                dockVisible,
-                Modifier.navigationBarsPadding().pointerInput(Unit) {
+                visible = !showLyrics || dockVisible,
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().pointerInput(Unit) {
                     awaitPointerEventScope {
                         while (true) {
                             val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
@@ -402,18 +413,24 @@ internal fun FullPlayerScreen(
                 onShow = { touches++ },
                 scrim = false,
             ) {
-                ModernLyricsDock(
-                    state = state,
-                    label = if (settings.privateSession) "Приватно" else "",
-                    onPlayPause = onPlayPause,
-                    onPrevious = onPrevious,
-                    onNext = onNext,
-                    onSeek = onSeek,
-                    onCover = onToggleView,
-                    onQueue = { showQueue = true },
-                    accentControls = settings.accentControls,
-                    backdrop = playerGlass,
-                )
+                Box(Modifier.onSizeChanged { if (it.height > 0) dockHeightPx = it.height }) {
+                    ModernLyricsDock(
+                        state = state,
+                        label = if (settings.privateSession) "Приватно" else "",
+                        onPlayPause = onPlayPause,
+                        onPrevious = onPrevious,
+                        onNext = onNext,
+                        onSeek = onSeek,
+                        lyricsActive = showLyrics,
+                        onLyrics = { if (!showLyrics) onToggleView() },
+                        onCover = { if (showLyrics) onToggleView() },
+                        onQueue = { showQueue = true },
+                        onShuffle = onShuffle,
+                        onRepeat = onRepeat,
+                        accentControls = settings.accentControls,
+                        backdrop = if (glassStyle) playerGlass else null,
+                    )
+                }
             }
         }
       }
@@ -939,6 +956,7 @@ private fun PlayerDetails(
     onCopyArtist: () -> Unit,
     tools: PlayerTools,
     onQuote: () -> Unit,
+    compact: Boolean = false,
 ) {
     Column {
         Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -957,8 +975,10 @@ private fun PlayerDetails(
             }
         }
         PlaybackErrorBanner(state.error)
-        PlaybackTimeline(state, onSeek)
-        PlayerTransport(state, onPlayPause, onPrevious, onNext, onShuffle, onRepeat)
+        if (!compact) {
+            PlaybackTimeline(state, onSeek)
+            PlayerTransport(state, onPlayPause, onPrevious, onNext, onShuffle, onRepeat)
+        }
         if (transferBusy) MuzWavyProgress(Modifier.fillMaxWidth().padding(top = 6.dp))
         if (transferMessage.isNotBlank()) {
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {

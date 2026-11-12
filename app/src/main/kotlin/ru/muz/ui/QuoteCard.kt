@@ -36,6 +36,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.FormatColorFill
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import kotlin.math.roundToInt
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FormatAlignCenter
@@ -74,6 +79,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -120,10 +126,34 @@ import ru.muz.theme.ColorMath
 internal enum class QuoteStyle(val title: String) {
     COVER("Размытие"),
     ALBUM("Обложка"),
+    SPLIT("Половина"),
+    POLAROID("Полароид"),
+    NEON("Неон"),
     GRADIENT("Градиент"),
     ACCENT("Акцент"),
     DARK("Тёмный"),
     LIGHT("Светлый"),
+}
+
+internal enum class QuoteMotion(val title: String, val icon: ImageVector) {
+    FILL("Заливка по строкам", Icons.Rounded.FormatColorFill),
+    HIGHLIGHT("Подсветка строк", Icons.Rounded.Lyrics),
+    REVEAL("Появление строк", Icons.Rounded.AutoAwesome),
+    STATIC("Без анимации", Icons.Rounded.Image),
+}
+
+internal data class LineFrame(val alpha: List<Float>, val fill: List<Float>?)
+
+private fun quantize(value: Float, steps: Int = 32): Float = (value.coerceIn(0f, 1f) * steps).roundToInt() / steps.toFloat()
+
+internal fun lineFrame(motion: QuoteMotion, lines: List<LyricLine>, lyricMs: Long): LineFrame? = when (motion) {
+    QuoteMotion.STATIC -> null
+    QuoteMotion.FILL -> LineFrame(List(lines.size) { 1f }, lines.map { quantize(it.progressAt(lyricMs)) })
+    QuoteMotion.HIGHLIGHT -> {
+        val active = lines.indexOfLast { it.startMs <= lyricMs }.coerceAtLeast(0)
+        LineFrame(lines.indices.map { if (it == active) 1f else if (it < active) 0.55f else 0.32f }, null)
+    }
+    QuoteMotion.REVEAL -> LineFrame(lines.map { quantize((lyricMs - it.startMs + 120) / 420f, 12) }, null)
 }
 
 internal enum class QuoteFormat(val title: String, val heightPx: Int) {
@@ -145,6 +175,8 @@ internal data class QuoteMusic(
 )
 
 private const val CARD_WIDTH_PX = 1080
+private const val FRAME_STEP_MS = 100L
+private const val RENDER_SHARE = 45
 private const val MAX_LINES = 8
 
 private enum class QuoteTab(val title: String, val icon: ImageVector) {
@@ -220,9 +252,9 @@ internal fun QuoteEditor(
     var output by remember { mutableStateOf(QuoteOutput.IMAGE) }
     var clipMode by remember { mutableStateOf(if (music.synced) ClipMode.LINES else ClipMode.SHORT) }
     var attachLink by remember { mutableStateOf(!music.link.isNullOrBlank()) }
-    var highlightLines by remember { mutableStateOf(true) }
-    var renderHighlight by remember { mutableStateOf<Int?>(null) }
-    var previewHighlight by remember { mutableStateOf<Int?>(null) }
+    var motion by remember { mutableStateOf(if (music.synced) QuoteMotion.FILL else QuoteMotion.STATIC) }
+    var renderFrame by remember { mutableStateOf<LineFrame?>(null) }
+    var previewFrame by remember { mutableStateOf<LineFrame?>(null) }
     var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableIntStateOf(-1) }
     var job by remember { mutableStateOf<Job?>(null) }
@@ -240,25 +272,31 @@ internal fun QuoteEditor(
         }
     }
     val shareText = music.link?.takeIf { attachLink && it.isNotBlank() }?.let { "$artist — $title\n$it" }
-    val animatedVideo = output == QuoteOutput.VIDEO && music.synced && highlightLines && ordered.size > 1
-    LaunchedEffect(animatedVideo, ordered.size, busy) {
-        previewHighlight = null
+    val selectedLines = ordered.map { lines[it] }
+    val animatedVideo = output == QuoteOutput.VIDEO && music.synced && motion != QuoteMotion.STATIC
+    val reduceMotion = LocalReduceMotion.current
+    LaunchedEffect(animatedVideo, motion, ordered, clip, busy, reduceMotion) {
+        previewFrame = null
         if (!animatedVideo || busy) return@LaunchedEffect
-        var index = 0
+        if (reduceMotion) {
+            previewFrame = lineFrame(motion, selectedLines, clip.startMs + clip.lengthMs / 2 + music.offsetMs)
+            return@LaunchedEffect
+        }
+        val start = androidx.compose.runtime.withFrameMillis { it }
         while (true) {
-            previewHighlight = index
-            kotlinx.coroutines.delay(1_100)
-            index = (index + 1) % ordered.size
+            val now = androidx.compose.runtime.withFrameMillis { it }
+            val at = clip.startMs + (now - start) % clip.lengthMs.coerceAtLeast(1)
+            previewFrame = lineFrame(motion, selectedLines, at + music.offsetMs)
         }
     }
 
     fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
 
-    suspend fun renderPng(): ByteArray {
+    suspend fun renderImage(format: Bitmap.CompressFormat = Bitmap.CompressFormat.PNG): ByteArray {
         val bitmap = layer.toImageBitmap().asAndroidBitmap()
         return withContext(Dispatchers.Default) {
             ByteArrayOutputStream().use { out ->
-                bitmap.copy(Bitmap.Config.ARGB_8888, false).compress(Bitmap.CompressFormat.PNG, 100, out)
+                bitmap.copy(Bitmap.Config.ARGB_8888, false).compress(format, if (format == Bitmap.CompressFormat.PNG) 100 else 92, out)
                 out.toByteArray()
             }
         }
@@ -271,7 +309,7 @@ internal fun QuoteEditor(
         job = scope.launch {
             val name = "Aria ${artist.take(40)} — ${title.take(40)}"
             try {
-                val png = renderPng()
+                val png = renderImage()
                 if (output == QuoteOutput.IMAGE) {
                     if (share) {
                         TrackTransfer.shareExport(context, "$name.png", "image/png", png, "Поделиться карточкой", shareText).getOrThrow()
@@ -281,20 +319,23 @@ internal fun QuoteEditor(
                 } else {
                     progress = 0
                     val url = music.resolveAudio?.invoke()?.getOrNull() ?: error("Не удалось получить трек. Нужен интернет")
-                    val parts = if (animatedVideo) QuoteClip.segments(ordered.map { lines[it].startMs }, music.offsetMs, clip) else emptyList()
-                    val frames = if (parts.size > 1) {
+                    val plan = if (animatedVideo) {
+                        QuoteClip.sample(clip, FRAME_STEP_MS) { song -> lineFrame(motion, selectedLines, song + music.offsetMs) }
+                    } else emptyList()
+                    val frames = if (plan.size > 1) {
                         try {
-                            parts.mapIndexed { number, (line, length) ->
-                                renderHighlight = line
+                            plan.mapIndexed { number, (frame, length) ->
+                                renderFrame = frame
                                 androidx.compose.runtime.withFrameNanos { }
                                 androidx.compose.runtime.withFrameNanos { }
-                                val bytes = renderPng()
+                                val bytes = renderImage(Bitmap.CompressFormat.JPEG)
+                                progress = (number + 1) * RENDER_SHARE / plan.size
                                 withContext(Dispatchers.IO) {
-                                    TrackTransfer.sharedFile(context, "aria_quote_frame_$number.png").apply { writeBytes(bytes) }
+                                    TrackTransfer.sharedFile(context, "aria_quote_frame_$number.jpg").apply { writeBytes(bytes) }
                                 } to length
                             }
                         } finally {
-                            renderHighlight = null
+                            renderFrame = null
                         }
                     } else {
                         listOf(
@@ -303,7 +344,12 @@ internal fun QuoteEditor(
                             } to clip.lengthMs,
                         )
                     }
-                    val video = QuoteVideo.render(context, frames, url, clip, TrackTransfer.sharedFile(context, "$name.mp4")) { progress = it }
+                    val base = if (plan.size > 1) RENDER_SHARE else 0
+                    val video = try {
+                        QuoteVideo.render(context, frames, url, clip, TrackTransfer.sharedFile(context, "$name.mp4")) { progress = base + it * (100 - base) / 100 }
+                    } finally {
+                        if (frames.size > 1) withContext(Dispatchers.IO) { frames.forEach { it.first.delete() } }
+                    }
                     if (share) {
                         TrackTransfer.shareFile(context, video, "video/mp4", "Поделиться видео", shareText)
                     } else {
@@ -365,7 +411,7 @@ internal fun QuoteEditor(
                                     drawLayer(layer)
                                 },
                         ) {
-                            QuoteCardContent(quote, title, artist, coverUrl, coverColor, look, renderHighlight ?: previewHighlight)
+                            QuoteCardContent(quote, title, artist, coverUrl, coverColor, look, renderFrame ?: previewFrame)
                         }
                         if (busy && progress >= 0) {
                             Column(
@@ -390,7 +436,7 @@ internal fun QuoteEditor(
                         .background(MaterialTheme.colorScheme.surfaceContainer),
                 ) {
                     QuoteTabs(tab) { tab = it }
-                    Box(Modifier.fillMaxWidth().height(156.dp)) {
+                    Box(Modifier.fillMaxWidth().height(168.dp)) {
                         when (tab) {
                             QuoteTab.STYLE -> StylePicker(look.style, coverUrl, coverColor) { look = look.copy(style = it) }
                             QuoteTab.FORMAT -> FormatPicker(format) { format = it }
@@ -404,12 +450,11 @@ internal fun QuoteEditor(
                                 synced = music.synced,
                                 hasLink = !music.link.isNullOrBlank(),
                                 attachLink = attachLink,
-                                highlight = highlightLines,
-                                canHighlight = music.synced && ordered.size > 1,
+                                motion = motion,
                                 onOutput = { output = it },
                                 onClipMode = { clipMode = it },
                                 onAttachLink = { attachLink = it },
-                                onHighlight = { highlightLines = it },
+                                onMotion = { motion = it },
                             )
                         }
                     }
@@ -480,7 +525,8 @@ private fun StylePicker(selected: QuoteStyle, coverUrl: String?, coverColor: Col
                     contentAlignment = Alignment.Center,
                 ) {
                     QuoteBackground(style, coverUrl, coverColor, 64.dp)
-                    if (style == QuoteStyle.ALBUM && !coverUrl.isNullOrBlank()) {
+                    val withArt = !coverUrl.isNullOrBlank()
+                    if (style == QuoteStyle.ALBUM && withArt) {
                         AsyncImage(
                             model = coverUrl,
                             contentDescription = null,
@@ -488,12 +534,24 @@ private fun StylePicker(selected: QuoteStyle, coverUrl: String?, coverColor: Col
                             modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp).size(30.dp).clip(RoundedCornerShape(5.dp)),
                         )
                     }
-                    Text(
+                    if (style == QuoteStyle.POLAROID && withArt) {
+                        Box(
+                            Modifier.align(Alignment.TopCenter).padding(top = 9.dp).graphicsLayer { rotationZ = -4f }
+                                .background(Color.White).padding(start = 3.dp, end = 3.dp, top = 3.dp, bottom = 8.dp),
+                        ) {
+                            AsyncImage(model = coverUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(28.dp))
+                        }
+                    }
+                    val lower = style == QuoteStyle.ALBUM || style == QuoteStyle.SPLIT || style == QuoteStyle.POLAROID
+                    androidx.compose.material3.Text(
                         "Aa",
                         color = inkFor(style),
                         fontWeight = FontWeight.Black,
                         fontSize = 18.sp,
-                        modifier = if (style == QuoteStyle.ALBUM) Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp) else Modifier,
+                        style = if (style == QuoteStyle.NEON) LocalTextStyle.current.copy(
+                            shadow = androidx.compose.ui.graphics.Shadow(neonOf(coverColor), Offset.Zero, 14f),
+                        ) else LocalTextStyle.current,
+                        modifier = if (lower) Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp) else Modifier,
                     )
                     if (active) {
                         Box(
@@ -673,14 +731,13 @@ private fun MusicOptions(
     synced: Boolean,
     hasLink: Boolean,
     attachLink: Boolean,
-    highlight: Boolean,
-    canHighlight: Boolean,
+    motion: QuoteMotion,
     onOutput: (QuoteOutput) -> Unit,
     onClipMode: (ClipMode) -> Unit,
     onAttachLink: (Boolean) -> Unit,
-    onHighlight: (Boolean) -> Unit,
+    onMotion: (QuoteMotion) -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().padding(top = 8.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutputCard("Картинка", "PNG, без звука", Icons.Rounded.Image, output == QuoteOutput.IMAGE, true, Modifier.weight(1f)) {
                 onOutput(QuoteOutput.IMAGE)
@@ -694,8 +751,21 @@ private fun MusicOptions(
                 Modifier.weight(1f),
             ) { onOutput(QuoteOutput.VIDEO) }
         }
+        androidx.compose.animation.AnimatedVisibility(output == QuoteOutput.VIDEO && synced, enter = revealIn(), exit = revealOut()) {
+            Column {
+                Text("Текст в видео", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp))
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(QuoteMotion.entries) { item ->
+                        OptionChip(item.title, item.icon, item == motion) { onMotion(item) }
+                    }
+                }
+            }
+        }
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -703,9 +773,6 @@ private fun MusicOptions(
                 items(ClipMode.entries.filter { synced || it.lengthMs != null }) { mode ->
                     FilterChip(selected = mode == clipMode, onClick = { onClipMode(mode) }, label = { Text(mode.title) })
                 }
-            }
-            if (output == QuoteOutput.VIDEO && canHighlight) {
-                item { OptionChip("Подсветка строк", Icons.Rounded.Lyrics, highlight) { onHighlight(!highlight) } }
             }
             if (hasLink) {
                 item { OptionChip("Ссылка на трек", Icons.Rounded.InsertLink, attachLink) { onAttachLink(!attachLink) } }
@@ -715,12 +782,15 @@ private fun MusicOptions(
             when {
                 output == QuoteOutput.IMAGE && hasLink -> "Ссылка на трек уйдёт вместе с картинкой, если приложение её принимает"
                 output == QuoteOutput.IMAGE -> "Выберите видео, чтобы к карточке приложился кусок песни"
-                synced && highlight && canHighlight -> "Звучит ${QuoteClip.label(clip.startMs)}–${QuoteClip.label(clip.endMs)}, строки подсвечиваются в такт"
+                synced && motion == QuoteMotion.FILL -> "Звучит ${QuoteClip.label(clip.startMs)}–${QuoteClip.label(clip.endMs)}, строки заливаются по мере пения"
+                synced && motion == QuoteMotion.HIGHLIGHT -> "Звучит ${QuoteClip.label(clip.startMs)}–${QuoteClip.label(clip.endMs)}, строки подсвечиваются в такт"
+                synced && motion == QuoteMotion.REVEAL -> "Звучит ${QuoteClip.label(clip.startMs)}–${QuoteClip.label(clip.endMs)}, строки появляются, когда их поют"
                 synced -> "Звучит ${QuoteClip.label(clip.startMs)}–${QuoteClip.label(clip.endMs)}, ровно на выбранных строках"
                 else -> "У текста нет таймингов, фрагмент берётся с текущего места трека: ${QuoteClip.label(clip.startMs)}"
             },
             color = SoftText,
             fontSize = 12.sp,
+            lineHeight = 16.sp,
             modifier = Modifier.padding(horizontal = 20.dp),
         )
     }
@@ -760,7 +830,15 @@ private fun OutputCard(
     }
 }
 
-private fun inkFor(style: QuoteStyle): Color = if (style == QuoteStyle.LIGHT) Color(0xFF16130A) else Color.White
+private fun inkFor(style: QuoteStyle): Color =
+    if (style == QuoteStyle.LIGHT || style == QuoteStyle.POLAROID) Color(0xFF16130A) else Color.White
+
+private fun neonOf(coverColor: Color): Color {
+    val hsl = ColorMath.hsl(coverColor.toArgb())
+    return Color(ColorMath.fromHsl(hsl[0], 0.92f, 0.64f))
+}
+
+private const val SPLIT_FRACTION = 0.46f
 
 @Composable
 private fun QuoteBackground(style: QuoteStyle, coverUrl: String?, coverColor: Color, width: Dp) {
@@ -799,6 +877,47 @@ private fun QuoteBackground(style: QuoteStyle, coverUrl: String?, coverColor: Co
         )
         QuoteStyle.DARK -> Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF1C1C20), Color(0xFF0E0E10)))))
         QuoteStyle.LIGHT -> Box(Modifier.fillMaxSize().background(Color(0xFFF6F3EC)))
+        QuoteStyle.POLAROID -> Box(
+            Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFF3EEE4), Color(0xFFE6DFD2)))),
+        )
+        QuoteStyle.NEON -> {
+            val neon = neonOf(coverColor)
+            val second = Color(ColorMath.fromHsl(ColorMath.hsl(neon.toArgb())[0] + 150f, 0.85f, 0.58f))
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                drawRect(Color(0xFF06060B))
+                drawCircle(
+                    Brush.radialGradient(listOf(neon.copy(alpha = 0.42f), Color.Transparent), Offset(size.width * 0.12f, size.height * 0.16f), size.maxDimension * 0.55f),
+                    radius = size.maxDimension * 0.55f,
+                    center = Offset(size.width * 0.12f, size.height * 0.16f),
+                )
+                drawCircle(
+                    Brush.radialGradient(listOf(second.copy(alpha = 0.28f), Color.Transparent), Offset(size.width * 0.95f, size.height * 0.9f), size.maxDimension * 0.5f),
+                    radius = size.maxDimension * 0.5f,
+                    center = Offset(size.width * 0.95f, size.height * 0.9f),
+                )
+            }
+        }
+        QuoteStyle.SPLIT -> {
+            Box(Modifier.fillMaxSize().background(deep))
+            if (!coverUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current).data(coverUrl).allowHardware(false).build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxWidth().fillMaxHeight(SPLIT_FRACTION),
+                )
+            }
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        SPLIT_FRACTION * 0.62f to Color.Transparent,
+                        SPLIT_FRACTION to deep,
+                        1f to deep,
+                    ),
+                ),
+            )
+        }
     }
 }
 
@@ -810,7 +929,7 @@ private fun QuoteCardContent(
     coverUrl: String?,
     coverColor: Color,
     look: CardLook,
-    highlight: Int? = null,
+    frame: LineFrame? = null,
 ) {
     val accent = Accent
     val style = look.style
@@ -831,6 +950,26 @@ private fun QuoteCardContent(
         val small = (w * 0.036f).sp()
         val pad = w * 0.08f
         Column(Modifier.fillMaxSize().padding(horizontal = pad, vertical = pad * if (h > w * 1.5f) 1.4f else 1f)) {
+            if (style == QuoteStyle.SPLIT) Spacer(Modifier.height(h * SPLIT_FRACTION - pad * 0.6f))
+            if (style == QuoteStyle.POLAROID && !coverUrl.isNullOrBlank()) {
+                val art = minOf(w * 0.5f, h * 0.3f)
+                Column(
+                    Modifier
+                        .align(if (look.centered) Alignment.CenterHorizontally else Alignment.Start)
+                        .graphicsLayer { rotationZ = -3.5f }
+                        .shadow(w * 0.025f, RoundedCornerShape(w * 0.006f))
+                        .background(Color(0xFFFFFEFB))
+                        .padding(start = w * 0.03f, end = w * 0.03f, top = w * 0.03f, bottom = w * 0.1f),
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current).data(coverUrl).allowHardware(false).build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(art),
+                    )
+                }
+                Spacer(Modifier.height(w * 0.07f))
+            }
             if (style == QuoteStyle.ALBUM && !coverUrl.isNullOrBlank()) {
                 val art = minOf(w * 0.46f, h * 0.3f)
                 AsyncImage(
@@ -845,10 +984,14 @@ private fun QuoteCardContent(
                 )
                 Spacer(Modifier.height(w * 0.06f))
             }
-            if (look.quoteMark) {
+            if (look.quoteMark && style != QuoteStyle.SPLIT) {
                 Text(
                     "“",
-                    color = if (style == QuoteStyle.LIGHT) accent else ink.copy(alpha = 0.55f),
+                    color = when (style) {
+                        QuoteStyle.LIGHT, QuoteStyle.POLAROID -> accent
+                        QuoteStyle.NEON -> neonOf(coverColor)
+                        else -> ink.copy(alpha = 0.55f)
+                    },
                     fontSize = (w * 0.2f).sp(),
                     lineHeight = (w * 0.2f).sp(),
                     fontWeight = FontWeight.Black,
@@ -859,7 +1002,9 @@ private fun QuoteCardContent(
             }
             FittedQuote(
                 lines = quote,
-                highlight = highlight,
+                frame = frame,
+                glow = if (style == QuoteStyle.NEON) neonOf(coverColor) else null,
+                dimInk = if (style == QuoteStyle.LIGHT || style == QuoteStyle.POLAROID) ink.copy(alpha = 0.22f) else ink.copy(alpha = 0.3f),
                 maxSize = (w * base * look.textScale).sp(),
                 color = ink,
                 centered = look.centered,
@@ -869,7 +1014,7 @@ private fun QuoteCardContent(
             if (look.showTrack || look.showBrand) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     if (look.showTrack) {
-                        if (style != QuoteStyle.ALBUM && !coverUrl.isNullOrBlank()) {
+                        if (style != QuoteStyle.ALBUM && style != QuoteStyle.SPLIT && style != QuoteStyle.POLAROID && !coverUrl.isNullOrBlank()) {
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current).data(coverUrl).allowHardware(false).build(),
                                 contentDescription = null,
@@ -922,7 +1067,9 @@ private fun BrandMark(ink: Color, inkSoft: Color, w: Dp) {
 @Composable
 private fun FittedQuote(
     lines: List<String>,
-    highlight: Int?,
+    frame: LineFrame?,
+    glow: Color?,
+    dimInk: Color,
     maxSize: TextUnit,
     color: Color,
     centered: Boolean,
@@ -934,14 +1081,16 @@ private fun FittedQuote(
     val align = if (centered) TextAlign.Center else TextAlign.Start
     val weight = if (bold) FontWeight.Bold else FontWeight.Medium
     val text = lines.joinToString("\n")
+    val ranges = remember(lines) {
+        var at = 0
+        lines.map { line -> (at until at + line.length).also { at += line.length + 1 } }
+    }
+    val fill = frame?.fill
     val styled = androidx.compose.ui.text.buildAnnotatedString {
         lines.forEachIndexed { index, line ->
-            val alpha = when {
-                highlight == null || index == highlight -> 1f
-                index < highlight -> 0.62f
-                else -> 0.36f
-            }
-            pushStyle(androidx.compose.ui.text.SpanStyle(color = color.copy(alpha = color.alpha * alpha)))
+            val alpha = frame?.alpha?.getOrNull(index) ?: 1f
+            val tone = if (fill != null) dimInk else color
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = tone.copy(alpha = tone.alpha * alpha)))
             append(line)
             pop()
             if (index < lines.lastIndex) append("\n")
@@ -965,10 +1114,45 @@ private fun FittedQuote(
             }
             size
         }
-        androidx.compose.material3.Text(
-            styled,
-            style = base.merge(TextStyle(fontSize = fitted.sp, lineHeight = (fitted * 1.2f).sp, fontWeight = weight, textAlign = align)),
-            modifier = Modifier.fillMaxWidth(),
+        val style = base.merge(
+            TextStyle(
+                fontSize = fitted.sp,
+                lineHeight = (fitted * 1.2f).sp,
+                fontWeight = weight,
+                textAlign = align,
+                shadow = glow?.let { androidx.compose.ui.graphics.Shadow(it.copy(alpha = 0.85f), Offset.Zero, fitted * 0.9f) },
+            ),
         )
+        var layout by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+        Box(Modifier.fillMaxWidth()) {
+            androidx.compose.material3.Text(styled, style = style, onTextLayout = { layout = it }, modifier = Modifier.fillMaxWidth())
+            if (fill != null) {
+                androidx.compose.material3.Text(
+                    text,
+                    color = color,
+                    style = style,
+                    modifier = Modifier.fillMaxWidth().drawWithContent {
+                        val result = layout ?: return@drawWithContent
+                        val path = androidx.compose.ui.graphics.Path()
+                        ranges.forEachIndexed { index, range ->
+                            val amount = fill.getOrNull(index) ?: 0f
+                            if (amount <= 0f || range.isEmpty()) return@forEachIndexed
+                            val first = result.getLineForOffset(range.first)
+                            val last = result.getLineForOffset(range.last)
+                            val widths = (first..last).map { (result.getLineRight(it) - result.getLineLeft(it)).coerceAtLeast(0f) }
+                            var remaining = widths.sum() * amount
+                            (first..last).forEachIndexed { visual, line ->
+                                if (remaining <= 0f) return@forEachIndexed
+                                val left = result.getLineLeft(line)
+                                val take = minOf(widths[visual], remaining)
+                                path.addRect(androidx.compose.ui.geometry.Rect(left - 2f, result.getLineTop(line), left + take, result.getLineBottom(line)))
+                                remaining -= take
+                            }
+                        }
+                        clipPath(path) { this@drawWithContent.drawContent() }
+                    },
+                )
+            }
+        }
     }
 }
