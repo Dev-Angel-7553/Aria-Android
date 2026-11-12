@@ -39,7 +39,7 @@ object QuoteVideo {
             EditedMediaItem.Builder(
                 MediaItem.Builder()
                     .setUri(Uri.fromFile(image))
-                    .setMimeType(MimeTypes.IMAGE_PNG)
+                    .setMimeType(if (image.extension.equals("jpg", true)) MimeTypes.IMAGE_JPEG else MimeTypes.IMAGE_PNG)
                     .setImageDurationMs(durationMs.coerceAtLeast(1))
                     .build(),
             ).setFrameRate(30).build()
