@@ -664,6 +664,72 @@ fun MusicApp(
         }
     }
 
+    fun refreshAfterUpload(playlist: YandexClient.Playlist, expected: Int) {
+        scope.launch {
+            val before = selectedTracks.takeIf { selectedPlaylist?.id == playlist.id }?.size ?: playlist.trackCount
+            for (wait in listOf(40_000L, 50_000L, 90_000L, 120_000L)) {
+                delay(wait)
+                val client = api ?: return@launch
+                val tracks = client.playlistTracks(playlist.copy(tracks = emptyList())).getOrNull() ?: continue
+                if (selectedPlaylist?.id == playlist.id) selectedTracks = tracks
+                librarySnapshotStore.writePlaylist(playlist.id, tracks)
+                playlists = playlists.map { if (it.id == playlist.id) it.copy(trackCount = tracks.size, tracks = emptyList()) else it }
+                if (tracks.size >= before + expected) return@launch
+            }
+        }
+    }
+
+    fun uploadFiles(playlist: YandexClient.Playlist, uris: List<android.net.Uri>) {
+        if (uris.isEmpty()) return
+        if (transferBusy) {
+            toast("Дождитесь окончания текущей загрузки")
+            return
+        }
+        val client = api ?: return
+        val control = ru.muz.net.TransferControl()
+        transferControl = control
+        transferBusy = true
+        transferProgress = 0f
+        transferDiagnostic = ""
+        transferMessage = "Загружаем в «${playlist.title}»…"
+        transferJob = scope.launch {
+            var uploaded = 0
+            val failures = mutableListOf<String>()
+            try {
+                uris.forEachIndexed { index, uri ->
+                    ensureActive()
+                    val file = withContext(Dispatchers.IO) { runCatching { describeUpload(context, uri) } }.getOrElse { error ->
+                        failures += error.message ?: "Не удалось открыть файл"
+                        return@forEachIndexed
+                    }
+                    transferMessage = if (uris.size == 1) "Загружаем «${file.name}»" else "Загружаем ${index + 1} из ${uris.size}"
+                    client.uploadTrack(playlist.kind, file, control) { part -> transferProgress = (index + part) / uris.size }
+                        .onSuccess { uploaded++ }
+                        .onFailure { error ->
+                            if (error is kotlinx.coroutines.CancellationException) throw error
+                            failures += "${file.name}: ${error.message ?: "ошибка"}"
+                            transferDiagnostic = error.stackTraceToString()
+                        }
+                }
+                transferMessage = when {
+                    failures.isEmpty() && uploaded == 1 -> "Трек загружен. Через минуту-две он появится в плейлисте"
+                    failures.isEmpty() -> "Загружено ${ru.muz.text.tracksLabel(uploaded)}. Через пару минут они появятся в плейлисте"
+                    uploaded == 0 -> failures.first()
+                    else -> "Загружено $uploaded из ${uris.size}. ${failures.first()}"
+                }
+                toast(transferMessage)
+                if (uploaded > 0) refreshAfterUpload(playlist, uploaded)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                transferMessage = "Загрузка отменена"
+                if (uploaded > 0) refreshAfterUpload(playlist, uploaded)
+            } finally {
+                transferBusy = false
+                transferControl = null
+                transferProgress = null
+            }
+        }
+    }
+
     fun downloadCover(target: YandexClient.Track?) {
         if (transferBusy) return
         val track = target ?: return
@@ -938,6 +1004,45 @@ fun MusicApp(
     val csvPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(::importCsv)
     }
+    var uploadKind by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    var uploadTitle by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var uploadChooser by remember { mutableStateOf(false) }
+    val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val kind = uploadKind ?: return@rememberLauncherForActivityResult
+        uploadKind = null
+        val uid = account?.uid.orEmpty()
+        val target = playlists.firstOrNull { it.kind == kind && it.ownerUid == uid }
+            ?: YandexClient.Playlist(
+                id = "$uid:$kind:", ownerUid = uid, kind = kind, uuid = "", title = uploadTitle,
+                description = "", coverUrl = null, trackCount = 0, source = "",
+            )
+        uploadFiles(target, uris)
+    }
+
+    fun pickAudio(playlist: YandexClient.Playlist) {
+        uploadKind = playlist.kind
+        uploadTitle = playlist.title
+        runCatching { audioPicker.launch(ru.muz.yandex.TrackUpload.MIME_TYPES) }
+            .onFailure { uploadKind = null; toast("Не найден файловый менеджер") }
+    }
+
+    fun createUploadPlaylist(title: String) {
+        val client = api ?: return
+        scope.launch {
+            client.createPlaylist(title.ifBlank { "Мои загрузки" }).fold(
+                onSuccess = { created ->
+                    val playlist = YandexClient.Playlist(
+                        id = "${created.ownerUid}:${created.kind}:", ownerUid = created.ownerUid, kind = created.kind, uuid = "",
+                        title = title.ifBlank { "Мои загрузки" }, description = "", coverUrl = null, trackCount = 0, source = "",
+                    )
+                    playlists = listOf(playlist) + playlists
+                    pickAudio(playlist)
+                },
+                onFailure = { toast(it.message ?: "Не удалось создать плейлист") },
+            )
+        }
+    }
+
     fun pickCsv() {
         runCatching {
             csvPicker.launch(arrayOf("text/*", "text/csv", "text/comma-separated-values", "application/csv", "application/vnd.ms-excel", "application/octet-stream"))
@@ -1302,6 +1407,8 @@ fun MusicApp(
                       if (shown != null) screenStates.SaveableStateProvider(key) { PlaylistScreen(
                         playlist = shown.copy(title = (if (live != null) selectedCollectionTitle else navMemory.title) ?: shown.title),
                         tracks = if (live != null) selectedTracks else navMemory.tracks,
+                        onUpload = if (api?.isOwnPlaylist(shown) == true) ({ pickAudio(shown) }) else null,
+                        uploadBusy = transferBusy,
                         busy = busy || artistLoading,
                         compact = settings.compactLists,
                         listScalePercent = settings.listScalePercent,
@@ -1374,6 +1481,7 @@ fun MusicApp(
                         },
                         tabs = visibleTabs,
                         onImportCsv = ::pickCsv,
+                        onUploadMusic = { uploadChooser = true },
                         homeSections = settings.homeSections,
                         update = availableUpdate,
                         updateProgress = updateProgress,
@@ -1482,6 +1590,14 @@ fun MusicApp(
                 if (updateProgress != null) TransferPanel("Скачиваем обновление…", updateProgress) { updateControl?.cancel(); updateJob?.cancel() }
             }
         }
+        if (uploadChooser) {
+            UploadTargetSheet(
+                playlists = playlists.filter { api?.isOwnPlaylist(it) == true },
+                onPick = { uploadChooser = false; pickAudio(it) },
+                onCreate = { title -> uploadChooser = false; createUploadPlaylist(title) },
+                onDismiss = { uploadChooser = false },
+            )
+        }
         if (showWaveSettings) {
             WaveSettingsSheet(settings, onApply = { mood, diversity, language ->
                 showWaveSettings = false
@@ -1524,6 +1640,7 @@ fun MusicApp(
                 playlist = playlist,
                 busy = busy || transferBusy,
                 onDismiss = { actionPlaylist = null },
+                onUpload = if (api?.isOwnPlaylist(playlist) == true) ({ actionPlaylist = null; pickAudio(playlist) }) else null,
                 onOpen = {
                     actionPlaylist = null
                     if (selectedPlaylist?.id != playlist.id) openPlaylist(playlist)
@@ -1589,4 +1706,30 @@ private class NavMemory {
     var playlist: YandexClient.Playlist? = null
     var title: String? = null
     var tracks: List<YandexClient.Track> = emptyList()
+}
+
+private fun describeUpload(context: android.content.Context, uri: android.net.Uri): ru.muz.yandex.UploadFile {
+    val resolver = context.contentResolver
+    var name = "track"
+    var size = -1L
+    resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME, android.provider.OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            cursor.getString(0)?.takeIf { it.isNotBlank() }?.let { name = it }
+            if (!cursor.isNull(1)) size = cursor.getLong(1)
+        }
+    }
+    val reported = resolver.getType(uri)
+    if (!ru.muz.yandex.TrackUpload.accepts(name)) {
+        val extension = when (reported?.lowercase()) {
+            "audio/mpeg", "audio/mp3" -> "mp3"
+            "audio/mp4", "audio/x-m4a", "audio/m4a" -> "m4a"
+            "audio/aac" -> "aac"
+            "audio/flac", "audio/x-flac" -> "flac"
+            else -> null
+        }
+        if (extension != null) name = "$name.$extension"
+    }
+    return ru.muz.yandex.UploadFile(name, ru.muz.yandex.TrackUpload.mimeFor(name, reported), size) {
+        resolver.openInputStream(uri) ?: error("Не удалось открыть файл")
+    }
 }

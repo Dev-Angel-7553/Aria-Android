@@ -343,6 +343,110 @@ class YandexClient(
         )
     }
 
+    fun isOwnPlaylist(playlist: Playlist): Boolean {
+        val uid = account?.uid ?: return false
+        return playlist.ownerUid == uid && playlist.kind.toIntOrNull()?.let { it != LIKES_KIND } == true &&
+            playlist.source.isBlank() && !playlist.id.startsWith("album:") && !playlist.id.startsWith("artist:")
+    }
+
+    suspend fun uploadTrack(
+        playlistKind: String,
+        file: UploadFile,
+        control: ru.muz.net.TransferControl = ru.muz.net.TransferControl(),
+        onProgress: (Float) -> Unit = {},
+    ): Result<String?> = runCatching {
+        TrackUpload.check(file)
+        val uid = requireAccount().uid
+        var failure: TrackUploadException? = null
+        for (attempt in 0..TrackUpload.RETRY_PAUSES_MS.size) {
+            if (attempt > 0) {
+                pause(TrackUpload.RETRY_PAUSES_MS[attempt - 1])
+                control.checkActive()
+            }
+            try {
+                return@runCatching uploadOnce(uid, playlistKind, file, control, onProgress)
+            } catch (error: TrackUploadException) {
+                if (error.reason != TrackUploadException.Reason.TEMPORARY) throw error
+                failure = error
+            }
+        }
+        throw failure ?: TrackUploadException("Не удалось загрузить файл", TrackUploadException.Reason.TEMPORARY)
+    }
+
+    private suspend fun uploadOnce(
+        uid: String,
+        kind: String,
+        file: UploadFile,
+        control: ru.muz.net.TransferControl,
+        onProgress: (Float) -> Unit,
+    ): String? = withContext(Dispatchers.IO) {
+        val target = uploadTarget(uid, kind, file.name, control)
+        val part = TrackUpload.body(file, { sent -> if (file.size > 0) onProgress((sent.toFloat() / file.size).coerceIn(0f, 1f)) }, control::checkActive)
+        val body = okhttp3.MultipartBody.Builder()
+            .setType(okhttp3.MultipartBody.FORM)
+            .addFormDataPart("file", file.name, part)
+            .build()
+        val request = Request.Builder().url(target.postTarget).post(body)
+            .header("User-Agent", USER_AGENT)
+            .apply { if (TrackUpload.isYandex(target.postTarget)) header("Authorization", "OAuth $token") }
+            .build()
+        val (code, reply) = control.response(uploadHttp.newCall(request)) { it.code to it.body?.string().orEmpty() }
+        if (code >= 300 || reply.contains("UNSUPPORTED_MEDIA_TYPE", ignoreCase = true)) throw TrackUpload.failure(code, reply)
+        onProgress(1f)
+        target.ugcTrackId
+    }
+
+    private suspend fun uploadTarget(uid: String, kind: String, name: String, control: ru.muz.net.TransferControl): UploadTarget {
+        val playlistId = "$uid:$kind"
+        val fields = listOf("uid" to uid, "playlist-id" to playlistId, "playlistId" to playlistId, "path" to name)
+        val codes = mutableListOf<Int>()
+        for ((base, web) in listOf(API to false, WEB_API to true)) {
+            val url = "$base/loader/upload-url".toHttpUrl().newBuilder()
+                .apply { fields.forEach { (key, value) -> addQueryParameter(key, value) } }
+                .build()
+            val form = FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build()
+            val request = Request.Builder().url(url).post(form)
+                .header("Authorization", "OAuth $token")
+                .header("User-Agent", USER_AGENT)
+                .header("Accept-Language", "ru")
+                .apply {
+                    if (web) {
+                        header("X-Yandex-Music-Client", WEB_CLIENT)
+                        header("X-Requested-With", "XMLHttpRequest")
+                        header("X-Yandex-Music-Without-Invocation-Info", "1")
+                        header("Origin", "https://music.yandex.ru")
+                        header("Referer", "https://music.yandex.ru/")
+                        header("Accept", "application/json")
+                    } else {
+                        header("X-Yandex-Music-Client", ANDROID_CLIENT)
+                    }
+                }
+                .build()
+            val reply = try {
+                control.response(http.newCall(request)) { it.code to it.body?.string().orEmpty() }
+            } catch (cancel: kotlinx.coroutines.CancellationException) {
+                throw cancel
+            } catch (_: java.io.IOException) {
+                continue
+            }
+            TrackUpload.parseTarget(reply.second)?.let { return it }
+            codes += reply.first
+        }
+        throw when {
+            codes.isEmpty() -> TrackUploadException("Нет связи с Яндексом", TrackUploadException.Reason.TEMPORARY)
+            codes.all { it == 401 || it == 403 } -> TrackUploadException("Яндекс не принял вход. Войдите заново", TrackUploadException.Reason.AUTH)
+            codes.all { it in TrackUpload.TEMPORARY } -> TrackUploadException("Сервер загрузки Яндекса не ответил вовремя", TrackUploadException.Reason.TEMPORARY)
+            else -> TrackUploadException("Яндекс не выдал адрес для загрузки (HTTP ${codes.last()})", TrackUploadException.Reason.ENDPOINT)
+        }
+    }
+
+    private val uploadHttp: OkHttpClient by lazy {
+        http.newBuilder()
+            .writeTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
     suspend fun appendTracks(playlist: CreatedPlaylist, at: Int, tracks: List<Track>): Result<CreatedPlaylist> = runCatching {
         if (tracks.isEmpty()) return@runCatching playlist
         val diff = kotlinx.serialization.json.buildJsonArray {
@@ -669,6 +773,7 @@ class YandexClient(
                     it.primitive("hasAvailableTextLyrics")?.booleanOrNull == true
             } ?: false,
             loudness = obj("r128")?.primitive("i")?.content?.toFloatOrNull() ?: Float.NaN,
+            ugc = string("trackSource").equals("UGC", ignoreCase = true),
         )
     }
 
@@ -753,6 +858,7 @@ class YandexClient(
         val loudness: Float = Float.NaN,
         val artists: List<Artist> = emptyList(),
         val addedAtMs: Long = 0,
+        val ugc: Boolean = false,
     )
     data class Playlist(
         val id: String, val ownerUid: String, val kind: String, val uuid: String, val title: String,
@@ -773,6 +879,9 @@ class YandexClient(
 
     companion object {
         private const val API = "https://api.music.yandex.net"
+        private const val WEB_API = "https://api.music.yandex.ru"
+        private const val WEB_CLIENT = "YandexMusicWebNext/1.0.0"
+        private const val LIKES_KIND = 3
         private const val SIGN_SALT = "XGRlBW9FXlekgbPrRHuSiA"
         private const val LYRIC_SIGN_KEY = "p93jhgh689SBReK6ghtw62"
         private const val USER_AGENT = "Yandex-Music-API"

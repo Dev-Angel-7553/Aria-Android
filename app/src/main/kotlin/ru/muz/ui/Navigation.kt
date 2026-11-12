@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -30,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.ImportExport
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Refresh
@@ -45,6 +47,10 @@ import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -279,6 +285,7 @@ internal fun defaultTabActions(
     onWaveSettings: () -> Unit,
     onImportCsv: () -> Unit,
     onOpenLiked: () -> Unit,
+    onUploadMusic: () -> Unit = {},
 ): List<TabQuickAction> = when (tab) {
     MainTab.HOME -> listOf(
         TabQuickAction(Icons.Rounded.Refresh, "Обновить рекомендации") { onOpen(tab); onRefresh() },
@@ -286,8 +293,65 @@ internal fun defaultTabActions(
     )
     MainTab.LIBRARY -> listOf(
         TabQuickAction(Icons.Rounded.Favorite, "«Мне нравится»", onOpenLiked),
-        TabQuickAction(Icons.Rounded.FileUpload, "Импорт плейлиста из CSV", onImportCsv),
+        TabQuickAction(Icons.Rounded.FileUpload, "Загрузить свою музыку", onUploadMusic),
+        TabQuickAction(Icons.Rounded.ImportExport, "Импорт плейлиста из CSV", onImportCsv),
         TabQuickAction(Icons.Rounded.Refresh, "Обновить коллекцию") { onOpen(tab); onRefresh() },
     )
     MainTab.SEARCH, MainTab.STATS -> emptyList()
+}
+
+@Composable
+internal fun UploadTargetSheet(
+    playlists: List<YandexClient.Playlist>,
+    onPick: (YandexClient.Playlist) -> Unit,
+    onCreate: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var creating by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var title by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("Мои загрузки") }
+    AriaSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+            Text("Загрузить свою музыку", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
+            Text(
+                "MP3, AAC или FLAC до 200 МБ. Треки увидите только вы, они играют как обычные и сохраняются для офлайна",
+                color = SoftText,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 10.dp),
+            )
+            androidx.compose.animation.AnimatedContent(creating, label = "upload-create") { editing ->
+                if (editing) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = title,
+                            onValueChange = { title = it.take(120) },
+                            singleLine = true,
+                            label = { Text("Название плейлиста") },
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        androidx.compose.material3.Button(onClick = { onCreate(title.trim()) }, enabled = title.isNotBlank()) { Text("Создать") }
+                    }
+                } else {
+                    SheetAction(Icons.Rounded.Add, "Новый плейлист", { creating = true })
+                }
+            }
+            if (playlists.isNotEmpty()) {
+                SheetDivider()
+                Text("Или в свой плейлист", color = SoftText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
+            }
+            playlists.forEach { playlist ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onPick(playlist) }.padding(horizontal = 24.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Artwork(playlist.coverUrl, Modifier.size(44.dp), 8.dp)
+                    Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                        androidx.compose.material3.Text(playlist.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(ru.muz.text.tracksLabel(playlist.trackCount), color = SoftText, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
 }
