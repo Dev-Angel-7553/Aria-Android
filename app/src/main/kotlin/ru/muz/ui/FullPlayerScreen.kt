@@ -312,8 +312,12 @@ internal fun FullPlayerScreen(
                             LyricsTrackStrip(state, liked, onCover = onToggleView, onArtist = onArtist, onLike = like)
                             lyricsPages(Modifier.weight(1f).fillMaxWidth())
                         }
-                    } else {
-                        Column(Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(bottom = dockHeight + 8.dp)) {
+                    } else androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().padding(bottom = dockHeight + 8.dp)) {
+                        val scrollable = maxHeight < 360.dp || androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
+                        Column(
+                            Modifier.fillMaxSize().then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                                .padding(horizontal = 20.dp),
+                        ) {
                             if (settings.privateSession) {
                                 Text(
                                     "Приватный режим: прослушивания не отправляются в музыкальные профили",
@@ -326,7 +330,8 @@ internal fun FullPlayerScreen(
                             PlayerArtwork(
                                 settingsSwipe = settings.fullPlayerSwipe,
                                 state = state, artworkPercent = settings.playerArtworkPercent,
-                                onSwipeUp = { showQueue = true }, onSwipeDown = onBack, modifier = Modifier.weight(1f),
+                                onSwipeUp = { showQueue = true }, onSwipeDown = onBack,
+                                modifier = if (scrollable) Modifier.height(180.dp) else Modifier.weight(1f),
                                 onDoubleTap = if (settings.doubleTapLike) ({
                                     when (settings.doubleTapAction) {
                                         ru.muz.settings.DoubleTapAction.LIKE -> if (!liked) like()

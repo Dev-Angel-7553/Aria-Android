@@ -135,8 +135,10 @@ class UiAccessibilityTest {
                 }
             }
         }
-        rule.onNodeWithContentDescription("Играть").performScrollTo().performClick()
+        rule.onNodeWithContentDescription("Играть").assertIsDisplayed().performClick()
         assertEquals(1, plays)
+        rule.onNodeWithContentDescription("Текст").assertIsDisplayed()
+        rule.onNodeWithText("A long song title with several collaborators").performScrollTo().assertIsDisplayed()
     }
 
     @Test
