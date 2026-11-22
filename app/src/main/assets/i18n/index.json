@@ -8,7 +8,12 @@
   {
    "code": "en",
    "name": "English",
-   "version": 10
+   "version": 11
+  },
+  {
+   "code": "kk",
+   "name": "Қазақша",
+   "version": 1
   }
  ]
 }
