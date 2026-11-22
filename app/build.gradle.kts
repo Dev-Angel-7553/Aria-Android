@@ -13,9 +13,9 @@ android {
         applicationId = "ru.muz"
         minSdk = 26
         targetSdk = 35
-        versionCode = 46
-        versionName = "0.46"
-        resourceConfigurations += listOf("ru", "en")
+        versionCode = 50
+        versionName = "0.50"
+        resourceConfigurations += listOf("ru", "en", "kk")
     }
 
     val releaseKeystore = System.getenv("ARIA_KEYSTORE")?.let(::file)?.takeIf { it.exists() }
@@ -59,6 +59,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 }

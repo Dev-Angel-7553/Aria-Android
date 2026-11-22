@@ -109,12 +109,18 @@ internal fun MainShell(
     statsSource: ru.muz.stats.ListeningStats? = null,
     waveSubtitle: String = "",
     onWaveSettings: () -> Unit = {},
+    ariaWaveMode: AriaWaveMode,
+    ariaWaveTracks: List<YandexClient.Track>,
+    ariaWaveLoading: Boolean,
+    ariaWaveReady: Boolean,
+    onBuildAriaWave: (AriaWaveMode) -> Unit,
+    onPlayAriaWave: (Int) -> Unit,
     onPlayStatTracks: (List<ru.muz.stats.TrackStat>, Int) -> Unit = { _, _ -> },
     update: AppRelease? = null,
     updateProgress: Float? = null,
     onUpdate: () -> Unit = {},
     onDismissUpdate: () -> Unit = {},
-    tabs: List<MainTab> = MainTab.entries,
+    tabs: List<MainTab>,
     homeSections: List<HomeSection> = HomeSection.entries,
     onImportCsv: () -> Unit = {},
     onUploadMusic: () -> Unit = {},
@@ -231,6 +237,10 @@ internal fun MainShell(
                 onArtist,
             )
             MainTab.STATS -> StatisticsScreen(stats = stats, padding = padding, source = statsSource, onPlayTracks = onPlayStatTracks)
+            MainTab.ARIA_WAVE -> AriaWaveScreen(
+                padding, ariaWaveMode, ariaWaveTracks, ariaWaveLoading, ariaWaveReady, compact, listScalePercent,
+                onSettings, onBuildAriaWave, onPlayAriaWave, onTrackMore,
+            )
         }
         }
         }

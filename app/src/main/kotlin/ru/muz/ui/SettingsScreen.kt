@@ -48,6 +48,8 @@ import ru.muz.settings.AppFont
 import ru.muz.settings.AppSettings
 import ru.muz.settings.AppStyle
 import ru.muz.settings.AppTab
+import ru.muz.settings.SoundOutput
+import ru.muz.settings.SoundProfiles
 import ru.muz.settings.DoubleTapAction
 import ru.muz.settings.HomeSection
 import ru.muz.settings.LyricsAlignment
@@ -416,7 +418,7 @@ private fun LazyListScope.librarySettings(settings: AppSettings, onChange: (AppS
         }
     }
     item(key = "tabs") {
-        SettingsCard("Вкладки внизу") {
+        SettingsCard("Вкладки", introducedIn = 50) {
             ReorderList(
                 enabled = settings.tabs,
                 all = AppTab.entries,
@@ -668,6 +670,9 @@ private fun LazyListScope.playbackSettings(
             SoundControls(settings, onChange, Modifier.padding(top = 12.dp, bottom = 4.dp))
         }
     }
+    item(key = "sound-profiles") {
+        SettingsCard("Профили звука", introducedIn = 50) { SoundProfilePicker(settings, onChange) }
+    }
     item(key = "recommendations") {
         SettingsCard("Рекомендации") {
             SettingSwitch("Приватный режим", "Прослушивания не уходят в Яндекс и скробблинг", settings.privateSession) { onChange(settings.copy(privateSession = it)) }
@@ -701,6 +706,42 @@ private fun LazyListScope.playbackSettings(
                     cacheSizeMb = defaults.cacheSizeMb,
                 ),
             )
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun SoundProfilePicker(settings: AppSettings, onChange: (AppSettings) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val profiles = remember(context) { SoundProfiles(context) }
+    var output by remember { mutableStateOf(SoundOutput.HEADPHONES) }
+    var saved by remember(output) { mutableStateOf(profiles.load(output)) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SoundOutput.entries.forEach { choice ->
+                androidx.compose.material3.FilterChip(
+                    selected = output == choice,
+                    onClick = { output = choice },
+                    label = { Text(choice.title) },
+                )
+            }
+        }
+        Text(
+            if (saved == null) "Сохраните текущий эквалайзер и нормализацию для этого устройства."
+            else "Профиль сохранён. Его можно применить или обновить.",
+            color = SoftText,
+            fontSize = 13.sp,
+        )
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = { saved = profiles.save(output, settings) }) {
+                Text(if (saved == null) "Запомнить звук" else "Обновить профиль")
+            }
+            TextButton(enabled = saved != null, onClick = {
+                saved?.let { profile ->
+                    onChange(settings.copy(eqBands = profile.bands, normalizeVolume = profile.normalize))
+                }
+            }) { Text("Применить профиль") }
         }
     }
 }
@@ -802,8 +843,13 @@ private fun LazyListScope.exportSettings(
     onImportSettings: () -> Unit,
 ) {
     item(key = "import") {
-        SettingsCard("Плейлисты", footer = "CSV из Spotify, TuneMyMusic, Exportify или список «Исполнитель — Название». Экспорт понимают TuneMyMusic, Soundiiz и Excel.") {
-            SettingsActionRow(Icons.Rounded.FileUpload, "Импорт из CSV", "Треки найдутся в Яндексе, плейлисты появятся в аккаунте", true, onClick = onImportCsv)
+        SettingsCard("Импорт", introducedIn = 50) {
+            SettingsActionRow(Icons.Rounded.FileUpload, "Импортировать плейлисты", "CSV или список «Исполнитель — Название»", true, onClick = onImportCsv)
+            SettingsActionRow(Icons.Rounded.Restore, "Применить настройки из файла", "Выберите JSON-файл Aria", true, onClick = onImportSettings)
+        }
+    }
+    item(key = "export") {
+        SettingsCard("Экспорт") {
             SettingsActionRow(
                 Icons.Rounded.FileDownload,
                 if (exportBusy) "Готовим CSV…" else "Сохранить коллекцию в Загрузки",
@@ -811,12 +857,7 @@ private fun LazyListScope.exportSettings(
                 !exportBusy,
             ) { onExportCollection(false) }
             SettingsActionRow(Icons.Rounded.Share, "Отправить файлом", "Через Telegram, почту или другое приложение", !exportBusy) { onExportCollection(true) }
-        }
-    }
-    item(key = "backup") {
-        SettingsCard("Настройки") {
             SettingsActionRow(Icons.Rounded.Save, "Сохранить настройки в файл", "Всё, кроме аккаунта", true, onClick = onExportSettings)
-            SettingsActionRow(Icons.Rounded.Restore, "Загрузить настройки из файла", "Например, с другого телефона", true, onClick = onImportSettings)
         }
     }
 }
@@ -825,6 +866,7 @@ private fun LazyListScope.exportSettings(
 private fun SettingsCard(
     title: String? = null,
     footer: String? = null,
+    introducedIn: Int? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val glass = LocalAppStyle.current == AppStyle.GLASS
@@ -833,15 +875,17 @@ private fun SettingsCard(
     val shape = RoundedCornerShape((if (minimal) 10.dp else 22.dp) * LocalCornerRadiusScale.current.coerceIn(0.2f, 1.4f))
     Column(Modifier.fillMaxWidth().padding(top = if (title != null) 18.dp else 10.dp)) {
         if (title != null) {
-            Text(
-                title,
-                color = SoftText,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            Row(
                 modifier = Modifier.padding(start = 32.dp, end = 32.dp, bottom = 8.dp),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    title, color = SoftText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+                )
+                if (introducedIn != null) NewFeatureBadge(introducedIn)
+            }
         }
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp)
@@ -1020,7 +1064,9 @@ private val SETTINGS_INDEX = listOf(
     SettingsEntry("Компактные списки", SettingsPage.LIBRARY, "масштаб строк треков за раз"),
     SettingsEntry("История поиска", SettingsPage.LIBRARY),
     SettingsEntry("Экспорт в CSV", SettingsPage.EXPORT, "tunemymusic soundiiz excel перенос плейлисты"),
-    SettingsEntry("Импорт из CSV", SettingsPage.EXPORT, "spotify перенос плейлист загрузить"),
+    SettingsEntry("Импортировать плейлисты", SettingsPage.EXPORT, "csv spotify перенос плейлист загрузить"),
+    SettingsEntry("Профили звука", SettingsPage.PLAYBACK, "эквалайзер наушники колонка машина"),
+    SettingsEntry("Волна Aria", SettingsPage.LIBRARY, "бета подборки новая вкладка"),
     SettingsEntry("Резервная копия настроек", SettingsPage.EXPORT, "сохранить загрузить перенос телефон"),
     SettingsEntry("Прослушивания в Яндексе", SettingsPage.ACCOUNT, "история моя волна"),
     SettingsEntry("Синхронизация библиотеки", SettingsPage.ACCOUNT, "обновить"),
@@ -1381,6 +1427,7 @@ private fun tabName(tab: AppTab): String = when (tab) {
     AppTab.LIBRARY -> "Коллекция"
     AppTab.SEARCH -> "Поиск"
     AppTab.STATS -> "Статистика"
+    AppTab.ARIA_WAVE -> "Волна Aria · Бета"
 }
 
 private fun tabIcon(tab: AppTab): ImageVector = when (tab) {
@@ -1388,6 +1435,7 @@ private fun tabIcon(tab: AppTab): ImageVector = when (tab) {
     AppTab.LIBRARY -> Icons.Rounded.LibraryMusic
     AppTab.SEARCH -> Icons.Rounded.Search
     AppTab.STATS -> Icons.Rounded.Equalizer
+    AppTab.ARIA_WAVE -> Icons.Rounded.GraphicEq
 }
 
 private fun fontName(font: AppFont): String = when (font) {
@@ -1615,7 +1663,7 @@ private fun MiniApp(style: ru.muz.settings.AppStyle) {
             }
         }
         Box(Modifier.align(Alignment.BottomCenter)) {
-            AriaTabBar(MainTab.entries.toList(), MainTab.HOME, {}, true, backdrop, false, insets = false)
+            AriaTabBar(MainTab.entries.filter { it != MainTab.ARIA_WAVE }, MainTab.HOME, {}, true, backdrop, false, insets = false)
         }
     }
 }

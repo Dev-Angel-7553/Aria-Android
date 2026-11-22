@@ -16,7 +16,7 @@ enum class AppStyle { CLASSIC, MATERIAL_YOU, GLASS, MINIMAL }
 enum class SeekStyle { LINE, WAVY, CAPSULE, HAIRLINE }
 enum class DoubleTapAction { LIKE, PLAY_PAUSE, NEXT }
 enum class HomeSection { WAVE, RECENT, PLAYLISTS, CHART }
-enum class AppTab { HOME, LIBRARY, SEARCH, STATS }
+enum class AppTab { HOME, LIBRARY, SEARCH, STATS, ARIA_WAVE }
 enum class AppFont { SYSTEM, SANS, SERIF, MONO, CONDENSED }
 enum class PlayerLayout { COVER_FIRST, CONTROLS_FIRST }
 enum class LyricsAlignment { LEFT, CENTER }
@@ -93,7 +93,7 @@ data class AppSettings(
     val playShape: PlayShape = PlayShape.CIRCLE,
     val miniShowPrevious: Boolean = false,
     val homeSections: List<HomeSection> = listOf(HomeSection.WAVE, HomeSection.RECENT, HomeSection.PLAYLISTS, HomeSection.CHART),
-    val tabs: List<AppTab> = AppTab.entries.toList(),
+    val tabs: List<AppTab> = listOf(AppTab.HOME, AppTab.LIBRARY, AppTab.SEARCH, AppTab.STATS),
     val startTab: AppTab = AppTab.HOME,
     val lyricsModern: Boolean = true,
     val lyricsBlur: Boolean = true,
@@ -329,6 +329,14 @@ class AppPreferences(context: Context) {
             .apply()
     }
 
+    internal fun observeNormalization(onChange: () -> Unit): () -> Unit {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "normalize_volume") onChange()
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        return { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+
     fun exportJson(): String {
         val root = org.json.JSONObject()
         root.put("app", "Aria")
@@ -352,21 +360,25 @@ class AppPreferences(context: Context) {
 
     fun importJson(raw: String): Boolean {
         val root = runCatching { org.json.JSONObject(raw) }.getOrNull() ?: return false
-        if (root.optString("app") != "Aria") return false
+        if (root.optString("app") != "Aria" || root.optInt("version") != 1) return false
         val values = root.optJSONObject("settings") ?: return false
-        val editor = prefs.edit().clear()
+        save(load())
+        val current = prefs.all
+        val editor = prefs.edit()
+        var applied = 0
         values.keys().forEach { key ->
             val typed = values.optJSONObject(key) ?: return@forEach
-            when {
-                typed.has("b") -> editor.putBoolean(key, typed.getBoolean("b"))
-                typed.has("i") -> editor.putInt(key, typed.getInt("i"))
-                typed.has("l") -> editor.putLong(key, typed.getLong("l"))
-                typed.has("f") -> editor.putFloat(key, typed.getDouble("f").toFloat())
-                typed.has("s") -> editor.putString(key, typed.getString("s"))
+            val accepted = when (current[key]) {
+                is Boolean -> (typed.opt("b") as? Boolean)?.let { editor.putBoolean(key, it) }
+                is Int -> (typed.opt("i") as? Int)?.let { editor.putInt(key, it) }
+                is Long -> (typed.opt("l") as? Number)?.let { editor.putLong(key, it.toLong()) }
+                is Float -> (typed.opt("f") as? Number)?.toFloat()?.takeIf { it.isFinite() }?.let { editor.putFloat(key, it) }
+                is String -> (typed.opt("s") as? String)?.let { editor.putString(key, it) }
+                else -> null
             }
+            if (accepted != null) applied++
         }
-        editor.commit()
-        return true
+        return applied > 0 && editor.commit()
     }
 
     private inline fun <reified T : Enum<T>> enumList(raw: String?, fallback: List<T>): List<T> {

@@ -31,6 +31,7 @@ internal object SolarIcons {
             MainTab.LIBRARY -> "LibraryMusic"
             MainTab.SEARCH -> "Search"
             MainTab.STATS -> "BarChart"
+            MainTab.ARIA_WAVE -> "MusicNote"
         }
         val style = if (active) filled(pack) else if (pack == IconPack.SOLAR_BOLD) SolarStyle.LINEAR else regular(pack)
         return vector(name, style)

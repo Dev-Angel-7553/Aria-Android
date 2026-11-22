@@ -81,7 +81,7 @@ object I18n {
             if (remote.isEmpty()) return@runCatching
             File(dir(context), "index.json").writeText(index)
             val known = languages.associateBy { it.code }
-            languages = remote
+            languages = mergeIndex(bundledIndex(context), remote)
             val target = resolve(preference)
             val info = remote.firstOrNull { it.code == target }
             if (info != null && target != SOURCE) {
@@ -107,12 +107,17 @@ object I18n {
             memo.evictAll()
             return
         }
-        val bundled = runCatching {
-            context.assets.open("i18n/$code.json").bufferedReader().use { parsePack(it.readText()) }
-        }.getOrDefault(emptyMap())
-        val cached = File(dir(context), "$code.json").takeIf { it.exists() }
-            ?.let { runCatching { parsePack(it.readText()) }.getOrDefault(emptyMap()) }.orEmpty()
-        val strings = bundled + cached
+        val bundledText = runCatching {
+            context.assets.open("i18n/$code.json").bufferedReader().use { it.readText() }
+        }.getOrNull()
+        val cachedText = runCatching { File(dir(context), "$code.json").readText() }.getOrNull()
+        val bundled = bundledText?.let(::parsePack).orEmpty()
+        val cached = cachedText?.let(::parsePack).orEmpty()
+        val strings = if (cachedText != null && (bundledText == null || packVersion(cachedText) >= packVersion(bundledText))) {
+            bundled + cached
+        } else {
+            cached + bundled
+        }
         if (strings.isEmpty()) return
         templates = strings.filterKeys { it.contains("{0}") }.map { (key, value) -> pattern(key) to value }
             .sortedByDescending { it.first.pattern.length }
@@ -127,11 +132,18 @@ object I18n {
     }
 
     private fun readIndex(context: Context) {
-        val text = File(dir(context), "index.json").takeIf { it.exists() }?.readText()
-            ?: runCatching { context.assets.open("i18n/index.json").bufferedReader().use { it.readText() } }.getOrNull()
-            ?: return
-        parseIndex(text).takeIf { it.isNotEmpty() }?.let { languages = it }
+        val cached = runCatching { File(dir(context), "index.json").readText() }.getOrNull()
+            ?.let(::parseIndex).orEmpty()
+        val merged = mergeIndex(bundledIndex(context), cached)
+        if (merged.isNotEmpty()) languages = merged
     }
+
+    private fun bundledIndex(context: Context): List<LanguageInfo> = runCatching {
+        context.assets.open("i18n/index.json").bufferedReader().use { parseIndex(it.readText()) }
+    }.getOrDefault(emptyList())
+
+    private fun mergeIndex(bundled: List<LanguageInfo>, remote: List<LanguageInfo>): List<LanguageInfo> =
+        (bundled + remote).groupBy(LanguageInfo::code).values.map { entries -> entries.maxBy(LanguageInfo::version) }
 
     private fun parseIndex(text: String): List<LanguageInfo> = runCatching {
         json.parseToJsonElement(text).jsonObject["languages"]!!.jsonArray.mapNotNull { item ->

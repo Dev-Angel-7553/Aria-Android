@@ -41,6 +41,7 @@ class MuzPlayerService : MediaLibraryService() {
     private lateinit var tree: LibraryTree
     private lateinit var resume: ResumeStore
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var stopObservingNormalization: (() -> Unit)? = null
     private val likedOverrides = HashMap<String, Boolean>()
 
     private val toggleLike = SessionCommand(MediaExtras.CMD_TOGGLE_LIKE, Bundle.EMPTY)
@@ -82,7 +83,9 @@ class MuzPlayerService : MediaLibraryService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
         player = exo
-        val prefs = ru.muz.settings.AppPreferences(this).load()
+        val preferences = ru.muz.settings.AppPreferences(this)
+        val prefs = preferences.load()
+        stopObservingNormalization = preferences.observeNormalization { applyLoudness(player?.currentMediaItem) }
         ru.muz.i18n.I18n.loadSync(this, prefs.language)
         AudioEffects.apply(prefs.eqBands, prefs.crossfadeSeconds)
         exo.skipSilenceEnabled = prefs.skipSilence
@@ -212,6 +215,8 @@ class MuzPlayerService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        stopObservingNormalization?.invoke()
+        stopObservingNormalization = null
         sleepJob?.cancel()
         retryJob?.cancel()
         queueSnapshots.close()

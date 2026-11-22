@@ -145,6 +145,16 @@ class ListeningStats(
     }
 
     @Synchronized
+    fun recentlyPlayedTrackIds(days: Int): Set<String> {
+        load()
+        val cutoff = clock.epochDay() - days.coerceAtLeast(1) + 1
+        return dayTracks.asSequence()
+            .filter { (date, _) -> date >= cutoff }
+            .flatMap { (_, tracks) -> tracks.keys.asSequence() }
+            .toSet()
+    }
+
+    @Synchronized
     fun flush() {
         if (loaded && dirty) persist()
     }

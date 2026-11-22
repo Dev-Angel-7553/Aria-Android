@@ -297,7 +297,7 @@ internal fun defaultTabActions(
         TabQuickAction(Icons.Rounded.ImportExport, "Импорт плейлиста из CSV", onImportCsv),
         TabQuickAction(Icons.Rounded.Refresh, "Обновить коллекцию") { onOpen(tab); onRefresh() },
     )
-    MainTab.SEARCH, MainTab.STATS -> emptyList()
+    MainTab.SEARCH, MainTab.STATS, MainTab.ARIA_WAVE -> emptyList()
 }
 
 @Composable

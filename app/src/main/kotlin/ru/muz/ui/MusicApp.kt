@@ -74,6 +74,7 @@ internal enum class MainTab(val title: String) {
     LIBRARY("Коллекция"),
     SEARCH("Поиск"),
     STATS("Статистика"),
+    ARIA_WAVE("Волна Aria"),
 }
 
 @Composable
@@ -105,8 +106,8 @@ fun MusicApp(
             TrackColors.cover = null
             return@LaunchedEffect
         }
-        val url = player.coverUrl ?: return@LaunchedEffect
-        TrackColors.cover = coverTintOf(context, url)
+        val url = player.coverUrl
+        TrackColors.cover = if (url == null) null else coverTintOf(context, url)
     }
     val sleepEndsAt by playback.sleepEndsAt.collectAsState()
 
@@ -152,6 +153,11 @@ fun MusicApp(
     var statsSnapshot by remember { mutableStateOf(ListeningStatsSnapshot()) }
     var actionTrack by remember { mutableStateOf<YandexClient.Track?>(null) }
     var showWaveSettings by remember { mutableStateOf(false) }
+    var ariaWaveMode by remember { mutableStateOf(AriaWaveMode.MIX) }
+    var ariaWaveTracks by remember { mutableStateOf<List<YandexClient.Track>>(emptyList()) }
+    var ariaWaveLoading by remember { mutableStateOf(false) }
+    var ariaWaveReady by remember { mutableStateOf(false) }
+    var previousAriaWave by remember { mutableStateOf(emptySet<String>()) }
     var actionPlaylist by remember { mutableStateOf<YandexClient.Playlist?>(null) }
     var artistLoading by remember { mutableStateOf(false) }
     var waveSession by remember { mutableStateOf(false) }
@@ -567,6 +573,49 @@ fun MusicApp(
         playTracksNow(tracks, index, source, isWave)
     }
 
+
+    fun buildAriaWave(mode: AriaWaveMode) {
+        if (ariaWaveLoading) return
+        ariaWaveMode = mode
+        ariaWaveLoading = true
+        val accountUid = account?.uid
+        val favorites = liked
+        val libraryPlaylists = playlists
+        val restricted = !online || account?.hasPlus == false
+        val lastMix = previousAriaWave
+        val hideExplicit = settings.hideExplicit
+        scope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val saved = AudioCache.savedTrackIds(context)
+                    val available = if (restricted) AudioCache.cachedTrackIds(context) else saved
+                    val libraryTracks = libraryPlaylists.take(12).flatMap { playlist ->
+                        playlist.tracks.ifEmpty { librarySnapshotStore.readPlaylist(playlist.id) }
+                    }
+                    makeAriaWave(
+                        tracks = favorites + libraryTracks,
+                        recent = listeningStats.recentlyPlayedTrackIds(7),
+                        previous = lastMix,
+                        saved = saved,
+                        available = if (restricted) available else null,
+                        hideExplicit = hideExplicit,
+                        mode = mode,
+                    )
+                }
+                if (account?.uid == accountUid) {
+                    ariaWaveTracks = result
+                    ariaWaveReady = true
+                    if (result.isNotEmpty()) previousAriaWave = result.mapTo(hashSetOf()) { it.id.substringBefore(':') }
+                }
+            } catch (cancel: kotlinx.coroutines.CancellationException) {
+                throw cancel
+            } catch (error: Exception) {
+                toast("Не удалось собрать подборку")
+            } finally {
+                ariaWaveLoading = false
+            }
+        }
+    }
 
     fun startStation(station: String, title: String) {
         val client = api ?: return
@@ -1064,7 +1113,17 @@ fun MusicApp(
             val preferences = ru.muz.settings.AppPreferences(context)
             val ok = withContext(Dispatchers.IO) {
                 runCatching {
-                    val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }.orEmpty()
+                    val text = context.contentResolver.openInputStream(uri)?.use { stream ->
+                        val bytes = java.io.ByteArrayOutputStream()
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            val count = stream.read(buffer)
+                            if (count < 0) break
+                            if (bytes.size() + count > 1_048_576) return@use null
+                            bytes.write(buffer, 0, count)
+                        }
+                        bytes.toString("UTF-8")
+                    }.orEmpty()
                     preferences.importJson(text)
                 }.getOrDefault(false)
             }
@@ -1086,6 +1145,11 @@ fun MusicApp(
     LaunchedEffect(availableUpdate) {
         val release = availableUpdate ?: return@LaunchedEffect
         if (updatePrefs.getString("dismissed", null) == release.version) availableUpdate = null
+    }
+    LaunchedEffect(account?.uid) {
+        ariaWaveTracks = emptyList()
+        ariaWaveReady = false
+        previousAriaWave = emptySet()
     }
     LaunchedEffect(playback) {
         playback.likeChanges.collect { (trackId, value) -> applyRemoteLike(trackId, value) }
@@ -1467,6 +1531,12 @@ fun MusicApp(
                         statsSource = listeningStats,
                         waveSubtitle = waveSettingsLabel(settings),
                         onWaveSettings = { showWaveSettings = true },
+                        ariaWaveMode = ariaWaveMode,
+                        ariaWaveTracks = ariaWaveTracks,
+                        ariaWaveLoading = ariaWaveLoading,
+                        ariaWaveReady = ariaWaveReady,
+                        onBuildAriaWave = ::buildAriaWave,
+                        onPlayAriaWave = { index -> playTracks(ariaWaveTracks, index, PlaySource.other()) },
                         onPlayStatTracks = { list, index ->
                             playTracks(
                                 list.map {
