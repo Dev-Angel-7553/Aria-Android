@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.50
+
+- Aria Wave beta is an optional tab with three mixes from your library: My Mix, Haven't Played Lately, and Downloads
+- Mixes avoid duplicate recordings, space out artists where possible, and only start when you press Play
+- Save and recall separate EQ and loudness profiles for headphones, speakers, and the car
+- Import playlists and Aria settings from one page; settings files apply compatible entries without resetting other options
+- Added a bundled Kazakh pack for the main interface and new features
+- New badges appear only in the version that introduces a feature; the Wave keeps its separate beta label
+- Clear the previous artwork tint when the current track has no cover
+
 ## 0.46
 
 - Upload your own MP3, AAC or FLAC files into your Yandex Music playlists: from a playlist, its menu, the add button in Collection or the Collection tab hold menu, with an option to create a new playlist on the way
